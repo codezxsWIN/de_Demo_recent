@@ -6,11 +6,27 @@ Usage: python scripts/verify_capture_history_ui.py http://127.0.0.1:PORT OUTPUT_
 
 import argparse
 import json
+from importlib import import_module
 from pathlib import Path
+from types import ModuleType
 from urllib.parse import urlsplit
 
 
-def main():
+def load_browser_api(parser: argparse.ArgumentParser) -> ModuleType:
+    """Resolve optional, already installed tooling without provisioning it."""
+    try:
+        return import_module("playwright.sync_api")
+    except ModuleNotFoundError as error:
+        if error.name not in {"playwright", "playwright.sync_api"}:
+            raise
+        parser.error(
+            "MISSING optional browser prerequisite: playwright.sync_api; "
+            "a human must provide approved Playwright and its Chromium runtime. "
+            "Nothing was installed or downloaded."
+        )
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("origin")
     parser.add_argument("output", type=Path)
@@ -26,10 +42,10 @@ def main():
         or parsed.username
     ):
         parser.error("Use a plain http://127.0.0.1:PORT origin for the synthetic workbench")
-    from playwright.sync_api import sync_playwright
+    browser_api = load_browser_api(parser)
 
     args.output.mkdir(parents=True, exist_ok=True)
-    with sync_playwright() as runtime:
+    with browser_api.sync_playwright() as runtime:
         browser = runtime.chromium.launch(headless=True, channel=args.channel)
         context = browser.new_context(viewport={"width": 1440, "height": 1000})
         context.route(

@@ -2920,3 +2920,26 @@ data, scanner binaries and the recovery bundle remain excluded. Existing whitesp
 in imported fixtures and historical documents was retained; a staged diff check
 reports those pre-existing whitespace warnings, not a clean whitespace audit.
 No real scan, model-provider call or feed refresh was performed for this release.
+
+### CI-OPTIONAL-01 — 2026-10-20 — Optional browser-tool dependency boundary
+
+Cross-cutting reproducibility/quality gate: GitHub Actions run 39324536049 failed
+on both Python 3.11 and 3.12 at Pyright because the optional capture-history browser
+smoke script statically imported playwright.sync_api. Playwright was installed on
+the maintainer's machine but was not a declared core/CI prerequisite. The remote
+tests did not run; the earlier local passing gate was not remote verification.
+
+Resolve the optional package only when the explicitly invoked browser smoke needs
+it. A missing package exits with a clear MISSING prerequisite message; an unrelated
+transitive import failure is re-raised rather than concealed. The browser and its
+runtime are never installed automatically. Rejected adding Playwright to the core
+CI dependencies, excluding the script from type checking or suppressing missing
+imports. The workflow and its 95% coverage floor are unchanged. Six synthetic
+tests cover absent package/submodule, broken transitive dependency, existing API,
+help and invalid-origin paths without launching a browser or making network calls.
+
+VERIFIED locally: 34 focused browser/offline-gate tests passed; Ruff lint and format
+(296 files) passed; offline Pyright returned zero errors/warnings. The application
+package is unchanged from the 4,270-test release checkpoint. A complete remote
+matrix rerun is required after publication; do not label it green before observing
+both jobs. This change does not constitute actual browser visual verification.
