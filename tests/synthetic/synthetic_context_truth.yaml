@@ -1,0 +1,24 @@
+_comment: SYNTHETIC host-context truth for arithmetic tests; not independent human labels.
+version: 1
+hosts:
+  - host_ip: 172.28.0.10
+    group: synthetic-metasploitable2
+    role: web_frontend
+    exposure: internal
+    controls: {waf: false, auth_required: false, tls: false, rate_limiting: false}
+    label_source: synthetic
+    provenance: synthetic scenario definition
+  - host_ip: 172.28.0.11
+    group: synthetic-dvwa
+    role: unknown
+    exposure: internal
+    controls: {waf: false, auth_required: false, tls: false, rate_limiting: false}
+    label_source: synthetic
+    provenance: synthetic scenario definition
+  - host_ip: 172.28.0.12
+    group: synthetic-juice-shop
+    role: database
+    exposure: internet_facing
+    controls: {waf: false, auth_required: false, tls: false, rate_limiting: false}
+    label_source: synthetic
+    provenance: synthetic scenario definition

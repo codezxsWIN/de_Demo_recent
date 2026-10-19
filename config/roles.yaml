@@ -1,0 +1,31 @@
+# Role inference rules. Weights are summed per role and capped at 1.0; the highest wins.
+ambiguity: {llm_if_top2_within: 0.15, llm_if_max_below: 0.4}   # recorded; LLM fallback deferred
+
+roles:
+  database:
+    - {match: port, any_of: [3306, 5432, 1433, 27017, 6379, 1521, 9200], weight: 0.6}
+    - {match: service, regex: "mysql|postgres|ms-sql|mongodb|redis|oracle|elasticsearch", weight: 0.35}
+  web_frontend:
+    - {match: port, any_of: [80, 443, 8080, 8443, 8000, 3000], weight: 0.3}
+    - {match: service, regex: "^http|^https|ssl/http", weight: 0.4}
+    - {match: banner, regex: "apache|nginx|iis|lighttpd|caddy|node\\.js|express", weight: 0.2}
+  app_server:
+    - {match: banner, regex: "tomcat|jboss|wildfly|glassfish|gunicorn|uwsgi|jetty|weblogic", weight: 0.7}
+  domain_controller:
+    - {match: port, all_of: [88, 389], weight: 0.6}
+    - {match: port, any_of: [636, 3268, 464], weight: 0.2}
+    - {match: service, regex: "kerberos|ldap|msrpc", weight: 0.2}
+  mail:
+    - {match: port, any_of: [25, 465, 587, 110, 143, 993, 995], weight: 0.6}
+    - {match: service, regex: "smtp|imap|pop3", weight: 0.35}
+  file_share:
+    - {match: port, any_of: [445, 139, 2049, 21], weight: 0.5}
+    - {match: service, regex: "microsoft-ds|netbios-ssn|nfs|^ftp", weight: 0.3}
+  iot_embedded:
+    - {match: port, any_of: [23], weight: 0.3}
+    - {match: banner, regex: "boa|goahead|mini_httpd|rompager|micro_httpd|busybox|dropbear", weight: 0.9}
+  network_device:
+    - {match: os, regex: "cisco ios|junos|routeros|fortios|pan-os", weight: 0.8}
+    - {match: banner, regex: "cisco|juniper|mikrotik", weight: 0.4}
+  workstation:
+    - {match: os, regex: "windows 1[01]|windows 7|macos|mac os x|ubuntu desktop", weight: 0.6}

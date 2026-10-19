@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC. Invented for unit tests; never produced by Nmap and never evidence. -->
+<nmaprun scanner="nmap" args="nmap -sV -O --script vulners -oX -" start="1757116800" version="7.94">
+  <host starttime="1757116800" endtime="1757116860">
+    <status state="up" reason="arp-response"/>
+    <address addr="172.28.0.10" addrtype="ipv4"/>
+    <hostnames><hostname name="synthetic-metasploitable2" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack"/>
+        <service name="ssh" product="SyntheticSSH" version="4.7p1" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="Apache httpd" version="2.4.49" method="probed" conf="10">
+          <cpe>cpe:/a:apache:http_server:2.4.49</cpe>
+        </service>
+        <script id="vulners" output="&#10;  cpe:/a:apache:http_server:2.4.49: &#10;    CVE-1999-9001  9.8  https://vulners.com/cve/CVE-1999-9001&#10;"/>
+      </port>
+      <port protocol="tcp" portid="3306">
+        <state state="closed" reason="reset"/>
+      </port>
+    </ports>
+    <os><osmatch name="Linux 5.15 - Ubuntu 22.04 desktop" accuracy="96"/></os>
+  </host>
+  <host starttime="1757116800" endtime="1757116870">
+    <status state="up" reason="arp-response"/>
+    <address addr="172.28.0.12" addrtype="ipv4"/>
+    <hostnames><hostname name="synthetic-juice-shop" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="Apache httpd" version="2.4.49" method="probed" conf="10">
+          <cpe>cpe:/a:apache:http_server:2.4.49</cpe>
+        </service>
+        <script id="vulners" output="&#10;  cpe:/a:apache:http_server:2.4.49: &#10;    CVE-1999-9001  9.8  https://vulners.com/cve/CVE-1999-9001&#10;"/>
+      </port>
+      <port protocol="tcp" portid="3306">
+        <state state="open" reason="syn-ack"/>
+        <service name="mysql" product="MySQL" version="5.5.62" method="probed" conf="10">
+          <cpe>cpe:/a:oracle:mysql:5.5.62</cpe>
+        </service>
+      </port>
+    </ports>
+    <os><osmatch name="Linux 3.2 - 4.9" accuracy="92"/></os>
+  </host>
+  <host>
+    <status state="down" reason="no-response"/>
+    <address addr="172.28.0.99" addrtype="ipv4"/>
+  </host>
+  <runstats>
+    <finished time="1757116880" exit="success" elapsed="80.00"/>
+    <hosts up="2" down="1" total="3"/>
+  </runstats>
+</nmaprun>

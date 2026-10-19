@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" class="workflow-theme" data-flow-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VulnAssess / Workflow</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/workflow.css">
+  <link rel="stylesheet" href="/static/workflow-refresh.css">
+  <link rel="stylesheet" href="/static/workflow-overview.css">
+  <script type="module" src="/static/workflow.js"></script>
+</head>
+<body data-workspace="overview">
+  <a class="skip" href="#assessment-overview">Skip to assessment overview</a>
+  <header class="flow-header">
+    <a class="wordmark" href="/workflow" aria-label="VulnAssess workflow"><span class="flow-mark" aria-hidden="true">v/a</span>VulnAssess<span class="product-label">WORKFLOW</span></a>
+    <div class="run-controls"><label for="workflow-run">Assessment</label><select id="workflow-run" disabled><option>Loading records</option></select><span id="data-kind" class="data-kind">LOCAL</span></div>
+    <div class="header-tools"><label class="sr-only" for="preview-scenario">Preview example</label><select id="preview-scenario" aria-label="Preview example"><option value="light">Nmap + AI · no findings</option><option value="web">Full web assessment</option><option value="noWeb">No HTTP · web tools skipped</option><option value="modelError">Model unavailable</option><option value="denied">Target outside scope</option></select><button id="preview-flow" class="tool-text preview-button" type="button" title="Animate a simulated workflow without scanning or calling a model">Preview flow</button><button id="open-run" class="run-button" type="button" aria-controls="run-panel" aria-expanded="false">Run</button><a id="assessment-link" class="quiet-link" href="/">Back to project</a><button id="refresh-workflow" class="tool" type="button" title="Refresh stored records" aria-label="Refresh stored records"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10a8 8 0 1 0-2 8M20 4v6h-6"/></svg></button></div>
+  </header>
+  <div class="workflow-bar">
+    <div class="canvas-heading"><span class="workspace-eyebrow">SECURITY INTELLIGENCE / WORKSPACE</span><h1>Assessment workspace</h1><p id="canvas-caption">Loading the recorded assessment.</p></div>
+    <p id="record-summary" class="record-summary" aria-label="Stored record counts"></p>
+    <div class="view-switch" role="group" aria-label="Workflow view">
+      <button type="button" data-view-mode="canvas" aria-pressed="true" title="View connected stages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h6v6H3ZM15 3h6v6h-6ZM15 15h6v6h-6ZM9 12h3V6h3M12 12v6h3"/></svg>Canvas</button>
+      <button type="button" data-view-mode="stages" aria-pressed="false" title="View all stages as a list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3v3H4ZM4 16h3v3H4ZM11 6h9M11 17h9"/></svg>Stages</button>
+    </div>
+    <button id="toggle-insights" class="insights-toggle" type="button" aria-expanded="false" aria-controls="assessment-brief">Assessment brief</button>
+    <button id="toggle-theme" class="tool-text theme-toggle" type="button" aria-label="Switch to dark theme">Dark theme</button>
+  </div>
+  <nav class="workspace-nav" aria-label="Assessment workspace">
+    <button type="button" data-workspace-page="self-defence" aria-pressed="false">Self-defence</button>
+    <button type="button" data-workspace-page="overview" aria-pressed="true"><span>01</span> Overview</button>
+    <button type="button" data-workspace-page="workflow" aria-pressed="false"><span>02</span> Workflow explorer</button>
+    <button type="button" data-workspace-page="insights" aria-pressed="false"><span>03</span> AI & next steps</button>
+    <a class="quiet-link" href="/captures">Saved assessments</a>
+    <a class="quiet-link" href="/website-check">Public Website Check</a>
+    <p>Evidence first. Every conclusion traceable.</p>
+  </nav>
+  <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span>Explore the evidence behind this assessment</span></div>
+  <section id="assessment-overview" class="assessment-overview" aria-label="Assessment overview" tabindex="-1"><p>Loading the assessment overview.</p></section>
+  <section id="assessment-highlights" class="assessment-highlights" aria-label="Assessment at a glance"></section>
+  <section id="self-defence-workspace" class="device-workspace" aria-label="Self-defence" tabindex="-1" hidden>
+    <header class="overview-section"><h2>Protect this computer</h2><p>Read-only device checks, local service exposure, and evidence-based AI precautions. This checks the machine running VulnAssess.</p><button id="open-device-check" class="run-button" type="button">Configure & check this device</button><p>Firewall · antivirus · remote access · legacy sharing · Secure Boot · encryption · update restart · listening applications</p></header>
+    <p id="device-progress" role="status">Ready for a read-only check.</p>
+    <div id="device-results"><p>No device check has run yet.</p></div>
+  </section>
+  <!-- ==================== RUN ANALYSIS PANEL: START ==================== -->
+  <section id="run-panel" class="run-panel" aria-label="Run analysis" hidden>
+    <div class="run-panel-heading"><div><span class="eyebrow">ASSESSMENT RUN</span><h2>Run analysis</h2></div><button id="close-run" class="tool" type="button" aria-label="Close run panel">×</button></div>
+    <p>Enter an authorised address and port. Run performs light Nmap discovery and checks the exact requested port. On exact environment:test assets, web endpoints receive bounded Nikto checks; a detected plaintext Redis endpoint receives one fixed Lua sandbox configuration check, without loading libraries or executing OS commands. Nessus remains an imported-report path.</p>
+    <p id="intel-cache-status" role="status">Checking public intelligence cache…</p>
+    <label class="run-label" for="analyst-provider">Analyst model</label>
+    <select id="analyst-provider"><option value="ollama">Local Ollama</option><option value="openrouter">DeepSeek V4 Flash · OpenRouter free</option><option value="groq">GPT-OSS 120B · Groq (original key)</option><option value="groq_qwen">Qwen 3.8 27B · Groq (second key)</option><option value="google">Gemini 3.5 Flash-Lite · Google</option></select>
+    <label id="cloud-consent" class="cloud-consent" hidden><input id="share-evidence" type="checkbox"> I agree to send bounded scan evidence to the selected provider and, when fallback is enabled, the other configured Google, Groq, or OpenRouter providers.</label>
+    <label class="cloud-consent"><input id="allow-fallback" type="checkbox" checked> If the selected cloud provider is unavailable, try configured alternatives, then local Ollama. Local-only selection stays local. Evidence-only reports remain available if AI fails.</label>
+    <div class="new-target-check"><label class="run-label" for="new-target">Target address</label><div><input id="new-target" type="text" placeholder="Authorised IP or hostname" spellcheck="false"><button id="check-target" class="tool-text" type="button">Check scope</button></div><p id="target-check-result" role="status">The live run pins the address, scans the top 100 TCP ports plus your URL’s exact port, runs bounded Nikto only for configured test assets, and reports each stage.</p></div>
+    <label class="run-label" for="live-run-mode">Run mode</label>
+    <select id="live-run-mode"><option value="new">New live assessment + AI</option><option value="self">Self-defence · check this device + AI</option><option value="reuse">Re-analyze recent scan evidence · no scan</option><option value="saved">Fresh intelligence + AI · saved CVE evidence · no scan</option></select>
+    <p id="self-defence-help" hidden>Checks the computer running VulnAssess, not a remote browser device. Reads Windows firewall and Defender status and checks common local service ports. No settings are changed. AI explains the evidence and practical precautions; this is not an antivirus or a guarantee of safety.</p>
+    <button id="start-live-run" class="run-button" type="button">Run live target</button>
+    <section class="scan-planner" aria-labelledby="scan-planner-heading">
+      <h3 id="scan-planner-heading">AI-assisted scan planning</h3>
+      <p>Let AI choose the scanner path from prior evidence before you run it. Review its reasons, adjust time limits, and approve the exact plan. The quick-run button above remains available.</p>
+      <label class="run-label" for="scan-plan-hints">Assessment intent (optional)</label>
+      <textarea id="scan-plan-hints" maxlength="1000" rows="2" placeholder="What should this assessment verify?"></textarea>
+      <button id="propose-scan-plan" class="tool-text" type="button">Propose AI scan plan</button>
+      <p id="scan-plan-status" role="status">Planning does not launch scanners. Without prior web evidence, discovery comes first.</p>
+      <div id="scan-plan-review" hidden>
+        <p id="scan-plan-binding" class="scan-plan-binding"></p>
+        <ol id="scan-plan-steps" class="scan-plan-steps"></ol>
+        <div class="run-actions"><button id="save-scan-plan" class="tool-text" type="button" disabled>Save edits</button><button id="approve-scan-plan" class="tool-text" type="button" disabled>Approve plan</button></div>
+        <button id="run-scan-plan" class="run-button" type="button" disabled>Run approved plan</button>
+      </div>
+    </section>
+    <section class="scan-planner" aria-labelledby="evidence-request-heading">
+      <h3 id="evidence-request-heading">AI follow-up investigation</h3>
+      <p>Ask AI which missing observation would help. It can propose a connection recheck, root HTTP headers, or TLS certificate inspection on a previously observed port. Each check needs your approval.</p>
+      <button id="propose-evidence-request" class="tool-text" type="button">Find the next evidence gap</button>
+      <p id="evidence-request-status" role="status">Uses the target above and this assessment’s evidence. No probe runs until approved.</p>
+      <div id="evidence-request-review" hidden>
+        <div id="evidence-request-detail"></div>
+        <label class="run-label" for="evidence-rejection-reason">Reason if rejecting</label>
+        <input id="evidence-rejection-reason" maxlength="500" placeholder="Why should this check not run?">
+        <div class="run-actions"><button id="approve-evidence-request" class="tool-text" type="button">Approve and collect evidence</button><button id="reject-evidence-request" class="tool-text" type="button">Reject request</button></div>
+      </div>
+      <div id="evidence-request-result"></div>
+      <button id="analyze-follow-up" class="tool-text" type="button" disabled>Analyze with follow-up evidence</button>
+    </section>
+    <ol id="live-progress" class="run-progress" aria-label="Live assessment stages" aria-live="polite"></ol>
+    <section id="live-result" class="live-result" aria-label="Live assessment result" hidden></section>
+    <details class="recorded-run"><summary>Import Nessus findings</summary>
+      <p>Choose a completed <code>.nessus</code> XML export for one authorised target. The report is stored, then context and deterministic priorities are calculated using available local intelligence.</p>
+      <label class="run-label" for="nessus-destination">Assessment</label><select id="nessus-destination"><option value="new">Create a new assessment</option><option value="current">Add to selected assessment</option></select>
+      <label class="run-label" for="nessus-target">Target IP in report</label><input id="nessus-target" type="text" placeholder="Authorised target IP" spellcheck="false">
+      <label class="run-label" for="nessus-file">Nessus export</label><input id="nessus-file" type="file" accept=".nessus,application/xml,text/xml">
+      <button id="import-nessus" class="run-button" type="button">Import report</button>
+      <p id="nessus-import-status" role="status">Nessus scans run in Nessus; this imports their completed evidence.</p>
+    </details>
+    <details id="recorded-run" class="recorded-run"><summary>Use an existing assessment instead</summary>
+      <p>Analyze selected targets with stored evidence. Scanner results and deterministic scores are not rerun.</p>
+      <label class="run-label" for="run-target-search">Find a recorded target</label>
+      <input id="run-target-search" type="search" placeholder="Search IP or hostname" autocomplete="off">
+      <div id="run-targets" class="run-targets" role="group" aria-label="Recorded targets"></div>
+      <p id="run-selection-note" class="run-selection-note" role="status"></p>
+      <div class="run-actions"><button id="start-run" class="run-button" type="button">Run selected targets</button><button id="stop-run" class="tool-text" type="button" hidden>Stop after current</button></div>
+      <ol id="run-progress" class="run-progress" aria-label="Stored run progress"></ol>
+      <div id="recorded-analysis-results" aria-live="polite"></div>
+    </details>
+  </section>
+  <!-- ==================== RUN ANALYSIS PANEL: END ====================== -->
+  <main class="flow-workspace">
+    <aside id="assessment-brief" class="assessment-brief" aria-label="Assessment context and insights" hidden><p class="brief-empty">Loading context and assessment insights.</p></aside>
+    <section id="viewport" class="viewport" aria-label="Assessment workflow canvas" tabindex="0">
+      <div id="graph" class="graph"><svg id="connections" class="connections" aria-hidden="true"></svg><div id="lanes" class="lanes" aria-hidden="true"></div><div id="node-list" class="node-list" aria-label="Pipeline nodes"></div></div>
+      <div id="loading-state" class="canvas-state" role="status"><span class="state-symbol" aria-hidden="true"></span><strong>Opening the assessment</strong><p>Reading local records.</p></div>
+      <div class="canvas-legend" aria-label="Connection legend"><span><i class="line-sample"></i>Data dependency</span><span><i class="line-sample optional"></i>Optional / output absent</span><span class="layout-hint">Drag stages to arrange · Alt + arrows for keyboard</span></div>
+      <div class="viewport-tools" role="group" aria-label="Canvas controls">
+        <button id="reset-layout" class="tool wide-tool" type="button" title="Reset node positions" aria-label="Reset node positions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.5 5.8M4 18v-5h5"/></svg><span>Reset</span></button>
+        <button id="zoom-out" class="tool" type="button" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <output id="zoom-level" class="zoom-level" aria-label="Canvas zoom">100%</output>
+        <button id="fit-workflow" class="tool wide-tool" type="button" title="Fit entire workflow" aria-label="Fit entire workflow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg><span>Fit</span></button>
+        <button id="zoom-in" class="tool" type="button" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
+      </div>
+      <div class="canvas-footer"><span class="local-indicator" aria-hidden="true"></span><span id="canvas-status">Stored records / no pipeline execution</span><span id="run-hash"></span></div>
+    </section>
+    <aside id="live-execution" class="live-execution results-sidebar" aria-label="Live assessment execution" hidden>
+      <div class="live-execution-heading"><div><span id="live-execution-mode" class="eyebrow">LIVE RUN / EVENT STREAM</span><h2 id="live-execution-title" tabindex="-1">Waiting for the target</h2><p id="live-execution-context" class="live-execution-context" hidden></p><p id="live-execution-detail" class="live-execution-detail" aria-live="polite">Stage details appear here.</p></div><span id="live-execution-count" class="live-execution-count">0 / 8 stages</span></div>
+      <details class="sidebar-stages"><summary>Execution stages & coverage</summary><ol id="live-execution-steps" class="live-execution-steps" aria-label="Live workflow stages"></ol><p id="live-path-boundary" class="live-execution-detail" hidden>This run performs light Nmap discovery, verifies an explicitly supplied URL port, and runs bounded Nikto checks only for an exact in-scope asset tagged environment:test. AI analyzes collected scanner evidence; scores remain deterministic. Nessus reports are imported, not launched.</p></details>
+      <details id="live-execution-details" class="live-execution-details" open hidden><summary>Collected evidence & AI results</summary><div id="live-execution-output" class="live-execution-output"></div></details>
+    </aside>
+    <aside id="node-inspector" class="node-inspector" aria-label="Workflow node inspector" hidden>
+      <div class="inspector-heading"><span class="eyebrow">NODE INSPECTOR</span><button id="close-node" class="tool" type="button" title="Close inspector" aria-label="Close inspector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <div id="node-content"></div>
+    </aside>
+  </main>
+  <div id="workflow-announcement" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

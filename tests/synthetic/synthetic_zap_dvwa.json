@@ -1,0 +1,68 @@
+{
+  "_comment": "SYNTHETIC. Invented for unit tests; never produced by ZAP and never evidence.",
+  "@programName": "ZAP",
+  "@version": "2.15.0",
+  "@generated": "Fri, 5 Sep 2026 00:00:00",
+  "site": [
+    {
+      "@name": "http://172.28.0.11",
+      "@host": "172.28.0.11",
+      "@port": "80",
+      "@ssl": "false",
+      "alerts": [
+        {
+          "pluginid": "10020",
+          "alertRef": "10020-1",
+          "alert": "Missing Anti-clickjacking Header",
+          "name": "Missing Anti-clickjacking Header",
+          "riskcode": "2",
+          "confidence": "2",
+          "riskdesc": "Medium (Medium)",
+          "desc": "<p>The response does not protect against ClickJacking attacks.</p>",
+          "solution": "<p>Send a Content-Security-Policy frame-ancestors directive.</p>",
+          "reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options</p>",
+          "cweid": "1021",
+          "wascid": "15",
+          "instances": [
+            {"uri": "http://172.28.0.11/", "method": "GET", "param": "x-frame-options", "evidence": ""},
+            {"uri": "http://172.28.0.11/index.php", "method": "GET", "param": "x-frame-options", "evidence": ""}
+          ]
+        },
+        {
+          "pluginid": "10038",
+          "alertRef": "10038-1",
+          "alert": "Content Security Policy (CSP) Header Not Set",
+          "name": "Content Security Policy (CSP) Header Not Set",
+          "riskcode": "2",
+          "confidence": "3",
+          "riskdesc": "Medium (High)",
+          "desc": "<p>Content Security Policy is an added layer of security.</p>",
+          "solution": "<p>Configure the web server to emit a Content-Security-Policy header.</p>",
+          "reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP</p>",
+          "cweid": "693",
+          "wascid": "15",
+          "instances": [
+            {"uri": "http://172.28.0.11/", "method": "GET", "param": "", "evidence": ""}
+          ]
+        },
+        {
+          "pluginid": "10096",
+          "alertRef": "10096-1",
+          "alert": "Timestamp Disclosure - Unix",
+          "name": "Timestamp Disclosure - Unix",
+          "riskcode": "0",
+          "confidence": "1",
+          "riskdesc": "Informational (Low)",
+          "desc": "<p>A timestamp was disclosed by the application.</p>",
+          "solution": "<p>Confirm that the disclosed value is not sensitive.</p>",
+          "reference": "<p>https://cwe.mitre.org/data/definitions/200.html</p>",
+          "cweid": "200",
+          "wascid": "13",
+          "instances": [
+            {"uri": "http://172.28.0.11/style.css", "method": "GET", "param": "", "evidence": "1610000000"}
+          ]
+        }
+      ]
+    }
+  ]
+}

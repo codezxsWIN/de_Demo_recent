@@ -1,0 +1,2939 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.16.1",
+	"@generated": "Sat, 19 Sept 2026 01:34:53",
+	"created": "2026-09-18T20:04:53.722708Z",
+	"site":[ 
+		{
+			"@name": "http://172.28.0.12:3000",
+			"@host": "172.28.0.12",
+			"@port": "3000",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-13",
+					"alert": "CSP: Failure to Define Directive with No Fallback",
+					"name": "CSP: Failure to Define Directive with No Fallback",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>The Content Security Policy fails to define one of the directives that has no fallback. Missing/excluding them is the same as allowing anything.</p>",
+					"instances":[ 
+						{
+							"id": "101",
+							"uri": "http://172.28.0.12:3000/assets",
+							"nodeName": null,
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'none'",
+							"otherinfo": "The directive(s): frame-ancestors, form-action is/are among the directives that do not fallback to default-src."
+						},
+						{
+							"id": "102",
+							"uri": "http://172.28.0.12:3000/assets/public",
+							"nodeName": null,
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'none'",
+							"otherinfo": "The directive(s): frame-ancestors, form-action is/are among the directives that do not fallback to default-src."
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>The directive(s): frame-ancestors, form-action is/are among the directives that do not fallback to default-src.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "90"
+				},
+				{
+					"pluginid": "10038",
+					"alertRef": "10038-1",
+					"alert": "Content Security Policy (CSP) Header Not Set",
+					"name": "Content Security Policy (CSP) Header Not Set",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "0",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "67",
+							"uri": "http://172.28.0.12:3000/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "135",
+							"uri": "http://172.28.0.12:3000/assets/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "313",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "254",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "359",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "324",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "316",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "306",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "227",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "271",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "258",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "283",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "261",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "144",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "215",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "210",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "211",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "213",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "175",
+							"uri": "http://172.28.0.12:3000/assets/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "171",
+							"uri": "http://172.28.0.12:3000/assets/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "127",
+							"uri": "http://172.28.0.12:3000/assets/public/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "308",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "246",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "339",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "312",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "319",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "307",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "192",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "264",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "248",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "268",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "216",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "137",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "184",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "179",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "191",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "178",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "148",
+							"uri": "http://172.28.0.12:3000/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "129",
+							"uri": "http://172.28.0.12:3000/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "136",
+							"uri": "http://172.28.0.12:3000/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "132",
+							"uri": "http://172.28.0.12:3000/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "173",
+							"uri": "http://172.28.0.12:3000/assets/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "166",
+							"uri": "http://172.28.0.12:3000/assets/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "65",
+							"uri": "http://172.28.0.12:3000/ftp",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "371",
+							"uri": "http://172.28.0.12:3000/ftp/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "75",
+							"uri": "http://172.28.0.12:3000/ftp/.%5C..",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "56",
+							"uri": "http://172.28.0.12:3000/ftp/coupons_2013.md.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "54",
+							"uri": "http://172.28.0.12:3000/ftp/eastere.gg",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "55",
+							"uri": "http://172.28.0.12:3000/ftp/encrypt.pyc",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "58",
+							"uri": "http://172.28.0.12:3000/ftp/package-lock.json.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "62",
+							"uri": "http://172.28.0.12:3000/ftp/package.json.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "78",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "52",
+							"uri": "http://172.28.0.12:3000/ftp/suspicious_errors.yml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "11",
+							"uri": "http://172.28.0.12:3000/sitemap.xml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "55",
+					"systemic": false,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP</p><p>https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html</p><p>https://www.w3.org/TR/CSP/</p><p>https://w3c.github.io/webappsec-csp/</p><p>https://web.dev/articles/csp</p><p>https://caniuse.com/#feat=contentsecuritypolicy</p><p>https://content-security-policy.com/</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "1"
+				},
+				{
+					"pluginid": "10098",
+					"alertRef": "10098",
+					"alert": "Cross-Domain Misconfiguration",
+					"name": "Cross-Domain Misconfiguration",
+					"riskcode": "2",
+					"confidence": "2",
+					"riskdesc": "Medium (Medium)",
+					"desc": "<p>Web browser data loading may be possible, due to a Cross Origin Resource Sharing (CORS) misconfiguration on the web server.</p>",
+					"instances":[ 
+						{
+							"id": "1",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "68",
+							"uri": "http://172.28.0.12:3000/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "107",
+							"uri": "http://172.28.0.12:3000/assets",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "142",
+							"uri": "http://172.28.0.12:3000/assets/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "318",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "262",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "362",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "327",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "320",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "310",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "233",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "284",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "266",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "291",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "263",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "145",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "224",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "218",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "221",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "219",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "176",
+							"uri": "http://172.28.0.12:3000/assets/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "177",
+							"uri": "http://172.28.0.12:3000/assets/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "108",
+							"uri": "http://172.28.0.12:3000/assets/public",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "131",
+							"uri": "http://172.28.0.12:3000/assets/public/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "317",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "252",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "347",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "321",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "323",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "315",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "202",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "273",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "257",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "275",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "223",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "139",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "194",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "182",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "200",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "181",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "7",
+							"uri": "http://172.28.0.12:3000/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "152",
+							"uri": "http://172.28.0.12:3000/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "133",
+							"uri": "http://172.28.0.12:3000/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "140",
+							"uri": "http://172.28.0.12:3000/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "138",
+							"uri": "http://172.28.0.12:3000/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "180",
+							"uri": "http://172.28.0.12:3000/assets/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "174",
+							"uri": "http://172.28.0.12:3000/assets/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "66",
+							"uri": "http://172.28.0.12:3000/ftp",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "372",
+							"uri": "http://172.28.0.12:3000/ftp/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "80",
+							"uri": "http://172.28.0.12:3000/ftp/.%5C..",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "51",
+							"uri": "http://172.28.0.12:3000/ftp/acquisitions.md",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "72",
+							"uri": "http://172.28.0.12:3000/ftp/announcement_encrypted.md",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "60",
+							"uri": "http://172.28.0.12:3000/ftp/coupons_2013.md.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "57",
+							"uri": "http://172.28.0.12:3000/ftp/eastere.gg",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "59",
+							"uri": "http://172.28.0.12:3000/ftp/encrypt.pyc",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "50",
+							"uri": "http://172.28.0.12:3000/ftp/incident-support.kdbx",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "63",
+							"uri": "http://172.28.0.12:3000/ftp/legal.md",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "61",
+							"uri": "http://172.28.0.12:3000/ftp/package-lock.json.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "64",
+							"uri": "http://172.28.0.12:3000/ftp/package.json.bak",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "81",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "73",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine/juicy_malware_linux_amd_64.url",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "74",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine/juicy_malware_linux_arm_64.url",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "77",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine/juicy_malware_macos_64.url",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "76",
+							"uri": "http://172.28.0.12:3000/ftp/quarantine/juicy_malware_windows_64.exe.url",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "53",
+							"uri": "http://172.28.0.12:3000/ftp/suspicious_errors.yml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "48",
+							"uri": "http://172.28.0.12:3000/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "9",
+							"uri": "http://172.28.0.12:3000/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "6",
+							"uri": "http://172.28.0.12:3000/robots.txt",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "8",
+							"uri": "http://172.28.0.12:3000/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "14",
+							"uri": "http://172.28.0.12:3000/sitemap.xml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						},
+						{
+							"id": "12",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Access-Control-Allow-Origin: *",
+							"otherinfo": "The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing."
+						}
+					],
+					"count": "71",
+					"systemic": false,
+					"solution": "<p>Ensure that sensitive data is not available in an unauthenticated manner (using IP address white-listing, for instance).</p><p>Configure the \"Access-Control-Allow-Origin\" HTTP header to a more restrictive set of domains, or remove all CORS headers entirely, to allow the web browser to enforce the Same Origin Policy (SOP) in a more restrictive manner.</p>",
+					"otherinfo": "<p>The CORS misconfiguration on the web server permits cross-domain read requests from arbitrary third party domains, using unauthenticated APIs on this domain. Web browser implementations do not permit arbitrary third parties to read the response from authenticated APIs, however. This reduces the risk somewhat. This misconfiguration could be used by an attacker to access data that is available in an unauthenticated manner, but which uses some other form of security, such as IP address white-listing.</p>",
+					"reference": "<p>https://vulncat.fortify.com/en/detail?category=HTML5&subcategory=Overly%20Permissive%20CORS%20Policy</p>",
+					"cweid": "264",
+					"wascid": "14",
+					"sourceid": "1"
+				},
+				{
+					"pluginid": "10096",
+					"alertRef": "10096",
+					"alert": "Timestamp Disclosure - Unix",
+					"name": "Timestamp Disclosure - Unix",
+					"riskcode": "1",
+					"confidence": "1",
+					"riskdesc": "Low (Low)",
+					"desc": "<p>A timestamp was disclosed by the application/web server. - Unix</p>",
+					"instances":[ 
+						{
+							"id": "3",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "4",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "70",
+							"uri": "http://172.28.0.12:3000/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "71",
+							"uri": "http://172.28.0.12:3000/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "159",
+							"uri": "http://172.28.0.12:3000/assets/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "163",
+							"uri": "http://172.28.0.12:3000/assets/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "349",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "361",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "280",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "290",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "366",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "367",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "350",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "360",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "352",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "355",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "337",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "351",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "259",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "265",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "301",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "304",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "287",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "295",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "305",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "311",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "281",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "286",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "167",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "172",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "247",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "255",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "237",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "241",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "244",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "250",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "236",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "239",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "198",
+							"uri": "http://172.28.0.12:3000/assets/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "206",
+							"uri": "http://172.28.0.12:3000/assets/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "199",
+							"uri": "http://172.28.0.12:3000/assets/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "205",
+							"uri": "http://172.28.0.12:3000/assets/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "149",
+							"uri": "http://172.28.0.12:3000/assets/public/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "155",
+							"uri": "http://172.28.0.12:3000/assets/public/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "336",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "342",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "270",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "278",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "363",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "364",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "348",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "353",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "341",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "345",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "343",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "356",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "217",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "222",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "294",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "299",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "282",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "293",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "297",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "298",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "235",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "242",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "157",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "162",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "214",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "225",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "201",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "204",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "212",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "220",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "197",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "203",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "165",
+							"uri": "http://172.28.0.12:3000/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "169",
+							"uri": "http://172.28.0.12:3000/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "151",
+							"uri": "http://172.28.0.12:3000/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "153",
+							"uri": "http://172.28.0.12:3000/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "168",
+							"uri": "http://172.28.0.12:3000/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "170",
+							"uri": "http://172.28.0.12:3000/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "156",
+							"uri": "http://172.28.0.12:3000/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "164",
+							"uri": "http://172.28.0.12:3000/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "189",
+							"uri": "http://172.28.0.12:3000/assets/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "195",
+							"uri": "http://172.28.0.12:3000/assets/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "188",
+							"uri": "http://172.28.0.12:3000/assets/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "196",
+							"uri": "http://172.28.0.12:3000/assets/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "18",
+							"uri": "http://172.28.0.12:3000/sitemap.xml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "20",
+							"uri": "http://172.28.0.12:3000/sitemap.xml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "29",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1483870968",
+							"otherinfo": "1483870968, which evaluates to: 2017-01-08 15:52:48."
+						},
+						{
+							"id": "34",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1526821371",
+							"otherinfo": "1526821371, which evaluates to: 2018-05-20 18:32:51."
+						},
+						{
+							"id": "21",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1528301887",
+							"otherinfo": "1528301887, which evaluates to: 2018-06-06 21:48:07."
+						},
+						{
+							"id": "22",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1578947368",
+							"otherinfo": "1578947368, which evaluates to: 2020-01-14 01:59:28."
+						},
+						{
+							"id": "24",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1602209945",
+							"otherinfo": "1602209945, which evaluates to: 2020-10-09 07:49:05."
+						},
+						{
+							"id": "27",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1636363636",
+							"otherinfo": "1636363636, which evaluates to: 2021-11-08 14:57:16."
+						},
+						{
+							"id": "39",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1666666667",
+							"otherinfo": "1666666667, which evaluates to: 2022-10-25 08:27:47."
+						},
+						{
+							"id": "38",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1748837209",
+							"otherinfo": "1748837209, which evaluates to: 2025-06-02 09:36:49."
+						},
+						{
+							"id": "28",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1818181818",
+							"otherinfo": "1818181818, which evaluates to: 2027-08-14 00:00:18."
+						},
+						{
+							"id": "40",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1839622642",
+							"otherinfo": "1839622642, which evaluates to: 2028-04-18 03:47:22."
+						},
+						{
+							"id": "42",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "2058295964",
+							"otherinfo": "2058295964, which evaluates to: 2035-03-24 02:22:44."
+						},
+						{
+							"id": "33",
+							"uri": "http://172.28.0.12:3000/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "2105263158",
+							"otherinfo": "2105263158, which evaluates to: 2036-09-17 16:49:18."
+						}
+					],
+					"count": "102",
+					"systemic": false,
+					"solution": "<p>Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.</p>",
+					"otherinfo": "<p>1666666667, which evaluates to: 2022-10-25 08:27:47.</p>",
+					"reference": "<p>https://cwe.mitre.org/data/definitions/200.html</p>",
+					"cweid": "497",
+					"wascid": "13",
+					"sourceid": "1"
+				},
+				{
+					"pluginid": "10116",
+					"alertRef": "10116",
+					"alert": "ZAP is Out of Date",
+					"name": "ZAP is Out of Date",
+					"riskcode": "1",
+					"confidence": "3",
+					"riskdesc": "Low (High)",
+					"desc": "<p>The version of ZAP you are using to test your app is out of date and is no longer being updated.</p><p>The risk level is set based on how out of date your ZAP version is.</p>",
+					"instances":[ 
+						{
+							"id": "5",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "The latest version of ZAP is 2.17.0"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Download the latest version of ZAP from https://www.zaproxy.org/download/ and install it.</p>",
+					"otherinfo": "<p>The latest version of ZAP is 2.17.0</p>",
+					"reference": "<p>https://www.zaproxy.org/download/</p>",
+					"cweid": "1104",
+					"wascid": "45",
+					"sourceid": "1"
+				},
+				{
+					"pluginid": "10027",
+					"alertRef": "10027",
+					"alert": "Information Disclosure - Suspicious Comments",
+					"name": "Information Disclosure - Suspicious Comments",
+					"riskcode": "0",
+					"confidence": "1",
+					"riskdesc": "Informational (Low)",
+					"desc": "<p>The response appears to contain suspicious comments which may help an attacker.</p>",
+					"instances":[ 
+						{
+							"id": "49",
+							"uri": "http://172.28.0.12:3000/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "query",
+							"otherinfo": "The following pattern was used: \\bQUERY\\b and was detected in likely comment: \"//`+e.host,typeof t==`string`&&(t.charAt(0)===`/`&&(t.charAt(1)===`/`?t=e.protocol+t:t=e.host+t),/^(https?|wss?):\\/\\//.test(t)||\", see evidence field for the suspicious comment/snippet."
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Remove all comments that return information that may help an attacker and fix any underlying problems they refer to.</p>",
+					"otherinfo": "<p>The following pattern was used: \\bQUERY\\b and was detected in likely comment: \"//`+e.host,typeof t==`string`&&(t.charAt(0)===`/`&&(t.charAt(1)===`/`?t=e.protocol+t:t=e.host+t),/^(https?|wss?):\\/\\//.test(t)||\", see evidence field for the suspicious comment/snippet.</p>",
+					"reference": "",
+					"cweid": "615",
+					"wascid": "13",
+					"sourceid": "21"
+				},
+				{
+					"pluginid": "10109",
+					"alertRef": "10109",
+					"alert": "Modern Web Application",
+					"name": "Modern Web Application",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The application appears to be a modern web application. If you need to explore it automatically then the Ajax Spider may well be more effective than the standard one.</p>",
+					"instances":[ 
+						{
+							"id": "2",
+							"uri": "http://172.28.0.12:3000",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "69",
+							"uri": "http://172.28.0.12:3000/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "150",
+							"uri": "http://172.28.0.12:3000/assets/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "334",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "272",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "365",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "344",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "333",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "326",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "251",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "292",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "279",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "302",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "274",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "160",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "240",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "229",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "232",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "231",
+							"uri": "http://172.28.0.12:3000/assets/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "186",
+							"uri": "http://172.28.0.12:3000/assets/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "187",
+							"uri": "http://172.28.0.12:3000/assets/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "143",
+							"uri": "http://172.28.0.12:3000/assets/public/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "330",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "267",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "357",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "338",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "332",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "329",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "209",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "288",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "276",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "289",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "230",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "154",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/favicon_js.ico",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "208",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "190",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "207",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "193",
+							"uri": "http://172.28.0.12:3000/assets/public/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "161",
+							"uri": "http://172.28.0.12:3000/assets/public/main.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "146",
+							"uri": "http://172.28.0.12:3000/assets/public/polyfills.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "158",
+							"uri": "http://172.28.0.12:3000/assets/public/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "147",
+							"uri": "http://172.28.0.12:3000/assets/public/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "185",
+							"uri": "http://172.28.0.12:3000/assets/scripts.js",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "183",
+							"uri": "http://172.28.0.12:3000/assets/styles.css",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "373",
+							"uri": "http://172.28.0.12:3000/ftp/",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<a href=\"\">ftp</a>",
+							"otherinfo": "Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "16",
+							"uri": "http://172.28.0.12:3000/sitemap.xml",
+							"nodeName": null,
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script>\r\n    window.addEventListener(\"load\", function(){\r\n      window.cookieconsent.initialise({\r\n        \"palette\": {\r\n          \"popup\": { \"background\": \"var(--theme-primary)\", \"text\": \"var(--theme-text)\" },\r\n          \"button\": { \"background\": \"var(--theme-accent)\", \"text\": \"var(--theme-text)\" }\r\n        },\r\n        \"theme\": \"classic\",\r\n        \"position\": \"bottom-right\",\r\n        \"content\": { \"message\": \"This website uses fruit cookies to ensure you get the juiciest tracking experience.\", \"dismiss\": \"Me want it!\", \"link\": \"But me wait!\", \"href\": \"https://www.youtube.com/watch?v=9PnbKL3wuH4\" }\r\n      })});\r\n  </script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						}
+					],
+					"count": "46",
+					"systemic": false,
+					"solution": "<p>This is an informational alert and so no changes are required.</p>",
+					"otherinfo": "<p>No links have been found while there are scripts, which is an indication that this is a modern web application.</p>",
+					"reference": "",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "1"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" class="building-drawing" role="img" aria-label="Office">
+  <title>Office</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 212V34h144v178M34 214h172M48 54h144M98 212v-56h44v56M120 156v56"/>
+    <path d="M72 78h28v24H72ZM140 78h28v24h-28ZM72 120h28v18H72ZM140 120h28v18h-28Z"/>
+  </g>
+</svg>

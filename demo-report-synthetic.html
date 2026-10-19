@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Vulnerability report demo-synthetic</title><style>body{font-family:Segoe UI,Arial,sans-serif;margin:32px;color:#1a1a1a;max-width:1200px}
+h1{color:#1F4E79;margin-bottom:4px}h2{color:#1F4E79;border-bottom:2px solid #DCE6F1;padding-bottom:4px;margin-top:32px}
+h3{color:#2E74B5;margin-bottom:4px}table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0 16px}
+th{background:#1F4E79;color:#fff;text-align:left;padding:6px;white-space:nowrap}td{border-bottom:1px solid #ddd;padding:6px;vertical-align:top}
+td.n{white-space:nowrap}td.why{min-width:260px}table.ranked col.c0{width:3%}table.ranked col.c1{width:6%}table.ranked col.c2{width:8%}table.ranked col.c3{width:11%}table.ranked col.c4{width:30%}table.ranked col.c5{width:42%}
+.Critical{background:#F8D7DA;font-weight:bold}.High{background:#FBE5D6}.Medium{background:#FFF3CD}.Low{background:#E3F1E4}
+.ev{font-family:Consolas,monospace;font-size:12px;color:#444;background:#f6f6f6;padding:2px 4px;border-radius:3px}
+.muted{color:#666;font-size:12px}.kpi{display:inline-block;margin:0 24px 8px 0}.kpi b{font-size:22px;display:block}
+footer{margin-top:40px;color:#666;font-size:12px;border-top:1px solid #ddd;padding-top:8px}
+@media print{body{margin:12mm}h2{page-break-after:avoid}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head><body>
+<h1>AI-Based Network Vulnerability Assessment — report</h1><div class='muted'>Run demo-synthetic · generated 2026-09-06 00:00 UTC · ranking by inferred context (Context Is Not Free)</div>
+<h2>1. Summary</h2>
+<div class='kpi'><b>1</b>Critical</div>
+<div class='kpi'><b>1</b>High</div>
+<div class='kpi'><b>3</b>Medium</div>
+<div class='kpi'><b>1</b>Low</div>
+<div class='kpi'><b>6</b>findings ranked</div><div class='kpi'><b>3</b>hosts</div>
+<h2>2. Ranked findings</h2><p class='muted'>Ordered by context-aware risk. The same CVE can appear at very different ranks on different hosts; the Why column says what moved it.</p>
+<table class='ranked'><colgroup><col class='c0'><col class='c1'><col class='c2'><col class='c3'><col class='c4'><col class='c5'></colgroup><tr><th>#</th><th>Risk</th><th>Band</th><th>Host</th><th>Finding</th><th>Why</th></tr>
+<tr class='Critical'><td class='n'>1</td><td class='n'><b>100.0</b></td><td class='n'>Critical</td><td class='n'>172.28.0.12</td><td>vulners reports CVE-1999-9001 on http · CVE-1999-9001<br><span class='muted'>nmap · port 80</span></td><td class='why'>Critical: internet-facing database, actively exploited (CISA KEV), no compensating control observed.</td></tr>
+<tr class='High'><td class='n'>2</td><td class='n'><b>79.0</b></td><td class='n'>High</td><td class='n'>172.28.0.10</td><td>vulners reports CVE-1999-9001 on http · CVE-1999-9001<br><span class='muted'>nmap · port 80</span></td><td class='why'>High: internal web frontend, test environment, actively exploited (CISA KEV), no compensating control observed.</td></tr>
+<tr class='Medium'><td class='n'>3</td><td class='n'><b>40.0</b></td><td class='n'>Medium</td><td class='n'>172.28.0.11</td><td>Missing Anti-clickjacking Header<br><span class='muted'>zap · port 80</span></td><td class='why'>Medium: internal unknown, no exploitation data, no compensating control observed.</td></tr>
+<tr class='Medium'><td class='n'>4</td><td class='n'><b>40.0</b></td><td class='n'>Medium</td><td class='n'>172.28.0.11</td><td>Missing Anti-clickjacking Header<br><span class='muted'>zap · port 80</span></td><td class='why'>Medium: internal unknown, no exploitation data, no compensating control observed.</td></tr>
+<tr class='Medium'><td class='n'>5</td><td class='n'><b>40.0</b></td><td class='n'>Medium</td><td class='n'>172.28.0.11</td><td>Content Security Policy (CSP) Header Not Set<br><span class='muted'>zap · port 80</span></td><td class='why'>Medium: internal unknown, no exploitation data, no compensating control observed.</td></tr>
+<tr class='Low'><td class='n'>6</td><td class='n'><b>5.0</b></td><td class='n'>Low</td><td class='n'>172.28.0.11</td><td>Timestamp Disclosure - Unix<br><span class='muted'>zap · port 80</span></td><td class='why'>Low: internal unknown, no exploitation data, no compensating control observed.</td></tr>
+</table>
+<h3>Score details and recommended fixes</h3><table><tr><th>#</th><th>Host</th><th>Role (conf.)</th><th>Exposure</th><th>CVSS base</th><th>CVSS env.</th><th>EPSS %ile</th><th>KEV</th><th>Recommended fix</th></tr>
+<tr><td>1</td><td>172.28.0.12</td><td>database (0.95)</td><td>internet-facing</td><td>9.8</td><td>9.8</td><td>100</td><td>yes</td><td>Upgrade Apache httpd 2.4.49 to 2.4.51 or later (https://httpd.apache.org/security/vulnerabilities_24.html)</td></tr>
+<tr><td>2</td><td>172.28.0.10</td><td>web_frontend (0.90)</td><td>internal</td><td>9.8</td><td>6.9</td><td>100</td><td>yes</td><td>Upgrade Apache httpd 2.4.49 to 2.4.51 or later (https://httpd.apache.org/security/vulnerabilities_24.html)</td></tr>
+<tr><td>3</td><td>172.28.0.11</td><td>unknown (0.20)</td><td>internal</td><td>—</td><td>—</td><td>—</td><td>no</td><td>Review https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options</td></tr>
+<tr><td>4</td><td>172.28.0.11</td><td>unknown (0.20)</td><td>internal</td><td>—</td><td>—</td><td>—</td><td>no</td><td>Review https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options</td></tr>
+<tr><td>5</td><td>172.28.0.11</td><td>unknown (0.20)</td><td>internal</td><td>—</td><td>—</td><td>—</td><td>no</td><td>Remediate CWE-693: Content Security Policy (CSP) Header Not Set</td></tr>
+<tr><td>6</td><td>172.28.0.11</td><td>unknown (0.20)</td><td>internal</td><td>—</td><td>—</td><td>—</td><td>no</td><td>Remediate CWE-200: Timestamp Disclosure - Unix</td></tr>
+</table>
+<h2>3. Host context and evidence</h2>
+<h3>172.28.0.10 — web_frontend · internal · segment 172.28.0.10/32</h3><table><tr><th>Feature</th><th>Value</th><th>Confidence</th><th>Source</th><th>Evidence (verbatim)</th></tr>
+<tr><td>role</td><td>web_frontend</td><td>0.90</td><td>rule</td><td><span class='ev'>80/tcp http Apache httpd 2.4.49</span></td></tr>
+<tr><td>exposure</td><td>internal</td><td>0.85</td><td>rule</td><td><span class='ev'>ip 172.28.0.10 is private (RFC1918/loopback/link-local/CGNAT)</span></td></tr>
+<tr><td>control: auth_required</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: rate_limiting</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: tls</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: waf</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>manual: environment</td><td>test</td><td>1.00</td><td>manual</td><td><span class='ev'>scope.yaml lab_targets[metasploitable2].tags.environment=test</span></td></tr>
+</table>
+<h3>172.28.0.11 — unknown · internal · segment 172.28.0.11/32</h3><table><tr><th>Feature</th><th>Value</th><th>Confidence</th><th>Source</th><th>Evidence (verbatim)</th></tr>
+<tr><td>role</td><td>unknown</td><td>0.20</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>exposure</td><td>internal</td><td>0.85</td><td>rule</td><td><span class='ev'>ip 172.28.0.11 is private (RFC1918/loopback/link-local/CGNAT)</span></td></tr>
+<tr><td>control: auth_required</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: rate_limiting</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: tls</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: waf</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>manual: criticality</td><td>4</td><td>1.00</td><td>manual</td><td><span class='ev'>scope.yaml lab_targets[dvwa].tags.criticality=4</span></td></tr>
+<tr><td>manual: environment</td><td>prod</td><td>1.00</td><td>manual</td><td><span class='ev'>scope.yaml lab_targets[dvwa].tags.environment=prod</span></td></tr>
+</table>
+<h3>172.28.0.12 — database · internet-facing · segment 172.28.0.12/32</h3><table><tr><th>Feature</th><th>Value</th><th>Confidence</th><th>Source</th><th>Evidence (verbatim)</th></tr>
+<tr><td>role</td><td>database</td><td>0.95</td><td>rule</td><td><span class='ev'>3306/tcp mysql MySQL 5.5.62</span></td></tr>
+<tr><td>exposure</td><td>internet_facing</td><td>0.90</td><td>rule</td><td><span class='ev'>scope.yaml lab_targets[juice-shop].tags.vantage=external</span></td></tr>
+<tr><td>control: auth_required</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: rate_limiting</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: tls</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>control: waf</td><td>False</td><td>0.50</td><td>rule</td><td><span class='ev'>none observed</span></td></tr>
+<tr><td>manual: criticality</td><td>3</td><td>1.00</td><td>manual</td><td><span class='ev'>scope.yaml lab_targets[juice-shop].tags.criticality=3</span></td></tr>
+<tr><td>manual: environment</td><td>prod</td><td>1.00</td><td>manual</td><td><span class='ev'>scope.yaml lab_targets[juice-shop].tags.environment=prod</span></td></tr>
+</table>
+<h2>4. Methodology</h2>
+<p>Score = CVSS 3.1 <b>Environmental</b> score (Modified metrics and C/I/A Requirements auto-filled from the inferred context) × 10, multiplied by a threat factor 0.5 + 0.5 × EPSS percentile when EPSS data exists (otherwise <i>unscored</i>: environmental × 10 only). A CISA KEV listing (confirmed exploitation) forces the threat factor to 1.0, adds 10 and, only when the host is internet-facing, applies a floor of 90. Findings without a CVE use the tool's native severity table. The language model is not used in this prototype; every reason is a deterministic sentence built from the same facts shown above.</p>
+<table><tr><th>Band</th><th>Risk threshold</th></tr><tr><td>Critical</td><td>&ge; 80</td></tr><tr><td>High</td><td>&ge; 60</td></tr><tr><td>Medium</td><td>&ge; 35</td></tr><tr><td>Low</td><td>below Medium</td></tr></table>
+<table><tr><th>Feed</th><th>Snapshot date</th><th>Records</th><th>SHA-256</th></tr><tr><td>epss</td><td>2026-09-05</td><td>2</td><td class='ev'>bc83de4a82469034…</td></tr><tr><td>kev</td><td>2026-09-05</td><td>1</td><td class='ev'>3122fdb7f0dbf88f…</td></tr><tr><td>nvd</td><td>2026-09-05</td><td>2</td><td class='ev'>de95fb395962374f…</td></tr></table>
+<h2>5. Provenance</h2><table><tr><th>Finding</th><th>Tool</th><th>Raw file</th><th>Record</th></tr>
+<tr><td>vulners reports CVE-1999-9001 on http</td><td>nmap</td><td class='ev'>data/raw/demo-synthetic/synthetic_nmap_two_machines.xml</td><td>2</td></tr>
+<tr><td>vulners reports CVE-1999-9001 on http</td><td>nmap</td><td class='ev'>data/raw/demo-synthetic/synthetic_nmap_two_machines.xml</td><td>1</td></tr>
+<tr><td>Missing Anti-clickjacking Header</td><td>zap</td><td class='ev'>data/raw/demo-synthetic/synthetic_zap_dvwa.json</td><td>2</td></tr>
+<tr><td>Missing Anti-clickjacking Header</td><td>zap</td><td class='ev'>data/raw/demo-synthetic/synthetic_zap_dvwa.json</td><td>1</td></tr>
+<tr><td>Content Security Policy (CSP) Header Not Set</td><td>zap</td><td class='ev'>data/raw/demo-synthetic/synthetic_zap_dvwa.json</td><td>3</td></tr>
+<tr><td>Timestamp Disclosure - Unix</td><td>zap</td><td class='ev'>data/raw/demo-synthetic/synthetic_zap_dvwa.json</td><td>4</td></tr>
+</table>
+<footer>run_id demo-synthetic · config hash e301d7b99ec3e370 · weights hash 3c7727984948 · started 2026-09-06T00:00:20.434312+00:00</footer></body></html>

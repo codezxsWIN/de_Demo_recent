@@ -1,0 +1,30 @@
+{
+  "_comment": "SYNTHETIC. Shaped like a Nikto 2.5 JSON report; never produced by Nikto.",
+  "host": "172.28.0.11",
+  "ip": "172.28.0.11",
+  "port": "80",
+  "banner": "Apache/2.4.49 (Ubuntu)",
+  "vulnerabilities": [
+    {
+      "id": "999957",
+      "method": "GET",
+      "url": "/",
+      "msg": "The anti-clickjacking X-Frame-Options header is not present.",
+      "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options"
+    },
+    {
+      "id": "999103",
+      "method": "GET",
+      "url": "/icons/README",
+      "msg": "Server leaks inodes via ETags, header found with file /icons/README.",
+      "references": "http://cwe.mitre.org/data/definitions/200.html"
+    },
+    {
+      "id": "600523",
+      "method": "GET",
+      "url": "/",
+      "msg": "Apache/2.4.49 appears vulnerable to CVE-1999-9001 (SYNTHETIC path traversal).",
+      "references": "https://httpd.apache.org/security/vulnerabilities_24.html CVE-1999-9001"
+    }
+  ]
+}

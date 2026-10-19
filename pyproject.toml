@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vulnassess"
+version = "0.2.0"
+description = "Local-first, lab-scoped, context-aware vulnerability prioritisation"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "pyyaml",
+    "packaging",
+    "psycopg[binary]>=3.2,<4",
+]
+
+[project.scripts]
+vulnassess = "vulnassess.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vulnassess*"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+# Explicit, version-stable set: pyflakes/pycodestyle errors plus import sorting.
+# Ruff >= 0.16 broadened its implicit defaults; this pins the contract.
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pyright]
+# The charter scopes the type gate to the package, not the test scaffolding;
+# scoring and schema are checked in strict mode (docs/decisions.md, fixed interfaces).
+include = ["vulnassess", "scripts"]
+strict = ["vulnassess/scoring.py", "vulnassess/schema.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

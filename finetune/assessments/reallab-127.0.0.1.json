@@ -1,0 +1,31 @@
+{
+  "summary": "All fourteen banner-matched findings rank High; the Python 3.12.10 API, Tomcat and the local model API sit behind no controls, and host-level matching pulls KEV-listed CVE-2020-0601 into the model API finding.",
+  "confidence": "medium",
+  "recommended_actions": [
+    {
+      "order": 1,
+      "action": "Upgrade the Python runtime behind port 5000 and verify each matched 2025-2026 CVE applies to the running build",
+      "reason": "Ten vulners-matched CVEs from CVE-2025-12084 through CVE-2026-7210 were reported against Werkzeug httpd 2.2.3 with Python 3.12.10 on an unauthenticated, unencrypted endpoint.",
+      "finding_ids": ["F1", "F2", "F4", "F6", "F7", "F9", "F10", "F11", "F12", "F14"],
+      "evidence_ids": ["E28", "E5", "E24"]
+    },
+    {
+      "order": 2,
+      "action": "Front the Tomcat, WebWolf and model API services with a reverse proxy enforcing request timeouts and rate limiting",
+      "reason": "The slowloris checks on Tomcat 8888, WebWolf 9090 and the model API 11434 all report LIKELY VULNERABLE (CVE-2007-6750), and no rate limiting or WAF was observed on the host.",
+      "finding_ids": ["F3", "F5", "F8"],
+      "evidence_ids": ["E38", "E23"]
+    }
+  ],
+  "correlations": [
+    {
+      "observation": "F3, F5 and F8 are the same slowloris weakness (CVE-2007-6750) in three distinct services, so one mitigating reverse proxy addresses all three.",
+      "finding_ids": ["F3", "F5", "F8"],
+      "evidence_ids": ["E38", "E48", "E63"]
+    }
+  ],
+  "uncertainties": [
+    "Vulners and CPE matches are banner-derived; applicability to the exact runtime build is unverified.",
+    "No exploit attempts were performed."
+  ]
+}

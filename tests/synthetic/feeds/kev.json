@@ -1,0 +1,20 @@
+{
+  "_comment": "SYNTHETIC. Shaped like the CISA KEV catalog; the CVE does not exist.",
+  "title": "SYNTHETIC Known Exploited Vulnerabilities Catalog",
+  "catalogVersion": "synthetic",
+  "dateReleased": "2026-09-05T12:00:00.0000Z",
+  "count": 1,
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-1999-9001",
+      "vendorProject": "SyntheticVendor",
+      "product": "SyntheticHTTPServer",
+      "vulnerabilityName": "SYNTHETIC path traversal",
+      "dateAdded": "2021-11-03",
+      "shortDescription": "SYNTHETIC entry for tests.",
+      "requiredAction": "Apply the synthetic vendor update.",
+      "dueDate": "2021-11-17",
+      "knownRansomwareCampaignUse": "Known"
+    }
+  ]
+}

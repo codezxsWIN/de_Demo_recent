@@ -1,0 +1,336 @@
+/* Bundled locally so the interface remains identical without a font CDN. */
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("/static/vendor/fonts/InstrumentSans-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("/static/vendor/fonts/InstrumentSans-VariableItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/static/vendor/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  --paper: #f7f7f5;
+  --surface: #ffffff;
+  --wash: #eeefec;
+  --ink: #242724;
+  --muted: #5d635e;
+  --line: #d4d8d2;
+  --line-strong: #7a817b;
+  --critical: #842333;
+  --high: #886200;
+  --medium: #006ba0;
+  --low: #5e6563;
+
+  --font-prose: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-evidence: "Geist Mono", Consolas, "Liberation Mono", monospace;
+  --text-small: 0.8125rem;
+  --text-body: 1rem;
+  --text-section: 1.25rem;
+  --text-title: 2rem;
+  --text-brand: 1.25rem;
+  --leading-body: 1.6;
+  --leading-tight: 1.25;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --radius-small: 3px;
+  --radius-panel: 4px;
+  --rule: 1px;
+  --focus-width: 2px;
+  --page-width: 1120px;
+  --measure: 70ch;
+  --night-paper: #191c1b;
+  --night-surface: #222624;
+  --night-wash: #2b302d;
+  --night-ink: #eeeeea;
+  --night-muted: #b7beb8;
+  --night-line: #424a43;
+  --night-line-strong: #a1aaa3;
+  --night-critical: #ed9eac;
+  --night-high: #dfc26c;
+  --night-medium: #94c9e2;
+  --night-low: #b7c2bf;
+  --overlay: #00000066;
+  --signal: #306f53;
+  --signal-warm: #a45640;
+  --signal-cool: #426c82;
+  --hero-paper: #ededec;
+  --hero-ink: #171719;
+  --hero-muted: #454547;
+  --hero-line: #77777855;
+  --hero-glass: #ffffff44;
+  --planet-body: #ebebeb;
+  --planet-rim: #000000;
+  font-synthesis: none;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: var(--night-paper);
+  --surface: var(--night-surface);
+  --wash: var(--night-wash);
+  --ink: var(--night-ink);
+  --muted: var(--night-muted);
+  --line: var(--night-line);
+  --line-strong: var(--night-line-strong);
+  --critical: var(--night-critical);
+  --high: var(--night-high);
+  --medium: var(--night-medium);
+  --low: var(--night-low);
+  --hero-paper: #1b1b1c;
+  --hero-ink: #f4f4f1;
+  --hero-muted: #c8c8c5;
+  --hero-line: #dadade33;
+  --hero-glass: #18181a55;
+  --planet-body: #131313;
+  --planet-rim: #ffffff;
+}
+
+:root[data-theme="dark"]:not(.workflow-theme) {
+  --assessment-paper: #202122;
+  --assessment-surface: #27292b;
+  --assessment-wash: #323539;
+  --assessment-ink: #f0f0ed;
+  --assessment-muted: #b7bdc4;
+  --assessment-line: #42464b;
+  --assessment-line-strong: #727980;
+  --assessment-signal: #dce2df;
+  --assessment-signal-warm: #e9ad96;
+  --assessment-signal-cool: #a7cbe0;
+  --paper: var(--assessment-paper);
+  --surface: var(--assessment-surface);
+  --wash: var(--assessment-wash);
+  --ink: var(--assessment-ink);
+  --muted: var(--assessment-muted);
+  --line: var(--assessment-line);
+  --line-strong: var(--assessment-line-strong);
+  --signal: var(--assessment-signal);
+  --signal-warm: var(--assessment-signal-warm);
+  --signal-cool: var(--assessment-signal-cool);
+}
+
+:root.workflow-theme {
+  --flow-bg: #24262b;
+  --flow-paper: #2c2f35;
+  --flow-ink: #f1f2f4;
+  --flow-muted: #b6bac4;
+  --flow-line: #454952;
+  --flow-line-strong: #666c77;
+  --flow-dot: #4c515c;
+  --flow-wire: #9299a5;
+  --flow-focus: #d4e8b6;
+  --flow-soft: #363a42;
+  --flow-accent: #c5dda1;
+  --flow-transform: #2b332f;
+  --flow-intel: #2c3440;
+  --flow-output: #35332d;
+  --flow-critical: #ef9296;
+  --flow-waiting: #b58a21;
+  --flow-waiting-text: #e5c467;
+  --flow-shadow: #0000004d;
+  --flow-shadow-contact: #00000026;
+  --flow-shadow-soft: #00000014;
+  --flow-inset: #ffffff10;
+  --flow-inset-strong: #ffffff20;
+  --flow-canvas-shade: #40464f24;
+  --flow-brand-start: #454f42;
+  --flow-brand-end: #30372f;
+  --flow-brand-border: #65745b;
+  --flow-tile-start: #424650;
+  --flow-transform-start: #424c45;
+  --flow-intel-start: #424d5c;
+  --flow-intel-ink: #ccdcef;
+  --flow-decision-start: #414d38;
+  --flow-decision-end: #293321;
+  --flow-decision-border: #889c6c;
+  --flow-decision-inset: #d4e8b624;
+  --flow-output-start: #514b3e;
+  --flow-output-ink: #e4d5b6;
+  --flow-selected-wire: #aec797;
+  --flow-trace: #eff8e4;
+}
+
+:root.workflow-theme {
+  color-scheme: light;
+  --flow-bg: #f4f5f2;
+  --flow-paper: #fbfbf9;
+  --flow-ink: #14171a;
+  --flow-plate: #171a1e;
+  --flow-plate-ink: #f2f2ee;
+  --flow-muted: #5c625f;
+  --flow-line: #d8dad4;
+  --flow-line-strong: #9aa09a;
+  --flow-accent: #0e5a46;
+  --flow-soft: #edeeea;
+  --flow-mono: "Geist Mono", Consolas, "Liberation Mono", monospace;
+  --flow-display: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Assessment workflow palette. The toggle scopes changes to the workflow page. */
+:root.workflow-theme {
+  color-scheme: light;
+  --flow-bg: #f4f4f5;
+  --flow-paper: #ffffff;
+  --flow-ink: #202126;
+  --flow-muted: #62646d;
+  --flow-line: #e2e3e7;
+  --flow-line-strong: #a0a3ad;
+  --flow-accent: #245bd6;
+  --flow-on-accent: #ffffff;
+  --flow-focus: #245bd6;
+  --flow-soft: #f1f1f3;
+  --flow-dot: #d3d5dc;
+  --flow-wire: #9397a2;
+  --flow-selected-wire: #245bd6;
+  --flow-trace: #447ce8;
+  --flow-success: #218355;
+  --flow-critical: #b4233b;
+  --flow-waiting-text: #79540e;
+  --flow-tile-start: #ffffff;
+  --flow-transform: #ffffff;
+  --flow-transform-start: #ffffff;
+  --flow-intel: #ffffff;
+  --flow-intel-start: #ffffff;
+  --flow-intel-ink: #40434d;
+  --flow-decision-start: #ffffff;
+  --flow-decision-end: #ffffff;
+  --flow-decision-border: #a0a3ad;
+  --flow-decision-ink: #202126;
+  --flow-ai-ink: #245bd6;
+  --flow-output: #ffffff;
+  --flow-output-start: #ffffff;
+  --flow-output-ink: #40434d;
+  --flow-shadow: #15161a18;
+  --flow-shadow-contact: #15161a0a;
+  --flow-shadow-soft: #15161a08;
+  --flow-canvas-shade: #00000000;
+  --flow-feature-bg: #20242e;
+  --flow-feature-ink: #f8faff;
+  --flow-feature-muted: #bdc6d9;
+  --flow-feature-accent: #c6b4fb;
+  --flow-context-accent: #245bd6;
+  --flow-risk-accent: #95601b;
+  --flow-ai-soft: #f4f1fc;
+  --flow-risk-soft: #fff5e8;
+  --flow-ai-accent: #7150b5;
+}
+:root.workflow-theme[data-flow-theme="dark"] {
+  color-scheme: dark;
+  --flow-bg: #111214;
+  --flow-paper: #1b1c1f;
+  --flow-ink: #eeeeef;
+  --flow-muted: #acafb8;
+  --flow-line: #33353c;
+  --flow-line-strong: #70747f;
+  --flow-accent: #97b7ef;
+  --flow-on-accent: #14161a;
+  --flow-focus: #97b7ef;
+  --flow-soft: #26272b;
+  --flow-dot: #35373f;
+  --flow-wire: #777c89;
+  --flow-selected-wire: #97b7ef;
+  --flow-trace: #bad1fb;
+  --flow-success: #7ec799;
+  --flow-critical: #ffa2af;
+  --flow-waiting-text: #e9c67a;
+  --flow-tile-start: #1b1c1f;
+  --flow-transform: #1b1c1f;
+  --flow-transform-start: #1b1c1f;
+  --flow-intel: #1b1c1f;
+  --flow-intel-start: #1b1c1f;
+  --flow-intel-ink: #d4d6dc;
+  --flow-decision-start: #1b1c1f;
+  --flow-decision-end: #1b1c1f;
+  --flow-decision-border: #70747f;
+  --flow-decision-ink: #eeeeef;
+  --flow-ai-ink: #97b7ef;
+  --flow-output: #1b1c1f;
+  --flow-output-start: #1b1c1f;
+  --flow-output-ink: #d4d6dc;
+  --flow-shadow: #00000040;
+  --flow-shadow-contact: #00000018;
+  --flow-shadow-soft: #00000010;
+  --flow-canvas-shade: #00000000;
+  --flow-feature-bg: #2d313d;
+  --flow-feature-ink: #f8faff;
+  --flow-feature-muted: #bdc6d9;
+  --flow-feature-accent: #c6b4fb;
+  --flow-context-accent: #97b7ef;
+  --flow-risk-accent: #efc282;
+  --flow-ai-soft: #292535;
+  --flow-risk-soft: #342c22;
+  --flow-ai-accent: #c6b4fb;
+}
+/* Module color identifies a tool family, not whether that tool executed. */
+:root.workflow-theme .viewport {
+  color-scheme: dark;
+  --flow-bg: #15171c;
+  --flow-paper: #22262f;
+  --flow-ink: #f5f7fd;
+  --flow-muted: #b2bdcf;
+  --flow-soft: #2c313b;
+  --flow-line: #363d49;
+  --flow-line-strong: #7b879b;
+  --flow-dot: #353b48;
+  --flow-wire: #768296;
+  --flow-accent: #95bbff;
+  --flow-focus: #b7d2ff;
+  --flow-selected-wire: #8adee2;
+  --flow-trace: #e2edff;
+  --flow-critical: #ffa2af;
+  --flow-success: #84d7bd;
+  --flow-shadow-contact: #00000028;
+  --flow-shadow: #00000050;
+  --module-source: #8db2ff;
+  --module-transform: #8fbeef;
+  --module-intel: #75d9dc;
+  --module-decision: #efc282;
+  --module-output: #c5cede;
+  --module-ai: #c6b4fb;
+  --module-source-fill: #293c67;
+  --module-transform-fill: #263b51;
+  --module-intel-fill: #244346;
+  --module-decision-fill: #453b2b;
+  --module-output-fill: #323b4a;
+  --module-ai-fill: #3a3054;
+  --module-web: #f2aa92;
+  --module-web-fill: #4c332e;
+}
+:root {
+  --workspace-violet: #7060e8;
+  --workspace-blue: #599de0;
+  --workspace-amber: #dcac5f;
+  --workspace-ai-bg: #242235;
+  --workspace-ai-ink: #f1efff;
+  --workspace-ai-line: #423d60;
+  --workspace-ai-accent: #aa93ff;
+  --workspace-ai-muted: #c2bbdb;
+  --workspace-ai-link: #ded6ff;
+  --workspace-ai-border: #70648f;
+  --workspace-ai-chip: #39324f;
+}

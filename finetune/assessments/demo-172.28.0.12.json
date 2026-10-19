@@ -1,0 +1,31 @@
+{
+  "summary": "Internet-facing host runs an HTTP service and an exposed MySQL port; the sole recorded finding is CISA KEV-listed with CVSS 9.8, and no compensating controls were observed.",
+  "confidence": "high",
+  "recommended_actions": [
+    {
+      "order": 1,
+      "action": "Patch or mitigate the KEV-listed HTTP finding and confirm the service must remain internet-facing",
+      "reason": "CVE-1999-9001 carries CVSS 9.8, is listed in the CISA KEV catalog, and the host is internet-facing with no WAF or TLS observed.",
+      "finding_ids": ["F1"],
+      "evidence_ids": ["E12", "E4", "E8"]
+    },
+    {
+      "order": 2,
+      "action": "Restrict the MySQL service from internet exposure or place it behind authentication",
+      "reason": "A database port reachable from the internet with no compensating control invites brute force and data exposure even without a recorded finding.",
+      "finding_ids": [],
+      "evidence_ids": ["E2"]
+    }
+  ],
+  "correlations": [
+    {
+      "observation": "The HTTP finding is the only recorded vulnerability, but the exposed database port compounds the blast radius of any compromise.",
+      "finding_ids": ["F1"],
+      "evidence_ids": ["E2", "E12"]
+    }
+  ],
+  "uncertainties": [
+    "No authenticated validation or exploit attempt was performed.",
+    "Whether the MySQL service must remain externally reachable is not recorded."
+  ]
+}

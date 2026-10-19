@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" class="building-drawing" role="img" aria-label="Vault">
+  <title>Vault</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 214h180M40 212V76h160v136M30 76l22-26h136l22 26ZM60 50V36h120v14"/>
+    <path d="M66 100v88M174 100v88M88 212v-96h64v96M88 144h64M88 184h64M124 156v16"/>
+  </g>
+</svg>

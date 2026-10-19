@@ -1,0 +1,30 @@
+{
+  "_comment": "SYNTHETIC malformed parser/security unit inputs only; none is scanner or feed evidence.",
+  "xml": [
+    "",
+    "not XML",
+    "<broken>",
+    "<unrelated/>",
+    "<!DOCTYPE unrelated SYSTEM 'file:///not-provided'><unrelated/>",
+    "<!DOCTYPE unrelated [<!ENTITY item 'not scanner evidence'>]><unrelated>&item;</unrelated>"
+  ],
+  "json": ["", "not JSON", "{", "[]", "null", "{\"duplicate\": 1, \"duplicate\": 2}"],
+  "xml_span_cases": [
+    {
+      "document": "<record><script value='a > b'/></record>",
+      "expected": "<script value='a > b'/>"
+    },
+    {
+      "document": "<record><script><script /></script></record>",
+      "expected": "<script />"
+    },
+    {
+      "document": "<record><script value='text'>SYNTHETIC &amp; ONLY</script></record>",
+      "expected": "<script value='text'>SYNTHETIC &amp; ONLY</script>"
+    }
+  ],
+  "json_span_case": {
+    "document": " { \"groups\" : [ { \"entries\" : [ {\"note\":\"SYNTHETIC: } ] \\\" quotes\"}, { \"note\" : \"line\\nbreak\" } ] } ] } ",
+    "expected": ["{\"note\":\"SYNTHETIC: } ] \\\" quotes\"}", "{ \"note\" : \"line\\nbreak\" }"]
+  }
+}

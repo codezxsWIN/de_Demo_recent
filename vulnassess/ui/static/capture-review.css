@@ -1,0 +1,20 @@
+body { margin: 0; background: var(--paper); color: var(--ink); font: var(--text-body)/var(--leading-body) var(--font-prose); }
+header, main { max-width: 68rem; margin: auto; padding: 1.5rem; }
+header { border-bottom: 1px solid var(--line); }
+nav { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+a { color: var(--medium); text-underline-offset: .2em; }
+a:focus-visible, summary:focus-visible { outline: 3px solid currentColor; outline-offset: 4px; }
+h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.2; overflow-wrap: anywhere; }
+h2 { font-size: 1.25rem; margin-top: 2rem; }
+.notice { border-left: 3px solid var(--medium); padding: 1rem; background: var(--surface); }
+dt { font-weight: 600; margin-top: .75rem; }
+dd { margin: 0; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-size: .875rem; }
+.hash, pre { font-family: var(--font-evidence); overflow-wrap: anywhere; white-space: pre-wrap; font-size: .85rem; }
+details { margin-block: .75rem; padding: 1rem; border: 1px solid var(--line); }
+summary { cursor: pointer; font-weight: 600; }
+.history { list-style: none; padding: 0; }
+.history li { border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
+.skip { position: absolute; left: -10000px; }
+.skip:focus { position: static; }
+@media print { header, .skip { display: none; } details > * { display: block; } main { padding: 0; } }

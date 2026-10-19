@@ -1,0 +1,21 @@
+_comment: SYNTHETIC expert rankings for tests; not real expert judgment.
+experts:
+- name: synthetic-expert-a
+  ranking:
+  - 773c6bd5-077f-58f8-be4d-79e86a3d50ca
+  - 5bd0e6e7-fbc5-5ecd-b39a-ab87c7ea191a
+  - 4963a8ce-72ec-5889-ba8d-d6396018e906
+  - cce339bb-43a2-5b25-aa8d-cef1d87e641e
+  - d0cae353-dce5-5010-bd40-07d4b6ccf7f7
+  - eeece458-8dca-5907-a63e-b02cce04f318
+- name: synthetic-expert-b
+  ranking:
+  - 773c6bd5-077f-58f8-be4d-79e86a3d50ca
+  - 4963a8ce-72ec-5889-ba8d-d6396018e906
+  - 5bd0e6e7-fbc5-5ecd-b39a-ab87c7ea191a
+  - - cce339bb-43a2-5b25-aa8d-cef1d87e641e
+    - d0cae353-dce5-5010-bd40-07d4b6ccf7f7
+  - eeece458-8dca-5907-a63e-b02cce04f318
+expert_critical:
+- 773c6bd5-077f-58f8-be4d-79e86a3d50ca
+- 5bd0e6e7-fbc5-5ecd-b39a-ab87c7ea191a

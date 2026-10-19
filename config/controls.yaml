@@ -1,0 +1,17 @@
+# Compensating-control signatures. Vendor-documented patterns matched against banners and
+# scanner evidence. A match records that a control was observed, never that a finding is fixed.
+waf:
+  - {regex: "cf-ray|cloudflare", vendor: Cloudflare}
+  - {regex: "akamai|x-akamai", vendor: Akamai}
+  - {regex: "bigip|f5", vendor: "F5 BIG-IP"}
+  - {regex: "awselb|x-amzn-waf|x-amz-cf-id", vendor: "AWS WAF/CloudFront"}
+  - {regex: "mod_security|modsecurity|owasp crs", vendor: ModSecurity}
+  - {regex: "incapsula|imperva", vendor: Imperva}
+
+auth_required:
+  - {regex: "http/1\\.[01] 401|www-authenticate|401 unauthorized", note: "401 challenge observed"}
+  - {regex: "http/1\\.[01] 403|403 forbidden", note: "403 on request observed"}
+  - {regex: "login|signin|password", note: "login form observed"}
+
+rate_limiting:
+  - {regex: "http/1\\.[01] 429|429 too many|retry-after", note: "429 observed"}

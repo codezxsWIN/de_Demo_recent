@@ -1,0 +1,21 @@
+# The safety fence. Only these addresses may be imported; everything else is refused
+# before any scan file is read.
+# Owner authorization: live discovery is authorised across the local LAN (192.168.0.0/24),
+# the enumerated 172.28 lab addresses, and the exact public targets documented below.
+# The lab segment must stay /32-enumerated so it does not include the canary.
+# The canary must never be scanned.
+# Exception, owner-approved 2026-09-22: 45.33.32.156 (scanme.nmap.org) is Nmap's public
+# scan-me host with standing permission for LIGHT scans - common ports only, no
+# aggressive or DoS-class script scanning, no repeated hammering.
+# Owner-authorized 2026-09-27: pentest-ground.com agent site resolves to 178.79.134.182.
+# Keep this exact /32; refresh the DNS pin if the hosting IP changes.
+allowed_cidrs: [172.28.0.10/32, 172.28.0.11/32, 172.28.0.12/32, 192.168.0.0/24, 127.0.0.1/32, 45.33.32.156/32, 178.79.134.182/32]
+allowed_hosts: []
+vantage: internal
+lab_targets:
+  - {name: metasploitable2, ip: 172.28.0.10, tags: {environment: test}}
+  - {name: dvwa,            ip: 172.28.0.11, tags: {environment: prod, criticality: 4}}
+  - {name: juice-shop,      ip: 172.28.0.12, tags: {environment: prod, criticality: 3, vantage: external}}
+  - {name: real-local-lab,  ip: 127.0.0.1,  tags: {environment: test, criticality: 3}}
+  - {name: pentest-ground-agent, ip: 178.79.134.182, tags: {environment: test, vantage: external}}
+canary: {ip: 172.28.0.250}

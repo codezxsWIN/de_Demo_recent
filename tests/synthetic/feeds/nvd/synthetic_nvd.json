@@ -1,0 +1,100 @@
+{
+  "_comment": "SYNTHETIC. Shaped like an NVD API 2.0 response; the CVEs do not exist.",
+  "resultsPerPage": 2,
+  "totalResults": 2,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-1999-9001",
+        "published": "1999-01-01T00:00:00.000",
+        "descriptions": [
+          {"lang": "en", "value": "SYNTHETIC path traversal in a synthetic HTTP server."},
+          {"lang": "es", "value": "SINTETICO"}
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "synthetic@example.invalid",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL"
+              }
+            }
+          ]
+        },
+        "references": [
+          {"url": "https://httpd.apache.org/security/vulnerabilities_24.html", "tags": ["Vendor Advisory", "Patch"]},
+          {"url": "https://example.invalid/synthetic-post", "tags": ["Third Party Advisory"]}
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:apache:http_server:*:*:*:*:*:*:*:*",
+                    "versionStartIncluding": "2.4.49",
+                    "versionEndExcluding": "2.4.51",
+                    "matchCriteriaId": "SYNTHETIC-0001"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-1999-9002",
+        "published": "1999-01-02T00:00:00.000",
+        "descriptions": [
+          {"lang": "en", "value": "SYNTHETIC information disclosure in a synthetic database."}
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "synthetic@example.invalid",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+                "baseScore": 3.7,
+                "baseSeverity": "LOW"
+              }
+            }
+          ]
+        },
+        "references": [
+          {"url": "https://example.invalid/synthetic-db-advisory", "tags": ["Vendor Advisory"]}
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:oracle:mysql:*:*:*:*:*:*:*:*",
+                    "versionEndIncluding": "5.5.62",
+                    "matchCriteriaId": "SYNTHETIC-0002"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

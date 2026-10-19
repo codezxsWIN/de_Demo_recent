@@ -1,0 +1,4 @@
+#model_version:synthetic,score_date:2026-09-05T00:00:00+0000
+cve,epss,percentile
+CVE-1999-9001,0.94321,0.99870
+CVE-1999-9002,0.00120,0.31000

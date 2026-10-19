@@ -1,0 +1,134 @@
+VULNASSESS - PROVISIONING STATUS (updated 2026-09-17)
+Workspace: C:\Users\aksha\Downloads\fragmented
+
+WHAT CHANGED SINCE THE 2026-09-07 CHECKLIST
+===========================================
+The real public feed snapshots (section 4 of the original checklist) are now
+provisioned, and the quality gate runs in CI. The remaining gaps are the ones a
+human must supply: scanner captures, independent truth, expert rankings.
+
+- [PROVISIONED] KEV, EPSS and NVD snapshots under data/feeds/ (gitignored),
+  fetched from the official publishers; provenance and SHA-256 hashes in
+  docs/FEED_PROVENANCE.md. A curated, committed subset used by the integration
+  tests lives in tests/fixtures/intel/ with its own PROVENANCE.md.
+- [PROVISIONED] CI (.github/workflows/ci.yml) runs Ruff lint, Ruff format,
+  Pyright (strict on scoring/schema) and pytest with the 75% coverage floor on
+  Python 3.11 and 3.12, with pinned tool versions.
+- [NEW] python scripts/fetch_feeds.py re-fetches the feeds (resumable).
+- [NEW] python run_real_demo.py runs the whole pipeline against the real feeds.
+- [REMOVED] legacy/, project-starter-kit/ and the two PROVISIONING_*.md files;
+  see docs/decisions.md CLEANUP-01. Git history preserves them.
+
+STILL MISSING - HUMAN INPUT ONLY
+================================
+[PROVISIONED 2026-09-19] Real CVE-bearing findings exist: nginx 1.20.0 on the
+    lab produced three explicit CVE findings (real EPSS enrichment) - see
+    tests/fixtures/nmap/real-lab-172.28.0.11-nginx.xml. ZAP 2.16.1 + Java 21
+    installed; a real ZAP passive-scan capture (278 findings) is committed under
+    tests/fixtures/zap/. Ollama + llama3.2:3b installed; LLM rationales stored.
+[PROVISIONED 2026-09-17] First real Nmap captures exist: two committed fixtures
+    under tests/fixtures/nmap/ (with provenance rows) from loopback lab scans
+    of this machine via `vulnassess scan --execute`. They contain no explicit
+    CVE evidence (keyless vulners); more captures still welcome.
+[OPTIONAL] A free Vulners API key at ~/.nmap/vulners.key unlocks CVE-level
+    findings from the vulners NSE during scans.
+[MISSING] Nikto and ZAP captures (tools not installed; optional).
+[MISSING] Real Nmap/Nikto/ZAP captures from a multi-host authorised lab
+    beyond the two committed loopback captures.
+[MISSING] Independent host-context truth for RQ1 (must not derive from this tool).
+[MISSING] Disjoint human role-model datasets (train/calibration/test splits).
+[MISSING] Expert finding rankings from 2-3 independent practitioners for RQ2/RQ3.
+[MISSING] Frozen evaluation/cohort manifest binding IDs, config and feed hashes.
+[MISSING] Canary access evidence (a human-provided access log).
+[OPTIONAL] Ollama runtime + one approved local model for rationale rewording.
+    The system is fully functional without it (deterministic rationales).
+
+The runtime still reads feeds locally and never refreshes them. Scanning requires
+explicit human --execute plus everything in section 3 of the original checklist
+below (scope fence, canary, authorisation, canary log).
+
+ORIGINAL CHECKLIST (2026-09-07) - SUPPLIED ITEMS AND RULES REMAIN IN FORCE
+==========================================================================
+All download, install, pull, and feed-fetch commands described by the original
+file were not run by the agent. Before provisioning a package, image, scanner,
+model, or feed, record: exact version, dependencies, official source, SHA-256,
+license, dated vulnerability review, reviewer and approval date.
+
+Do not commit credentials, full public feeds, production scan output, or model
+secrets. Keep live feeds under data/ and generated reports under reports/.
+
+1. CURRENTLY PRESENT - DO NOT DOWNLOAD AGAIN
+=============================================
+[PRESENT] Python 3.12.10 (project requires Python 3.11+)
+[PRESENT] Nmap 7.80 + Npcap + vulners NSE (installed 2026-09-17 via winget,
+    with owner approval; loops back only)
+[PRESENT] PyYAML 6.0.3 (import name: yaml)
+[PRESENT] Packaging 24.2
+[PRESENT] pytest + pytest-cov
+[PRESENT] Ruff 0.16.6 and Pyright 1.1.411 (the gate now passes; CI pins them)
+[PRESENT] Java 17, Docker CLI, Git, GitHub CLI
+
+The runtime has only two Python dependencies: pyyaml and packaging. Do not
+install pydantic, typer, rich, scipy, jinja2, cvss or httpx for this package.
+
+2. QUALITY GATE
+===============
+    make check          (or: python scripts/check.py)
+Stages: Ruff lint, Ruff format, Pyright, pytest with coverage >= 75%.
+Current status: PASSING locally (87.6% coverage) and enforced in CI.
+Do not use an unpinned `pip install` as supply-chain approval; CI pins exact
+versions and the pins are updated deliberately.
+
+3. REQUIRED TO RUN REAL SCANS (unchanged)
+=========================================
+[MISSING] Nmap (https://nmap.org/download.html), command on PATH: nmap
+[MISSING] Vulners NSE script (optional; see original notes)
+[MISSING] Nikto (https://github.com/sullo/nikto), command on PATH: nikto
+[MISSING] Perl for native Nikto, or a digest-pinned container image
+[MISSING] OWASP ZAP baseline runner (https://www.zaproxy.org/download/)
+Safety requirements before any scan: target in config/scope.yaml; canary
+172.28.0.250 outside scope; isolated lab network; written authorisation;
+command/operator/time recorded; canary access log supplied and empty.
+
+4. OFFLINE VULNERABILITY FEEDS - NOW PROVISIONED (see top)
+==========================================================
+Official sources: NVD API 2.0 (services.nvd.nist.gov), EPSS (epss.cyentia.com),
+KEV (cisa.gov). Local layout: data/feeds/nvd/*.json, data/feeds/epss.csv[.gz],
+data/feeds/kev.json. Record fetch date, URL, SHA-256, file date, row count and
+fetcher for every refresh; docs/FEED_PROVENANCE.md holds the current record.
+
+5. OPTIONAL LOCAL LLM RATIONALE (unchanged)
+===========================================
+[MISSING] Ollama runtime and one approved model (current default llama3.2:3b).
+The model never computes a score, role, exposure, control, CVE match, merge or
+remediation result; the system works without it.
+
+6. HUMAN-GENERATED INPUTS FOR REAL CLAIMS (unchanged - see top)
+===============================================================
+Real captures, independent context truth, disjoint role-model datasets, expert
+rankings, frozen cohort manifest, canary access evidence. Until these arrive,
+all RQ1-RQ4 outcomes remain NOT RUN / ineligible.
+
+7. OPTIONAL FUTURE ARTIFACTS (unchanged)
+========================================
+Pre-commit hooks; CVSS v4.0 MacroVector artifact (current scoring is v3.1);
+PDF renderer (reports are self-contained printable HTML).
+
+8. WHAT DOES NOT NEED A DOWNLOAD
+================================
+The scoring engine, role-model implementation, parsers, evaluation arithmetic,
+ablation/stability engine, canonical workbench, SQLite, and HTML templates - all
+present and tested. The synthetic demo data proves only code paths.
+
+9. POST-PROVISIONING CHECKLIST
+==============================
+[ ] Verify each command with `Get-Command <name>` or `<name> --version`
+[ ] Record versions and hashes in fixture READMEs / docs/decisions.md
+[ ] make check   (must pass before any claim of a green gate)
+[ ] python run_demo.py && python run_model_simulation.py
+[ ] python run_research_simulation.py && python run_visual_simulation.py
+[ ] python run_real_demo.py    (after data/feeds/ is populated)
+[ ] Import real captures only after scope validation
+[ ] Run independent context and ranking evaluation once the cohort is frozen
+
+END OF CHECKLIST

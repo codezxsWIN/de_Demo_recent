@@ -1,0 +1,21 @@
+:root { color-scheme: dark; font-family: var(--font-prose); background: var(--paper); color: var(--ink); }
+body { margin: 0; }
+main { max-width: 960px; margin: auto; padding: 36px 24px 80px; }
+nav { display: flex; justify-content: space-between; gap: 20px; }
+a { color: var(--medium); }
+header { margin: 52px 0 30px; }
+.eyebrow { color: var(--medium); font-size: 12px; letter-spacing: .15em; }
+h1 { font-size: clamp(30px, 5vw, 48px); margin: 12px 0; }
+h2 { font-size: 23px; }
+p, li { line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
+section { padding: 28px; margin: 22px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+label { display: block; line-height: 1.6; margin-bottom: 10px; }
+input[type=url] { box-sizing: border-box; width: 100%; background: var(--paper); color: var(--ink); padding: 15px; border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
+.confirmation { margin: 22px 0; }
+button { background: var(--medium); color: var(--paper); border: 0; border-radius: 8px; padding: 13px 20px; font: inherit; font-weight: 650; cursor: pointer; }
+button:disabled { opacity: .55; cursor: wait; }
+:focus-visible { outline: 3px solid var(--medium); outline-offset: 4px; }
+.evidence { border-left: 3px solid var(--medium); padding: 8px 18px; margin: 18px 0; }
+.evidence small { color: var(--medium); }
+[hidden] { display: none !important; }
+@media (max-width: 600px) { main { padding: 24px 14px; } section { padding: 18px; } }

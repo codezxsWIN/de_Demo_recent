@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340" role="img" aria-labelledby="title desc">
+  <title id="title">Doors severity colours: protanopia</title>
+  <desc id="desc">Locally generated token swatches. Severity is always named as well as coloured. Full-severity linear-sRGB simulation is approximate.</desc>
+  <rect width="960" height="340" fill="#f7f7f5" />
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="32" y="42" font-size="24">Doors / protanopia</text>
+  <rect x="32" y="72" width="200" height="104" rx="3" fill="#3d3a33" />
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="32" y="212" font-size="20">Critical</text>
+  <text font-family="Consolas, monospace" fill="#5d635e" x="32" y="242" font-size="16">--critical: #3d3a33</text>
+  <rect x="264" y="72" width="200" height="104" rx="3" fill="#716300" />
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="264" y="212" font-size="20">High</text>
+  <text font-family="Consolas, monospace" fill="#5d635e" x="264" y="242" font-size="16">--high: #716300</text>
+  <rect x="496" y="72" width="200" height="104" rx="3" fill="#516ca2" />
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="496" y="212" font-size="20">Medium</text>
+  <text font-family="Consolas, monospace" fill="#5d635e" x="496" y="242" font-size="16">--medium: #516ca2</text>
+  <rect x="728" y="72" width="200" height="104" rx="3" fill="#646463" />
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="728" y="212" font-size="20">Low</text>
+  <text font-family="Consolas, monospace" fill="#5d635e" x="728" y="242" font-size="16">--low: #646463</text>
+  <text font-family="Segoe UI, sans-serif" fill="#242724" x="32" y="304" font-size="15">Simulation, not human-perception evidence. Labels remain authoritative.</text>
+</svg>

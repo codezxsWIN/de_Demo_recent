@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VulnAssess / Public Website Check</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/website-check.css">
+  <script type="module" src="/static/website-check.js"></script>
+</head>
+<body>
+  <main>
+    <nav><a href="/workflow">← Authorised assessment workspace</a><a href="/">Project</a></nav>
+    <header><p class="eyebrow">VULNASSESS / PUBLIC SURFACE</p><h1>Public Website Check</h1><p>A small, read-only look at a website’s public security metadata. Your authorised deep-scan workflow is unchanged.</p></header>
+    <section aria-labelledby="check-heading">
+      <h2 id="check-heading">Check a public website</h2>
+      <p>One root HEAD request on HTTP/80 or HTTPS/443. No port scans, login attempts, vulnerability probes, crawling or redirects. HTTPS certificates are validated against the submitted hostname.</p>
+      <label for="website-target">Website address</label>
+      <input id="website-target" type="url" placeholder="https://example.com" maxlength="2048" spellcheck="false" autocomplete="off">
+      <p>Only the root / is requested; page paths are discarded. Credentials, query strings and fragments are refused. Private/internal addresses are blocked.</p>
+      <label class="confirmation"><input id="website-consent" type="checkbox"> I request this bounded metadata check. It is not a vulnerability scan or a guarantee that the website is safe.</label>
+      <button id="website-start" type="button">Check public metadata</button>
+      <p id="website-status" role="status" aria-live="polite">Nothing has been requested.</p>
+    </section>
+    <section id="website-report" aria-label="Website metadata report" hidden>
+      <h2 id="website-result-heading">Results</h2>
+      <p id="website-summary"></p>
+      <h3>Observed evidence</h3><div id="website-evidence"></div>
+      <h3>Practical precautions — guidance, not confirmed findings</h3><ul id="website-precautions"></ul>
+      <h3>Coverage & unknowns</h3><ul id="website-coverage"></ul>
+      <p>No AI provider is called in this mode. These are deterministic explanations of the returned metadata; no vulnerability score is assigned.</p>
+      <button id="website-download" type="button">Save metadata report (JSON)</button>
+    </section>
+  </main>
+</body>
+</html>

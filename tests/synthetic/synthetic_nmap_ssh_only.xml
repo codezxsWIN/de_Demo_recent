@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC. Invented for orchestration tests; never produced by Nmap. -->
+<nmaprun scanner="nmap" start="1757116800" version="7.94">
+  <host starttime="1757116800" endtime="1757116860">
+    <status state="up" reason="arp-response"/>
+    <address addr="172.28.0.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack"/>
+        <service name="ssh" product="SyntheticSSH" version="4.7p1"/>
+      </port>
+    </ports>
+  </host>
+  <runstats><finished time="1757116860" exit="success"/></runstats>
+</nmaprun>

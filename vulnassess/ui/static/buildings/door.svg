@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" class="door-drawing" aria-hidden="true">
+  <title>Finding door and severity badge</title>
+  <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 45h34M9 44V7h26v37M14 44V12h15v32M23 29h1"/>
+  </g>
+  <rect class="door-badge" x="27" y="3" width="17" height="17" rx="3" fill="currentColor"/>
+</svg>

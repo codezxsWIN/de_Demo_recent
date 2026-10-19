@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" class="building-drawing" role="img" aria-label="Shed">
+  <title>Shed</title>
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 96 120 38 218 96M38 88v124h164V88M24 214h192"/>
+    <path d="M100 212v-70h40v70M70 114v76M170 114v76M96 102h48M127 178h2"/>
+  </g>
+</svg>

@@ -1,0 +1,37 @@
+# The scoring formula. A frozen hypothesis: change it and the ranking changes,
+# so every published result names the weights hash printed in the report footer.
+version: 1
+
+environmental:
+  internal_when_av_network: {MAV: A}      # internal host + base AV:N -> attacker needs a foothold
+  waf_present: {MAC: H}                   # a WAF raises attack complexity
+  auth_required_when_pr_none: {MPR: L}    # auth in front of a PR:N flaw -> low privileges required
+  role_requirements:                      # C/I/A Requirements by inferred role
+    database:          {CR: H, IR: H, AR: H}
+    domain_controller: {CR: H, IR: H, AR: H}
+    web_frontend:      {CR: M, IR: H, AR: H}
+    app_server:        {CR: M, IR: H, AR: M}
+    mail:              {CR: H, IR: M, AR: M}
+    file_share:        {CR: H, IR: M, AR: L}
+    iot_embedded:      {CR: L, IR: M, AR: M}
+    workstation:       {CR: M, IR: M, AR: L}
+    network_device:    {CR: M, IR: H, AR: H}
+    unknown:           {CR: M, IR: M, AR: M}
+  environment_test: {CR: L, IR: L, AR: L}  # a test environment overrides role requirements
+  criticality_step_above: 3                # each manual criticality point above this steps CR/IR/AR up
+  min_confidence_to_apply: 0.5             # inferences below this do NOT modify the vector
+
+threat:
+  base_multiplier: 0.5                     # threat = 0.5 + 0.5 * EPSS percentile (0.5 .. 1.0)
+  epss_weight: 0.5
+  kev_multiplier: 1.0                      # KEV forces the multiplier to at least this
+  kev_boost: 10                            # ...and adds this to risk
+  kev_floor_internet_facing: 90            # ...and floors risk here ONLY if the host is internet-facing
+
+native_fallback:                           # findings with no CVE rank on the tool's own severity
+  nessus: {Critical: 80, High: 60, Medium: 40, Low: 20}
+  zap: {High: 60, Medium: 40, Low: 20, Informational: 5}
+  nikto: 30
+  nmap: 25
+
+bands: {Critical: 80, High: 60, Medium: 35}

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-built lab capture for the scoped test hosts. NOT produced by Nmap: it exercises
+     the pipeline with real CVE identifiers against real feed snapshots. The CVE records,
+     EPSS scores and KEV listings it is enriched with are real; the scan itself is not. -->
+<nmaprun scanner="nmap" args="nmap -sV -O --script vulners -oX -" start="1758153600" version="7.94">
+  <host starttime="1758153600" endtime="1758153660">
+    <status state="up" reason="arp-response"/>
+    <address addr="172.28.0.12" addrtype="ipv4"/>
+    <hostnames><hostname name="lab-juice-shop" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="8080">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="Apache httpd" version="2.4.57" method="probed" conf="10">
+          <cpe>cpe:/a:apache:log4j:2.14.1</cpe>
+        </service>
+        <script id="vulners" output="&#10;  cpe:/a:apache:log4j:2.14.1: &#10;    CVE-2021-44228  10.0  https://vulners.com/cve/CVE-2021-44228&#10;"/>
+      </port>
+      <port protocol="tcp" portid="3306">
+        <state state="closed" reason="reset"/>
+      </port>
+    </ports>
+    <os><osmatch name="Linux 5.15 - Ubuntu 22.04" accuracy="96"/></os>
+  </host>
+  <host starttime="1758153600" endtime="1758153670">
+    <status state="up" reason="arp-response"/>
+    <address addr="172.28.0.10" addrtype="ipv4"/>
+    <hostnames><hostname name="lab-metasploitable2" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="8080">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="GNU Bash" version="4.3" method="probed" conf="10">
+          <cpe>cpe:/a:gnu:bash:4.3</cpe>
+        </service>
+        <script id="vulners" output="&#10;  cpe:/a:gnu:bash:4.3: &#10;    CVE-2014-6271  9.8  https://vulners.com/cve/CVE-2014-6271&#10;"/>
+      </port>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack"/>
+        <service name="ssh" product="OpenSSH" version="4.7p1" method="probed" conf="10">
+          <cpe>cpe:/a:openbsd:openssh:4.7p1</cpe>
+        </service>
+      </port>
+    </ports>
+    <os><osmatch name="Linux 2.6.9 - 2.6.33" accuracy="94"/></os>
+  </host>
+  <runstats>
+    <finished time="1758153680" exit="success" elapsed="80.00"/>
+    <hosts up="2" down="0" total="2"/>
+  </runstats>
+</nmaprun>

@@ -1,0 +1,98 @@
+{
+  "_comment": "SYNTHETIC: pure model validation and persistence tests only; not scanner, feed, or model output.",
+  "finding": {
+    "host_ip": "198.51.100.42",
+    "port": 443,
+    "protocol": "tcp",
+    "url": null,
+    "tool": "nmap",
+    "tool_native_id": "synthetic-unit-rule",
+    "title": "SYNTHETIC SCHEMA TEST ONLY",
+    "description": "Pure model-validation input; not scanner or feed evidence.",
+    "evidence": "SYNTHETIC SCHEMA TEST ONLY",
+    "cve_ids": [],
+    "cwe_ids": [],
+    "reference_urls": [],
+    "native_severity": null,
+    "native_confidence": null,
+    "first_seen": "2026-09-06T00:00:00Z",
+    "last_seen": "2026-09-06T00:00:00Z",
+    "provenance": {
+      "tool": "nmap",
+      "raw_path": "tests/synthetic/synthetic_schema.json",
+      "record_index": 0,
+      "run_id": "synthetic-unit-run"
+    }
+  },
+  "host": {
+    "ip": "198.51.100.42",
+    "hostname": null,
+    "os_guess": null,
+    "services": [
+      {
+        "port": 443,
+        "protocol": "tcp",
+        "name": null,
+        "product": null,
+        "version": null,
+        "cpe": null,
+        "banner": null,
+        "tls": false
+      }
+    ]
+  },
+  "feature": {
+    "value": "unknown",
+    "confidence": 0.0,
+    "source": "rule",
+    "evidence": "none observed"
+  },
+  "context": {
+    "host_ip": "198.51.100.42",
+    "role": {"value": "unknown", "confidence": 0.0, "source": "rule", "evidence": "none observed"},
+    "exposure": {"value": "internal", "confidence": 0.0, "source": "rule", "evidence": "none observed"},
+    "segment": null,
+    "controls": {},
+    "manual": {}
+  },
+  "enrichment": {
+    "finding_id": "synthetic-unit-finding",
+    "cve_id": "synthetic-unit-id-not-a-cve",
+    "match_method": "explicit",
+    "match_confidence": 0.5,
+    "cvss31_vector": null,
+    "cvss31_base": null,
+    "cvss40_vector": null,
+    "cvss40_base": null,
+    "epss": null,
+    "epss_percentile": null,
+    "kev": false,
+    "kev_date_added": null,
+    "feed_dates": {}
+  },
+  "score": {
+    "finding_id": "synthetic-unit-finding",
+    "cve_id": null,
+    "cvss_version_used": null,
+    "base_vector": null,
+    "base_score": null,
+    "env_vector": null,
+    "env_score": null,
+    "env_modifications": {},
+    "epss_percentile": null,
+    "threat_multiplier": 1.0,
+    "kev": false,
+    "native_fallback": "synthetic-schema-value",
+    "risk": 0.0,
+    "band": "Low",
+    "inputs": {"synthetic": true},
+    "weights_hash": "synthetic-schema-value-not-an-approval"
+  },
+  "rationale": {
+    "finding_id": "synthetic-unit-finding",
+    "text": "Synthetic model round-trip only; no model was invoked.",
+    "source": "template",
+    "model": null,
+    "validation": {"synthetic": true}
+  }
+}
