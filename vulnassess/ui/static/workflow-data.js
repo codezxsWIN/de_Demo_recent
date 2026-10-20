@@ -1,4 +1,4 @@
-export const SIZE = Object.freeze({width: 1500, height: 740});
+export const SIZE = Object.freeze({width: 1700, height: 840});
 
 export const stageStateLabel = state => ({complete: 'Executed', skipped: 'Not applicable', not_in_mode: 'Not in this run mode', error: 'Failed', pending: 'Waiting', running: 'Running'}[state] || state);
 
@@ -45,24 +45,24 @@ export function finishFailedExecution(stages, stageIds, reason) {
 }
 
 export const NODE_SPECS = Object.freeze([
-  {id: 'scope', title: 'Target & scope', subtitle: 'Permission boundary', icon: 'target', x: 100, y: 340, group: 'source'},
-  {id: 'nmap', title: 'Nmap', subtitle: 'Ports & services', icon: 'radar', x: 300, y: 340, group: 'source'},
-  {id: 'nessus', title: 'Nessus report', subtitle: 'Imported network findings', icon: 'browser', x: 100, y: 570, group: 'source'},
-  {id: 'nikto', title: 'Nikto', subtitle: 'Web server findings', icon: 'terminal', x: 300, y: 570, group: 'source'},
-  {id: 'canonical', title: 'Normalize & store', subtitle: 'Canonical finding records', icon: 'merge', x: 500, y: 340, group: 'transform'},
-  {id: 'nvd', title: 'NVD', subtitle: 'CVEs & CVSS vectors', icon: 'database', x: 500, y: 110, group: 'intel'},
-  {id: 'epss', title: 'EPSS', subtitle: 'Exploitation evidence', icon: 'chart', x: 700, y: 110, group: 'intel'},
-  {id: 'kev', title: 'CISA KEV', subtitle: 'Known exploitation', icon: 'flag', x: 900, y: 110, group: 'intel'},
-  {id: 'intel', title: 'Enrich findings', subtitle: 'CVE matches & feed dates', icon: 'link', x: 700, y: 340, group: 'transform'},
-  {id: 'context', title: 'Infer context', subtitle: 'Role · exposure · controls', icon: 'layers', x: 500, y: 570, group: 'transform'},
-  {id: 'shadow', title: 'Role classifier', subtitle: 'Optional learned evidence', icon: 'model', x: 300, y: 110, group: 'optional'},
-  {id: 'score', title: 'Calculate risk', subtitle: 'CVSS Environmental + threat', icon: 'formula', x: 900, y: 340, group: 'decision'},
-  {id: 'queue', title: 'Prioritize', subtitle: 'Stored risk order', icon: 'queue', x: 1100, y: 340, group: 'decision'},
-  {id: 'rationale', title: 'Explain the score', subtitle: 'Recorded reason & rationale', icon: 'text', x: 1300, y: 570, group: 'output'},
-  {id: 'report', title: 'Assessment report', subtitle: 'Findings & provenance', icon: 'report', x: 1300, y: 340, group: 'output'},
-  {id: 'analyst', title: 'AI analyst', subtitle: 'Cited target assessment', icon: 'model', x: 900, y: 570, group: 'optional'},
-  {id: 'evaluation', title: 'Expert evaluation', subtitle: 'Agreement & critical queue', icon: 'compare', x: 1100, y: 110, group: 'optional'},
-  {id: 'rescan', title: 'Re-scan comparison', subtitle: 'Comparable evidence required', icon: 'repeat', x: 1300, y: 110, group: 'optional'},
+  {id: 'scope', title: 'Target & scope', subtitle: 'Permission boundary', icon: 'target', x: 100, y: 400, group: 'source'},
+  {id: 'nmap', title: 'Nmap', subtitle: 'Ports & services', icon: 'radar', x: 300, y: 170, group: 'source'},
+  {id: 'nessus', title: 'Nessus report', subtitle: 'Imported network findings', icon: 'browser', x: 300, y: 400, group: 'source'},
+  {id: 'nikto', title: 'Nikto', subtitle: 'Web server findings', icon: 'terminal', x: 300, y: 640, group: 'source'},
+  {id: 'canonical', title: 'Normalize & store', subtitle: 'Canonical finding records', icon: 'merge', x: 520, y: 400, group: 'transform'},
+  {id: 'nvd', title: 'NVD', subtitle: 'CVEs & CVSS vectors', icon: 'database', x: 680, y: 90, group: 'intel'},
+  {id: 'epss', title: 'EPSS', subtitle: 'Exploitation evidence', icon: 'chart', x: 880, y: 90, group: 'intel'},
+  {id: 'kev', title: 'CISA KEV', subtitle: 'Known exploitation', icon: 'flag', x: 1080, y: 90, group: 'intel'},
+  {id: 'intel', title: 'Enrich findings', subtitle: 'CVE matches & feed dates', icon: 'link', x: 880, y: 300, group: 'transform'},
+  {id: 'context', title: 'Infer context', subtitle: 'Role · exposure · controls', icon: 'layers', x: 880, y: 600, group: 'transform'},
+  {id: 'shadow', title: 'Role classifier', subtitle: 'Optional learned evidence', icon: 'model', x: 520, y: 640, group: 'optional'},
+  {id: 'score', title: 'Calculate risk', subtitle: 'CVSS Environmental + threat', icon: 'formula', x: 1120, y: 400, group: 'decision'},
+  {id: 'queue', title: 'Prioritize', subtitle: 'Stored risk order', icon: 'queue', x: 1340, y: 400, group: 'decision'},
+  {id: 'rationale', title: 'Explain the score', subtitle: 'Recorded reason & rationale', icon: 'text', x: 1340, y: 165, group: 'output'},
+  {id: 'report', title: 'Assessment report', subtitle: 'Findings & provenance', icon: 'report', x: 1580, y: 165, group: 'output'},
+  {id: 'analyst', title: 'AI analyst', subtitle: 'Cited target assessment', icon: 'model', x: 1340, y: 640, group: 'optional'},
+  {id: 'evaluation', title: 'Expert evaluation', subtitle: 'Agreement & critical queue', icon: 'compare', x: 1580, y: 400, group: 'optional'},
+  {id: 'rescan', title: 'Re-scan comparison', subtitle: 'Comparable evidence required', icon: 'repeat', x: 1580, y: 640, group: 'optional'},
 ]);
 
 export const EDGES = Object.freeze([

@@ -37,13 +37,3 @@ export function pathNodeIds(steps, fallback) {
   const ids = steps.flatMap(step => [step.node, ...(step.edges || []).flatMap(edge => edge.split(':'))]).filter(Boolean);
   return new Set(ids.length ? ids : fallback);
 }
-
-const mainConnections = new Set(['scope:nmap', 'nmap:canonical', 'canonical:intel', 'intel:score', 'score:queue', 'queue:report']);
-
-// Filter only the drawing. The dependency graph and every module remain intact.
-export function showConnection(edge, selected = '', all = false, running = new Set()) {
-  if (all) return true;
-  if (selected) return edge.from === selected || edge.to === selected;
-  const id = `${edge.from}:${edge.to}`;
-  return mainConnections.has(id) || running.has(id);
-}

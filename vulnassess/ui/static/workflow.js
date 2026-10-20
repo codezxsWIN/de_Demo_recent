@@ -1,5 +1,6 @@
 import {SIZE, NODE_SPECS, EDGES, ICONS, buildNodes, connectedNodeIds, nodeDetails, evidenceKind, evidenceBasis, finishFailedExecution, executionCounts, stageStateLabel, isLiveAssessmentResult, scanCompletionLabel, nodeExecutionEntry} from './workflow-data.js';
-import {readLayout, moveNode, positionNodes, pathNodeIds, showConnection} from './workflow-layout.js';
+import {readLayout, moveNode, positionNodes, pathNodeIds} from './workflow-layout.js';
+import {routeConnections} from './workflow-routing.js';
 import {requestAnalystProgress} from './analyst-client.js';
 import {PREVIEW_SCENARIOS} from './workflow-preview.js';
 import {mountScanPlanner} from './scan-plan-client.js';
@@ -39,7 +40,7 @@ const runSearch = document.getElementById('run-target-search');
 const providerSelect = document.getElementById('analyst-provider');
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const narrowViewport = matchMedia('(max-width: 960px)');
-const layoutKey = 'vulnassess.workflow.layout.v3';
+const layoutKey = 'vulnassess.workflow.layout.v4';
 function loadLayout() {
   try { return readLayout(JSON.parse(localStorage.getItem(layoutKey)), NODE_SPECS, SIZE); }
   catch { return {}; }
@@ -80,7 +81,8 @@ let activitySignature = '';
 const executionSteps = () => liveState.previewState !== 'idle' && liveState.previewScenario
   ? liveState.previewScenario.steps
   : liveStages.map(([id, label]) => ({id, node: stageNode[id], label: liveState.reuseRecent && id === 'scanner' ? 'Reuse recent Nmap evidence' : liveState.reuseRecent && id === 'context' ? 'Reuse recorded context' : label}));
-let showAllConnections = false;
+let connectionRoutes = new Map();
+let connectionGeometry = '';
 
 function appendInvestigation(holder, analyst) {
   const evidence = new Map((analyst.evidence || []).map(item => [item.id, item]));
@@ -923,22 +925,7 @@ function zoom(factor, point = {x: viewport.clientWidth / 2, y: viewport.clientHe
 }
 
 function edgePath(from, to) {
-  const horizontal = Math.abs(to.x - from.x) > Math.abs(to.y - from.y) * .75;
-  if (horizontal) {
-    const direction = Math.sign(to.x - from.x) || 1;
-    const start = {x: from.x + 52 * direction, y: from.y};
-    const end = {x: to.x - 52 * direction, y: to.y};
-    if (Math.abs(to.x - from.x) > 300 && Math.abs(to.y - from.y) < 60) {
-      const lift = Math.min(from.y, to.y) - 120;
-      return `M${start.x},${start.y} C${start.x},${lift} ${end.x},${lift} ${end.x},${end.y}`;
-    }
-    const middle = (start.x + end.x) / 2;
-    return `M${start.x},${start.y} C${middle},${start.y} ${middle},${end.y} ${end.x},${end.y}`;
-  }
-  const side = Math.max(from.x, to.x) + 140;
-  const start = {x: from.x + 52, y: from.y};
-  const end = {x: to.x + 52, y: to.y};
-  return `M${start.x},${start.y} C${side},${start.y} ${side},${end.y} ${end.x},${end.y}`;
+  return connectionRoutes.get(`${from.id}:${to.id}`).path;
 }
 
 function renderGraph() {
@@ -975,6 +962,11 @@ function renderGraph() {
     : analysis?.status === 'error' ? 'AI analyst failed / stored scores unchanged'
     : 'Stored records / no pipeline execution';
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
+  const geometry = JSON.stringify(nodes.map(node => [node.id, node.x, node.y]));
+  if (geometry !== connectionGeometry) {
+    connectionRoutes = routeConnections(nodes, [...EDGES, {from: 'nmap', to: 'context'}], SIZE);
+    connectionGeometry = geometry;
+  }
   const connected = view.node ? connectedNodeIds(view.node) : null;
   const paths = document.getElementById('connections');
   paths.setAttribute('viewBox', `0 0 ${SIZE.width} ${SIZE.height}`);
@@ -989,7 +981,6 @@ function renderGraph() {
   const previewEdges = liveState.previewState !== 'idle'
     ? new Set(executionSteps().flatMap(step => step.edges)) : null;
   for (const edge of EDGES) {
-    if (!showConnection(edge, view.node, showAllConnections, flowEdges)) continue;
     const from = nodeMap.get(edge.from);
     const to = nodeMap.get(edge.to);
     const missing = edge.optional || ['missing', 'optional'].includes(from.state) || ['missing', 'optional'].includes(to.state);
@@ -1003,17 +994,16 @@ function renderGraph() {
     if (EDGES.some(edge => `${edge.from}:${edge.to}` === identity)) continue;
     if (!flowEdges.has(identity) && !completedEdges.has(identity)) continue;
     const [from, to] = identity.split(':');
-    if (!showConnection({from, to}, view.node, showAllConnections, flowEdges)) continue;
     const flow = edgePath(nodeMap.get(from), nodeMap.get(to));
     paths.append(svgElement('path', {d: flow, class: 'connection optional', 'data-edge': identity}));
     if (completedEdges.has(identity)) paths.append(svgElement('path', {d: flow, class: 'connection-flow-done', 'data-flow-complete': identity}));
     if (flowEdges.has(identity)) paths.append(svgElement('path', {d: flow, class: 'connection-flow', pathLength: 100, 'data-live-edge': identity}));
   }
   const connectionCount = paths.querySelectorAll('[data-edge]').length;
-  document.getElementById('connection-hint').textContent = showAllConnections
-    ? `All ${connectionCount} dependencies · turn off All connections for a focused view`
-    : view.node ? `${nodeMap.get(view.node).title} · ${connectionCount} direct dependencies · details alongside`
-      : 'Main path only · select a module to reveal its dependencies';
+  const collisions = [...connectionRoutes.values()].filter(route => !route.clear).length;
+  document.getElementById('connection-hint').textContent = collisions
+    ? 'Moved modules obstruct routing · Reset restores the spaced layout'
+    : `${connectionCount} dependencies visible · select a module for internals`;
   const list = document.getElementById('node-list');
   list.replaceChildren();
   const previewPath = pathNodeIds(executionSteps(), ['scope', 'nmap', 'context', 'analyst']);
@@ -1052,9 +1042,10 @@ function renderGraph() {
   const lanes = document.getElementById('lanes');
   if (!lanes.children.length) {
     const labels = [
-      {text: 'INTELLIGENCE & OPTIONAL CHECKS', x: 205, y: 15},
-      {text: 'ASSESSMENT FLOW →', x: 5, y: 245},
-      {text: 'SUPPORTING EVIDENCE & REASONING', x: 5, y: 485},
+      {text: '01 / EVIDENCE', x: 80, y: 20},
+      {text: '02 / INTELLIGENCE', x: 650, y: 0},
+      {text: '03 / RISK & PRIORITY', x: 1080, y: 280},
+      {text: '04 / OUTPUTS', x: 1490, y: 20},
     ];
     for (const label of labels) {
       const item = element('span', 'lane-label', label.text);
@@ -1434,11 +1425,6 @@ async function loadWorkflow() {
 }
 
 document.getElementById('refresh-workflow').addEventListener('click', loadWorkflow);
-document.getElementById('toggle-connections').addEventListener('click', event => {
-  showAllConnections = !showAllConnections;
-  event.currentTarget.setAttribute('aria-pressed', String(showAllConnections));
-  renderGraph();
-});
 document.getElementById('toggle-insights').addEventListener('click', event => {
   const rail = document.getElementById('workflow-sidebar');
   const open = rail.hidden && inspector.hidden;

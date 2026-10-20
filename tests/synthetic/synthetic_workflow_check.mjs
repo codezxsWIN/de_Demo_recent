@@ -6,15 +6,37 @@ const workflow = await import(`data:text/javascript;base64,${Buffer.from(source)
 const layoutSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-layout.js', import.meta.url), 'utf8');
 const layout = await import(`data:text/javascript;base64,${Buffer.from(layoutSource).toString('base64')}`);
 const beforeEdges = JSON.stringify(workflow.EDGES);
-const defaultEdges = workflow.EDGES.filter(edge => layout.showConnection(edge));
-assert.equal(defaultEdges.length, 6, 'Default view has only the six spine links');
-const focusedEdges = workflow.EDGES.filter(edge => layout.showConnection(edge, 'context'));
-assert.equal(focusedEdges.length, 4);
-assert.ok(focusedEdges.every(edge => edge.from === 'context' || edge.to === 'context'));
-assert.deepEqual(workflow.EDGES.filter(edge => layout.showConnection(edge, 'context', true)), [...workflow.EDGES]);
-assert.ok(layout.showConnection({from: 'context', to: 'analyst'}, '', false, new Set(['context:analyst'])), 'A genuinely running branch remains visible');
-assert.equal(layout.showConnection({from: 'context', to: 'analyst'}), false, 'An idle branch does not clutter the default view');
-assert.equal(JSON.stringify(workflow.EDGES), beforeEdges, 'Focus never mutates dependency data');
+const routingSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-routing.js', import.meta.url), 'utf8');
+const routing = await import(`data:text/javascript;base64,${Buffer.from(routingSource).toString('base64')}`);
+const beforeNodes = JSON.stringify(workflow.NODE_SPECS);
+const routes = routing.routeConnections(workflow.NODE_SPECS, workflow.EDGES, workflow.SIZE);
+assert.equal(routes.size, workflow.EDGES.length, 'Every dependency must be drawn');
+for (const edge of workflow.EDGES) {
+  const route = routes.get(`${edge.from}:${edge.to}`);
+  assert.equal(route.clear, true, `${edge.from}:${edge.to} must have a clear route`);
+  assert.doesNotMatch(route.path, /NaN|undefined/);
+  for (let i = 1; i < route.points.length; i++) {
+    const a = route.points[i - 1], b = route.points[i];
+    assert.ok(a.x === b.x || a.y === b.y, 'Routes use orthogonal lanes');
+    for (const node of workflow.NODE_SPECS.filter(node => ![edge.from, edge.to].includes(node.id))) {
+      for (const box of routing.moduleObstacles(node)) {
+        const hits = a.x === b.x
+          ? a.x > box.left && a.x < box.right && Math.max(a.y, b.y) > box.top && Math.min(a.y, b.y) < box.bottom
+          : a.y > box.top && a.y < box.bottom && Math.max(a.x, b.x) > box.left && Math.min(a.x, b.x) < box.right;
+        assert.equal(hits, false, `${edge.from}:${edge.to} crosses ${node.id} or its caption`);
+      }
+    }
+  }
+}
+assert.equal(JSON.stringify(workflow.EDGES), beforeEdges, 'Routing never mutates dependencies');
+assert.equal(JSON.stringify(workflow.NODE_SPECS), beforeNodes, 'Routing never moves modules');
+const movedModules = workflow.NODE_SPECS.map(node => node.id === 'context' ? {...node, x: node.x + 30} : node);
+assert.ok([...routing.routeConnections(movedModules, workflow.EDGES, workflow.SIZE).values()].every(route => route.clear), 'A valid moved module is rerouted');
+const canonicalPoint = workflow.NODE_SPECS.find(node => node.id === 'canonical');
+const overlapped = workflow.NODE_SPECS.map(node => node.id === 'context' ? {...node, x: canonicalPoint.x, y: canonicalPoint.y} : node);
+const obstructed = routing.routeConnections(overlapped, workflow.EDGES, workflow.SIZE);
+assert.equal(obstructed.size, workflow.EDGES.length, 'Even obstructed custom links remain visible');
+assert.ok([...obstructed.values()].some(route => !route.clear), 'Impossible custom routing is flagged, never silently hidden');
 const saved = layout.readLayout({nmap: {x: 410, y: 240}, scope: {x: -1000, y: 9999}, unknown: {x: 25, y: 25}, nikto: {x: 'wrong', y: 50}}, workflow.NODE_SPECS, workflow.SIZE);
 assert.deepEqual(saved.nmap, {x: 410, y: 240});
 assert.deepEqual(saved.scope, {x: 95, y: workflow.SIZE.height - 122});
@@ -51,7 +73,6 @@ const input = JSON.parse(readFileSync(0, 'utf8'));
 const before = JSON.stringify(input.assessment);
 const nodes = workflow.buildNodes(input.assessment, input.scope);
 const spine = ['scope', 'nmap', 'canonical', 'intel', 'score', 'queue', 'report'].map(id => nodes.find(node => node.id === id));
-assert.ok(spine.every(node => node.y === spine[0].y), 'The main assessment spine stays aligned');
 for (let index = 1; index < spine.length; index++) {
   assert.ok(spine[index].x > spine[index - 1].x, 'The main spine reads left to right');
   assert.ok(workflow.EDGES.some(edge => edge.from === spine[index - 1].id && edge.to === spine[index].id), 'Every spine connection must be a real dependency');
