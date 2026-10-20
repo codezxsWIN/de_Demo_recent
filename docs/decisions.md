@@ -2988,3 +2988,54 @@ files), offline Pyright (zero errors/warnings), 4,284 tests plus 530 subtests an
 data/verification/analyst-control-guidance-gate-2026-10-20.log. No dependency,
 scope, validator or scoring changes were needed. Changes remain on the local
 codex/analyst-control-guidance review branch until separately published.
+
+## AI-WORKFLOW-REPLAY-01 — 2026-10-20
+
+Pipeline stage 5 (AI security analyst) and stage 7 (evidence-backed reporting).
+The user's scanme capture completed collection but Ollama exceeded its 180-second
+generation deadline. A separate successful Google report did not repair the UI.
+Inspection found that the stored-target JavaScript transport rejected Google and
+Groq Qwen despite the server supporting them; the live analyst inspector rendered
+the unrelated stored-assessment selection; and AI-only replay expired with the
+ten-minute scan cooldown. These are separate from model output rejection.
+
+Repair the provider allowlist without removing validation or cloud consent. The
+live inspector now renders only that run's validated result and offers explicit
+configuration for no-scan re-analysis. Missing cloud consent opens configuration
+instead of transmitting evidence. Replay reuses an exact-target memory capture
+regardless of cooldown age, or verifies the latest dated exact-target saved case
+against hashes and current scope. A changed resolved IP, corrupt evidence or
+ambiguous chronology still refuses analysis. The existing CVE-refresh loader
+continues to require CVEs; zero-finding AI replay does not refresh publishers or
+recompute scores. Historical timestamps and retained/not-rerun labels remain
+visible. No automatic cloud selection, unsafe-output retry or scope expansion.
+
+Alternatives rejected: raising the Ollama deadline without evidence of throughput;
+claiming a standalone successful replay fixed the workflow; launching another scan
+when evidence was retained; weakening citation/score checks. Seven new offline
+replay tests and expanded JavaScript regression checks cover provider routing,
+consent, live-result rendering, expired/restarted caches, exact endpoint/address
+binding, zero-finding captures and refusal before scanner/model calls on errors.
+Focused checks: 245 tests/72 subtests; after the inspector changes, 177 tests/72
+subtests; the final UI/adversarial subset passed 140 tests/72 subtests. These are
+overlapping subsets, not additive totals. Ruff and offline Pyright passed.
+
+Real browser checks on the restarted local app: retained scanme evidence reached
+Google and passed citation validation (8 evidence items); the live analyst node
+displayed its result with 8 executed, 3 retained, 9 not applicable, 0 failed and
+0 waiting. Separately, the stored-target Analyze target button reached Google and
+completed all seven displayed analyst steps, with Scores changed: false. Neither
+test launched a new target scan. Model confidence is advisory, not measured
+accuracy. Ollama throughput remains unresolved. Full gate result recorded below
+when complete; this entry does not claim it has finished or changes are published.
+
+Final verification: scripts/check.py PASSED all four stages. Full offline suite:
+4,291 passed, 530 subtests passed, zero failures/skips reported, 99.34% Python
+statement coverage (12,004 statements, 79 missed), in 1,014.62 seconds. Relative
+to the prior gate: seven additional tests, sixteen additional source statements,
+coverage unchanged at 99.34%. Final JavaScript changes were also checked by the
+92-test UI subset (72 subtests). The mirrored clean review checkout passed 99
+focused tests/72 subtests, Ruff lint/format and offline Pyright. No source or
+dependency download, validator relaxation, score change, live rescan or GitHub
+push was used to obtain these results. Local full-gate log:
+data/verification/workflow-ai-replay-gate-20261020.log.

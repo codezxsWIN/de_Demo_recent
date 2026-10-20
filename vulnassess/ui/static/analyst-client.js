@@ -36,7 +36,7 @@ export async function requestAnalyst(runId, hostIp) {
 }
 
 export async function requestAnalystProgress(runId, hostIp, onProgress = () => {}, provider = 'ollama') {
-  if (!['ollama', 'openrouter', 'groq'].includes(provider)) throw new Error('Unknown analyst provider.');
+  if (!['ollama', 'openrouter', 'groq', 'groq_qwen', 'google'].includes(provider)) throw new Error('Unknown analyst provider.');
   const cloud = provider !== 'ollama';
   const response = await fetch(`/api/analyst/${encodeURIComponent(runId)}/${encodeURIComponent(hostIp)}/events`, {
     cache: 'no-store', credentials: 'same-origin',

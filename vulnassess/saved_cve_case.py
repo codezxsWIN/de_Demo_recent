@@ -160,6 +160,15 @@ def _verified_payload(directory, manifest, manifest_raw, record):
 
 
 def load_saved_cve_case(root, target, scope):
+    return _load_saved_case(root, target, scope, require_cves=True)
+
+
+def load_saved_target_case(root, target, scope):
+    """Verify retained observations for AI-only replay, including zero-finding scans."""
+    return _load_saved_case(root, target, scope, require_cves=False)
+
+
+def _load_saved_case(root, target, scope, *, require_cves):
     root = Path(root).resolve()
     directories = []
     for path in root.glob("assessment-*"):
@@ -228,7 +237,7 @@ def load_saved_cve_case(root, target, scope):
                     not isinstance(cve, str) or not cve for cve in cve_ids
                 ):
                     raise ValueError("Saved finding CVE IDs must be a list of strings")
-            if not any(finding.get("cve_ids") for finding in findings):
+            if require_cves and not any(finding.get("cve_ids") for finding in findings):
                 continue
             warnings = []
             if captured_at is None:
@@ -256,7 +265,11 @@ def load_saved_cve_case(root, target, scope):
             }
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise ConfigError("Saved capture is unreadable or malformed; replay refused") from error
-    message = "No verified saved CVE capture exists for this exact target"
+    message = (
+        "No verified saved CVE capture exists for this exact target"
+        if require_cves
+        else "No recent scan or verified saved capture exists for this exact target"
+    )
     if discovery_diagnostics:
         rejected = "; ".join(
             f"{Path(item['evidence_directory']).name}: {item['reason']}"

@@ -191,10 +191,73 @@ try {
   const result = await client.requestAnalystProgress('synthetic-run', 'synthetic-host-a', event => seen.push(event));
   assert.equal(result.run_id, 'synthetic-run');
   assert.deepEqual(seen, streamed.slice(0, 2));
+  for (const provider of ['google', 'groq_qwen', 'groq', 'openrouter']) {
+    const calls = [];
+    globalThis.fetch = async (url, options) => {
+      calls.push({url, options});
+      return new Response(wire);
+    };
+    const cloudResult = await client.requestAnalystProgress('synthetic-run', 'synthetic-host-a', () => {}, provider);
+    assert.equal(cloudResult.canonical_scores_changed, false);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/api/analyst/synthetic-run/synthetic-host-a/events');
+    assert.equal(calls[0].options.method, 'POST');
+    assert.equal(calls[0].options.headers['X-VulnAssess-Action'], 'cloud-analyst');
+    assert.deepEqual(JSON.parse(calls[0].options.body), {provider, share_evidence: true});
+    await assert.rejects(client.requestAnalystProgress('synthetic-run', 'synthetic-host-a', () => {}, 'unknown'), /Unknown analyst provider/);
+    assert.equal(calls.length, 1, 'An unknown provider must fail before fetch');
+  }
   globalThis.fetch = async () => new Response(`${JSON.stringify({type: 'error', message: 'Model unavailable'})}\n`);
   await assert.rejects(client.requestAnalystProgress('synthetic-run', 'synthetic-host-a'), /Model unavailable/);
 } finally {
   globalThis.fetch = originalFetch;
 }
 assert.equal(JSON.stringify(input.assessment), before);
+// The live analyst inspector must show this run's validated response, never
+// the separately selected database assessment or a disabled stored-host action.
+const analystRenderer = liveSource.slice(liveSource.indexOf('function renderAnalyst()'), liveSource.indexOf('async function analyzeTarget('));
+function syntheticElement(tag, cls, text) {
+  return {tag, cls, text, children: [], listeners: {}, dataset: {},
+    append(...items) {this.children.push(...items);},
+    setAttribute() {}, addEventListener(name, callback) {this.listeners[name] = callback;}};
+}
+for (const validated of [true, false]) {
+  const holder = syntheticElement('div');
+  const controls = new Map(['new-target', 'live-run-mode', 'open-run'].map(id => [id, syntheticElement('input')]));
+  const modelControl = {focused: false, focus() {this.focused = true;}};
+  const panel = {hidden: true};
+  const state = {active: true, previewState: 'idle', busy: false, target: 'synthetic-current-target',
+    scan: {resolved_ip: '192.0.2.10'}, stages: new Map(),
+    result: validated ? {analyst: {model: 'synthetic-google', evidence: [], analysis: {
+      summary: 'SYNTHETIC validated live assessment', recommended_actions: [], correlations: [], uncertainties: [],
+    }}} : {ai_status: 'needs_review', ai_attempts: [{detail: 'SYNTHETIC rejected output'}]}};
+  const forbidden = () => {throw new Error('Must not read or analyze unrelated stored evidence');};
+  const env = {liveState: state, view: {host: ''}, content: holder, element: syntheticElement,
+    currentAnalysis: forbidden, evidenceBasis: forbidden, analyzeTarget: forbidden,
+    analysisStages: [], appendBatchReview: () => false, appendDecisionFrame() {},
+    appendModelContextEffect() {}, appendQuotes() {}, appendInvestigation() {},
+    runPanel: panel, providerSelect: modelControl, document: {getElementById: id => controls.get(id)}};
+  new Function('env', `const {${Object.keys(env).join(',')}} = env; ${analystRenderer}; renderAnalyst();`)(env);
+  const action = holder.children[0];
+  const button = action.children.find(item => item.tag === 'button');
+  assert.equal(button.disabled, false, 'Live evidence does not require a stored-host selection');
+  assert.equal(button.text, 'Configure AI re-analysis · no scan');
+  button.listeners.click();
+  assert.equal(controls.get('new-target').value, state.target);
+  assert.equal(controls.get('live-run-mode').value, 'reuse');
+  assert.equal(panel.hidden, false);
+  assert.equal(modelControl.focused, true);
+  assert.equal(action.children.some(item => item.text === 'SYNTHETIC validated live assessment'), validated);
+  assert.equal(action.children.some(item => item.text === 'SYNTHETIC rejected output'), !validated);
+}
+const targetAnalyzer = liveSource.slice(liveSource.indexOf('async function analyzeTarget('), liveSource.indexOf('function populateFindings()'));
+const noConsentControls = new Map(['share-evidence', 'target-check-result', 'open-run'].map(id => [id, syntheticElement('input')]));
+noConsentControls.get('share-evidence').checked = false;
+const noConsentPanel = {hidden: true};
+const deniedAnalysis = await new Function('view', 'document', 'runPanel', `${targetAnalyzer}; return analyzeTarget('synthetic-host', 'synthetic-run', 'google');`)(
+  {assessment: {}}, {getElementById: id => noConsentControls.get(id)}, noConsentPanel,
+);
+assert.equal(deniedAnalysis.status, 'error');
+assert.match(deniedAnalysis.error, /Confirm evidence sharing/);
+assert.equal(noConsentPanel.hidden, false);
 console.log('ANALYST: sequential requests, duplicate prevention, stop, failure, identity and citation checks; analyst queue safety passed');

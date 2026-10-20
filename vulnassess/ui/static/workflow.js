@@ -183,7 +183,7 @@ function appendLiveSummary(holder, summary) {
     section.append(element('p', 'boundary-note', device.limitations));
   }
   if (summary.historical_capture) {
-    section.append(element('h3', '', 'SAVED VULNERABILITY EVIDENCE — NOT A NEW SCAN'));
+    section.append(element('h3', '', 'SAVED SCAN EVIDENCE — NOT A NEW SCAN'));
   }
   for (const line of captureProvenanceLines(summary)) section.append(element('p', 'boundary-note', line));
   section.append(element('h3', '', summary.validated_ai_summary ? summary.historical_capture ? 'Updated assessment summary' : 'Live assessment summary' : summary.ai_status ? `Evidence-only summary · AI ${summary.ai_status.replaceAll('_', ' ')}` : liveState.error ? 'Evidence-only summary · AI output rejected or unavailable' : 'Evidence-only summary · AI pending'));
@@ -369,13 +369,15 @@ function renderLiveExecution() {
   const isPreview = liveState.previewState !== 'idle';
   const steps = executionSteps();
   document.getElementById('live-path-boundary').hidden = isPreview;
-  document.getElementById('live-path-boundary').textContent = liveState.savedCapture
+  document.getElementById('live-path-boundary').textContent = liveState.reuseRecent
+    ? 'AI-only re-analysis of retained scan evidence. Capture hashes and current scope are checked when loading from disk. No scanner, publisher fetch or score recalculation is launched; observations keep their recorded age.'
+    : liveState.savedCapture
     ? 'This review verifies saved capture hashes and current scope, then fetches fresh NVD, EPSS and CISA KEV data, recalculates deterministic priorities and validates a new AI response. No target scanner is launched. Scanner evidence and context retain their original capture date.'
     : 'This run performs light Nmap discovery, verifies an explicitly supplied URL port, and runs bounded Nikto checks only for an exact in-scope asset tagged environment:test. AI analyzes collected scanner evidence; scores remain deterministic. Nessus reports are imported, not launched.';
   const context = document.getElementById('live-execution-context');
   context.hidden = !isPreview;
   context.textContent = isPreview ? liveState.previewScenario.context : '';
-  document.getElementById('live-execution-mode').textContent = isPreview ? 'SIMULATED PREVIEW / NO SCAN OR MODEL CALL' : liveState.savedCapture ? 'SAVED CVE EVIDENCE / FRESH INTELLIGENCE + AI / NO SCAN' : liveState.reuseRecent ? 'RE-ANALYSIS / RECENT SCAN / NO SCAN' : 'LIVE ASSESSMENT / SCANNER + AI EVENT STREAM';
+  document.getElementById('live-execution-mode').textContent = isPreview ? 'SIMULATED PREVIEW / NO SCAN OR MODEL CALL' : liveState.reuseRecent ? 'AI RE-ANALYSIS / RETAINED SCAN EVIDENCE / NO SCAN' : liveState.savedCapture ? 'SAVED CVE EVIDENCE / FRESH INTELLIGENCE + AI / NO SCAN' : 'LIVE ASSESSMENT / SCANNER + AI EVENT STREAM';
   const current = [...liveState.stages.entries()].find(([, entry]) => entry.state === 'running');
   const counts = executionCounts(liveState.stages, steps.length);
   const retained = liveState.savedCapture ? [...liveState.stages].filter(([id, event]) => retainedStages.has(id) && event.state === 'complete').length : 0;
@@ -544,7 +546,7 @@ async function startLiveRun(planBinding = null) {
   liveState.target = target;
   liveState.provider = provider;
   liveState.reuseRecent = reuseRecent;
-  liveState.savedCapture = replaySaved;
+  liveState.savedCapture = replaySaved || reuseRecent;
   liveState.stages = new Map();
   liveState.scan = null;
   liveState.result = null;
@@ -628,6 +630,7 @@ async function startLiveRun(planBinding = null) {
     renderLiveProgress();
     renderLiveExecution();
     renderGraph();
+    if (view.node === 'analyst') renderInspector();
     void refreshIntelStatus();
   }
 }
@@ -948,10 +951,10 @@ function renderGraph() {
     : liveState.active
     ? `Live run / ${currentLive ? `${executionSteps().find(step => step.id === currentLive[0])?.label} · ${currentLive[1].detail}` : liveState.result ? `${scanCompletionLabel(liveState.result, liveState.savedCapture).toLowerCase()} · AI ${liveState.result.ai_status?.replaceAll('_', ' ') || 'validated'}` : liveState.needsReview ? 'Needs review · model output rejected' : liveState.error ? 'stopped · stage failed' : 'starting'}`
     : analysis?.status === 'running'
-    ? `Local analyst / ${analysisStages.find(([id]) => id === analysis.stage)?.[1] || 'Starting'}`
-    : analysis?.status === 'complete' ? 'Local analyst complete / stored scores unchanged'
+    ? `AI analyst / ${analysisStages.find(([id]) => id === analysis.stage)?.[1] || 'Starting'}`
+    : analysis?.status === 'complete' ? 'AI analyst complete / stored scores unchanged'
     : analysis?.status === 'needs_review' ? 'Needs review / model output rejected / stored scores unchanged'
-    : analysis?.status === 'error' ? 'Local analyst failed / stored scores unchanged'
+    : analysis?.status === 'error' ? 'AI analyst failed / stored scores unchanged'
     : 'Stored records / no pipeline execution';
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
   const connected = view.node ? connectedNodeIds(view.node) : null;
@@ -1097,6 +1100,10 @@ function renderInspector() {
   title.tabIndex = -1;
   heading.append(glyph, title);
   content.append(heading, element('p', 'node-description', node.subtitle), element('span', `detail-status state-${node.state}`, node.status));
+  if (liveState.active && liveState.previewState === 'idle' && view.node === 'analyst') {
+    renderAnalyst();
+    return;
+  }
   if (liveState.active && liveState.previewState === 'idle'
       && ['canonical', 'score', 'queue', 'rationale', 'report'].includes(view.node)) {
     content.append(element('p', 'boundary-note', 'Live run data is held in memory. This view does not claim a stored finding, stored score, or printable report artifact.'));
@@ -1138,15 +1145,29 @@ function renderInspector() {
 }
 
 function renderAnalyst() {
+  const fromLiveRun = liveState.active && liveState.previewState === 'idle';
+  const live = fromLiveRun ? {
+    status: liveState.busy ? 'running' : liveState.result?.analyst ? 'complete' : 'error',
+    result: liveState.result?.analyst,
+    error: liveState.error || liveState.result?.ai_attempts?.at(-1)?.detail || 'No validated AI result is available for this run.',
+    steps: Object.fromEntries(liveState.stages),
+  } : currentAnalysis();
   const holder = element('section', 'analyst-action');
-  holder.append(element('p', 'analyst-scope', view.host ? `Target: ${view.host}` : 'Select a target above to analyze its stored evidence.'));
-  const button = element('button', 'analyze-button', currentAnalysis()?.status === 'running' ? 'Request in progress' : 'Analyze target');
+  holder.append(element('p', 'analyst-scope', fromLiveRun ? `Target: ${liveState.target} · retained scan evidence` : view.host ? `Target: ${view.host}` : 'Select a target above to analyze its stored evidence.'));
+  const button = element('button', 'analyze-button', live?.status === 'running' ? 'Request in progress' : fromLiveRun ? 'Configure AI re-analysis · no scan' : 'Analyze target');
   button.type = 'button';
   button.id = 'workflow-analyze';
-  button.disabled = !view.host || currentAnalysis()?.status === 'running';
-  button.addEventListener('click', () => analyzeTarget(view.host, view.assessment?.run.run_id, providerSelect.value));
+  button.disabled = live?.status === 'running' || (fromLiveRun ? !liveState.scan?.resolved_ip : !view.host);
+  button.addEventListener('click', () => {
+    if (!fromLiveRun) return analyzeTarget(view.host, view.assessment?.run.run_id, providerSelect.value);
+    document.getElementById('new-target').value = liveState.target;
+    document.getElementById('live-run-mode').value = 'reuse';
+    runPanel.hidden = false;
+    document.getElementById('open-run').setAttribute('aria-expanded', 'true');
+    providerSelect.focus();
+  });
   holder.append(button);
-  const basis = evidenceBasis(view.assessment, view.host);
+  const basis = fromLiveRun ? null : evidenceBasis(view.assessment, view.host);
   let ledger = null;
   if (basis) {
     ledger = element('div', 'analyst-basis');
@@ -1165,11 +1186,11 @@ function renderAnalyst() {
       ledger.append(section);
     }
   }
-  const live = currentAnalysis();
   if (live) {
     const progress = element('ol', 'analysis-progress');
-    progress.setAttribute('aria-label', 'Local analyst stages');
+    progress.setAttribute('aria-label', 'AI analyst stages');
     for (const [id, label] of analysisStages) {
+      if (fromLiveRun && id === 'records') continue;
       const state = live.steps?.[id]?.state || 'pending';
       const item = element('li', `analysis-progress-step state-${state}`);
       item.dataset.stage = id;
@@ -1181,7 +1202,7 @@ function renderAnalyst() {
     }
     holder.append(progress);
   }
-  if (live?.status === 'running') holder.append(element('p', 'analysis-wait', 'Only the local analyst steps above are running. Scanner and score nodes show stored records.'));
+  if (live?.status === 'running') holder.append(element('p', 'analysis-wait', 'AI analysis is running with the selected provider. Canonical scores are not changed.'));
   if (live?.status === 'error' || live?.status === 'needs_review') holder.append(element('p', 'analysis-error', live.error));
   if (live?.result && !appendBatchReview(holder, live.result)) {
     const result = live.result;
@@ -1210,6 +1231,13 @@ function renderAnalyst() {
 
 async function analyzeTarget(hostIp = view.host, runId = view.assessment?.run.run_id, provider = 'ollama') {
   if (!hostIp || !runId || !view.assessment) return {status: 'error', error: 'No recorded target selected'};
+  if (provider !== 'ollama' && !document.getElementById('share-evidence').checked) {
+    const error = 'Confirm evidence sharing before using a cloud model.';
+    document.getElementById('target-check-result').textContent = error;
+    runPanel.hidden = false;
+    document.getElementById('open-run').setAttribute('aria-expanded', 'true');
+    return {status: 'error', error};
+  }
   const key = `${runId}/${hostIp}`;
   if (view.analyses.get(key)?.status === 'running') return {status: 'error', error: 'Analysis already running for this target'};
   view.analyses.set(key, {runId, hostIp, status: 'running', stage: '', steps: {}});

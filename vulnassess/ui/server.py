@@ -31,7 +31,11 @@ from vulnassess.nessus_import import import_nessus_report
 from vulnassess.readers._input import MAX_CAPTURE_BYTES
 from vulnassess.repository import ENV_VAR, AssessmentRepository
 from vulnassess.runner import plan as scope_fence
-from vulnassess.saved_cve_case import load_saved_cve_case, refresh_saved_case
+from vulnassess.saved_cve_case import (
+    load_saved_cve_case,
+    load_saved_target_case,
+    refresh_saved_case,
+)
 from vulnassess.schema import ContextProfile, Finding, Host, Service
 from vulnassess.settings import CONFIG_FILES, Settings
 from vulnassess.target_intake import resolve_addresses
@@ -735,15 +739,22 @@ class UiApplication:
         with self._live_lock:
             now = time.monotonic()
             recent = self._recent_live_cases.get(target_ip)
-            case = recent[1] if recent and now - recent[0] < 600 else None
+            # The launch cooldown is not an expiry date for retained evidence.
+            case = recent[1] if recent and (reuse_recent or now - recent[0] < 600) else None
+            if case is not None and reuse_recent and case.get("target") != target:
+                case = None
             if case is not None and not reuse_recent:
                 raise ConfigError(
                     "This target was scanned in the last 10 minutes. Choose re-analyze recent evidence, or wait before a new Nmap scan."
                 )
             if case is None and reuse_recent:
-                raise ConfigError(
-                    "No recent scan is available to re-analyze; choose a new Nmap scan."
+                case = load_saved_target_case(
+                    self.config_dir.resolve().parent / "data" / "live" / "raw",
+                    target,
+                    Settings(self.config_dir).scope,
                 )
+                if case["resolved_ip"] != target_ip:
+                    raise ConfigError("Saved target address changed; no AI request was sent")
             if case is None:
                 previous = self._last_live_scan.get(target_ip, 0.0)
                 if previous and now - previous < 600:
@@ -760,13 +771,34 @@ class UiApplication:
         if case is not None:
             services, scan_status, stages = _replay_evidence(case, target_ip, on_progress)
             payload = {**case["payload"], "scan_status": scan_status}
+            case = {
+                **case,
+                "finding_count": len(payload["findings"]),
+                "decision_frame": analyst.build_evidence_frame(payload, target_ip),
+            }
             for stage, state, detail in stages:
                 on_progress(stage, state, f"Reused previous scan: {detail}")
+            replayed = set()
             for stage, state, detail in case.get("stage_events", []):
                 if stage in {"nvd", "epss", "kev", "intel", "score", "queue", "rationale"}:
+                    replayed.add(stage)
                     on_progress(stage, state, f"Reused previous scan: {detail}")
+            for stage in ("nvd", "epss", "kev", "intel", "score", "queue", "rationale"):
+                if stage not in replayed:
+                    on_progress(
+                        stage,
+                        "skipped",
+                        "AI-only replay: no publisher fetch or scoring rerun; retained inputs unchanged",
+                    )
             summary = live_assessment.assessment_summary(target, target_ip, services, payload)
             summary["scan_status"] = scan_status
+            history = {
+                "historical_capture": True,
+                "captured_at": case.get("captured_at"),
+                "capture_time_source": case.get("capture_time_source", "unknown"),
+                "capture_time_warning": case.get("capture_time_warning", ""),
+            }
+            summary.update(history)
             if on_capture is not None:
                 on_capture(
                     {
@@ -791,6 +823,7 @@ class UiApplication:
                 outcome["analyst"],
             )
             summary.update(
+                **history,
                 scan_status=scan_status,
                 ai_status=outcome["ai_status"],
                 ai_attempts=outcome["ai_attempts"],
