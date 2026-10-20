@@ -3039,3 +3039,50 @@ focused tests/72 subtests, Ruff lint/format and offline Pyright. No source or
 dependency download, validator relaxation, score change, live rescan or GitHub
 push was used to obtain these results. Local full-gate log:
 data/verification/workflow-ai-replay-gate-20261020.log.
+
+### 2026-10-20 — Activity-first assessment workspace
+
+The dependency graph obscured the assessment outcome and context. Make the
+workflow tab the default and lead with the real current activity, its purpose,
+observed services, supported finding priorities, context provenance, validated
+AI recommendations and coverage gaps. Keep the full dependency map, execution
+trace, overview, self-defence workspace and inspector available below or alongside
+the evidence. No scanner, authorization, scoring or model-validation behavior is
+changed and no dependency is added.
+
+The presentation consumes the existing evidence brief. Pending counts remain
+unknown, previews cannot masquerade as collection, skipped checks are counted
+separately, retained captures are not called fresh scans, native-severity fallback
+scores are explicitly not CVSS, and batch-local AI citations retain their batch.
+Unknown controls remain unknown rather than being reported absent. All target
+strings are inserted as bounded text, never HTML. Live finding titles come from
+that target's decision frame rather than an unrelated stored assessment.
+
+Browser inspection exposed a live-context drill-down incorrectly showing the
+selected stored host. Context and scanner inspectors now bind to the active
+target evidence; the context renderer is shared with the activity board. No
+assessment is imported or silently persisted by these presentation changes.
+
+Verification: six new offline JavaScript presentation scenarios cover stored,
+running, rejected, preview, partial and scored cases, including literal hostile
+HTML, pending counts, score immutability, native fallback, target binding and
+batch-local citations. The final focused source and clean-review UI runs each
+passed 99 tests / 72 subtests; these are overlapping runs, not additive counts.
+Ruff lint/format passed in the clean review checkout. Browser QA on authorized
+retained web evidence displayed four services, five supported header findings,
+three validated Google batches, explicit skipped-CVE reasons and the correct
+target in both context and collection inspectors. This QA did not rescan the
+target or retrieve fresh vulnerability intelligence. Capture age remained
+explicitly unknown where the retained summary did not supply it. Full regression
+gate outcome is recorded separately when complete; model validation does not
+establish model accuracy. No GitHub push is part of this UI increment.
+
+Final gate: scripts/check.py PASSED Ruff lint, Ruff format, offline Pyright and
+the full offline suite: 4,297 tests / 530 subtests, zero failures, in 895.79 seconds.
+Python statement coverage remains 99.34% (12,004 statements; 79 missed): six new
+presentation tests, no Python package statement changes. The final UI/insights
+subset, including the inspector-routing regression, separately passed 99 tests /
+72 subtests after the last presentation edits. Browser light/dark theme checks
+passed at 1,127px viewport width without document-wide horizontal overflow;
+narrow-device visual QA was not performed. Full-gate log:
+data/verification/workflow-activity-gate-20261020.log.

@@ -81,7 +81,7 @@ export function buildInsightBrief({assessment, host = '', finding = '', live = {
   const {priorities, unscoredFindings} = preview ? {priorities: [], unscoredFindings: []} : reviewFindingPriorities(
     active ? summary?.priorities || frame?.priorities || [] : scores,
     active ? summary?.unscored_findings || frame?.unscored_findings || [] : recordedUnscored,
-    active ? [] : findings,
+    active ? (frame?.priorities || []).map(item => ({id: item.finding_id, title: item.title})) : findings,
   );
   const rejected = active ? Boolean(live.error || live.needsReview) : ['error', 'needs_review'].includes(storedAnalysis?.status);
   const allowed = !rejected && !preview ? response : null;

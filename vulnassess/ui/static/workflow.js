@@ -7,6 +7,7 @@ import {mountEvidenceRequests} from './evidence-request-client.js';
 import {buildInsightBrief, renderInsightBrief, renderInsightHighlights, reviewFindingPriorities, captureProvenanceLines} from './workflow-insights.js';
 import {renderAssessmentOverview} from './workflow-overview.js';
 import {renderSelfDefence} from './self-defence.js';
+import {renderWorkflowActivity, renderActivityContext} from './workflow-activity.js';
 
 function showWorkspace(page) {
   document.body.dataset.workspace = page;
@@ -16,8 +17,8 @@ function showWorkspace(page) {
   document.querySelector('.flow-workspace').hidden = page !== 'workflow';
   document.getElementById('assessment-highlights').hidden = page !== 'workflow';
   const skip = document.querySelector('.skip');
-  skip.href = page === 'workflow' ? '#node-list' : '#assessment-overview';
-  skip.textContent = page === 'workflow' ? 'Skip to workflow nodes' : 'Skip to assessment overview';
+  skip.href = page === 'workflow' ? '#workflow-activity' : '#assessment-overview';
+  skip.textContent = page === 'workflow' ? 'Skip to assessment activity' : 'Skip to assessment overview';
   if (page === 'self-defence') { skip.href = '#self-defence-workspace'; skip.textContent = 'Skip to device assessment'; }
   if (page === 'workflow') requestAnimationFrame(fit);
 }
@@ -75,6 +76,7 @@ const retainedStages = new Set(['scanner', 'endpoint_scan', 'canonical', 'contex
 const displayStageState = (id, state) => liveState.savedCapture && state === 'complete' && retainedStages.has(id) ? 'Retained' : stageStateLabel(state);
 let previewSequence = 0;
 let briefSignature = '';
+let activitySignature = '';
 const executionSteps = () => liveState.previewState !== 'idle' && liveState.previewScenario
   ? liveState.previewScenario.steps
   : liveStages.map(([id, label]) => ({id, node: stageNode[id], label: liveState.reuseRecent && id === 'scanner' ? 'Reuse recent Nmap evidence' : liveState.reuseRecent && id === 'context' ? 'Reuse recorded context' : label}));
@@ -558,7 +560,10 @@ async function startLiveRun(planBinding = null) {
   fitPreviewPath();
   runPanel.hidden = true;
   document.getElementById('open-run').setAttribute('aria-expanded', 'false');
-  document.getElementById('live-execution-title').focus({preventScroll: true});
+  if (target !== 'self') {
+    document.getElementById('workflow-activity').focus({preventScroll: true});
+    document.getElementById('workflow-activity').scrollIntoView({block: 'start'});
+  }
   const accept = event => {
     if (target === 'self' && event.type === 'stage') document.getElementById('device-progress').textContent = event.detail;
     if (event.type === 'stage' && liveStages.some(([id]) => id === event.stage)
@@ -934,6 +939,14 @@ function edgePath(from, to) {
 function renderGraph() {
   if (!view.assessment) return;
   const brief = buildInsightBrief({assessment: view.assessment, host: view.host, finding: view.finding, live: liveState, storedAnalysis: currentAnalysis()});
+  const activityServices = liveState.active
+    ? liveState.result?.services || liveState.scan?.services || []
+    : view.assessment.hosts.filter(host => !view.host || host.ip === view.host).flatMap(host => (host.services || []).map(service => ({...service, host_ip: host.ip})));
+  const activityKey = JSON.stringify([brief, liveState.active, liveState.busy, liveState.error, [...liveState.stages], activityServices]);
+  if (activityKey !== activitySignature) {
+    renderWorkflowActivity(document.getElementById('workflow-activity'), brief, liveState, activityServices, selectNode);
+    activitySignature = activityKey;
+  }
   const signature = JSON.stringify(brief);
   if (signature !== briefSignature) {
     renderInsightBrief(document.getElementById('assessment-brief'), brief, selectNode);
@@ -1102,6 +1115,21 @@ function renderInspector() {
   content.append(heading, element('p', 'node-description', node.subtitle), element('span', `detail-status state-${node.state}`, node.status));
   if (liveState.active && liveState.previewState === 'idle' && view.node === 'analyst') {
     renderAnalyst();
+    return;
+  }
+  if (liveState.active && liveState.previewState === 'idle' && ['context', 'nmap', 'nikto'].includes(view.node)) {
+    const brief = buildInsightBrief({assessment: view.assessment, host: view.host, finding: view.finding, live: liveState});
+    content.append(element('p', 'boundary-note', 'Current target evidence only. This panel does not substitute records from the selected stored assessment.'));
+    if (view.node === 'context') renderActivityContext(content, brief);
+    else {
+      content.append(element('p', 'analyst-scope', `Target: ${brief.target}`));
+      const scan = liveState.result || liveState.scan;
+      const services = scan?.services || [];
+      if (services.length) content.append(rows(services.map(service => ({label: `${service.port}/${service.protocol || 'tcp'}`, value: `${service.name || 'unknown'} ${service.product || ''} ${service.version || ''}`}))));
+      else content.append(element('p', 'boundary-note', 'No service observations are available for this run.'));
+      for (const gap of brief.coverage) content.append(element('p', 'boundary-note', gap));
+      for (const line of brief.captureDetails) content.append(element('p', 'boundary-note', line));
+    }
     return;
   }
   if (liveState.active && liveState.previewState === 'idle'
@@ -1323,6 +1351,8 @@ async function loadWorkflow() {
     stages: new Map(), scan: null, result: null, error: '', needsReview: false,
   });
   briefSignature = '';
+  activitySignature = '';
+  document.getElementById('workflow-activity').replaceChildren(element('p', 'activity-muted', 'Reading the selected assessment. No scan or model call is made.'));
   inspector.hidden = true;
   view.node = '';
   renderLiveProgress();
@@ -1381,6 +1411,7 @@ async function loadWorkflow() {
     document.getElementById('data-kind').textContent = 'RECORDS UNAVAILABLE';
     document.getElementById('record-summary').textContent = '';
     document.getElementById('assessment-overview').textContent = `Records unavailable: ${error.message}`;
+    document.getElementById('workflow-activity').replaceChildren(element('p', 'activity-warning', `Records unavailable: ${error.message}. No conclusion is shown.`));
     briefSignature = '';
   } finally {
     if (sequence === view.load) document.getElementById('refresh-workflow').disabled = false;
