@@ -1,5 +1,5 @@
-/* Information first. The dependency graph remains a secondary technical view. */
-.workflow-activity { width: 100%; max-width: 1480px; margin: 0 auto; padding: 24px 32px 12px; }
+/* Canvas first. Background information stays in one independently scrolling rail. */
+.workflow-activity { width: 100%; margin: 0; padding: 20px; }
 body:not([data-workspace="workflow"]) :is(.workflow-activity,.activity-map-heading) { display: none; }
 .activity-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .activity-eyebrow { margin: 0 0 8px; color: var(--flow-muted); font: 10px var(--flow-mono); letter-spacing: .12em; }
@@ -61,20 +61,31 @@ body:not([data-workspace="workflow"]) :is(.workflow-activity,.activity-map-headi
 .activity-coverage summary { cursor: pointer; margin: 16px 0 8px; font-size: 12px; color: var(--flow-muted); }
 .activity-warning { padding: 10px 12px; border-left: 3px solid var(--flow-high); background: var(--flow-soft); }
 .activity-link { border: 0; border-bottom: 1px solid var(--flow-line-strong); padding: 10px 0 4px; margin-top: 10px; color: var(--flow-accent); background: transparent; font-size: 12px; font-weight: 600; min-height: 40px; text-align: left; }
-.activity-map-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 32px 20px; border-top: 1px solid var(--flow-line); margin-top: 20px; }
-.activity-map-heading h2 { margin: 0; font-size: 19px; letter-spacing: -.02em; }
-.activity-map-heading p { color: var(--flow-muted); margin: 7px 0 0; font-size: 12px; }
-.activity-map-heading a { font-size: 12px; white-space: nowrap; }
-body[data-workspace="workflow"] .flow-workspace { min-height: 500px; flex: none; height: 560px; }
-body[data-workspace="workflow"] .flow-workspace:has(.results-sidebar:not([hidden])) { height: 560px; min-height: 500px; }
-body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; }
-@media (min-width: 1060px) {
-  body:has(#node-inspector:not([hidden])) .workflow-activity { margin-right: 410px; width: calc(100% - 410px); padding-inline: 24px; }
-}
-@media (min-width: 1060px) and (max-width: 1279px) {
-  body:has(#node-inspector:not([hidden])) .activity-grid { grid-template-columns: minmax(0,1fr); }
-  body:has(#node-inspector:not([hidden])) .activity-context { grid-column: 1; grid-row: auto; }
-}
+body[data-workspace="workflow"] .flow-workspace,
+body[data-workspace="workflow"] .flow-workspace:has(.results-sidebar:not([hidden])) { min-height: 420px; height: max(420px,calc(100dvh - 290px)); flex: 1 0 420px; flex-direction: row; overflow: hidden; }
+body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; height: 100%; order: 0; flex: 1 1 0; }
+.workflow-sidebar { width: clamp(320px,30vw,380px); flex: 0 0 clamp(320px,30vw,380px); height: 100%; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--flow-line); background: var(--flow-paper); order: 1; }
+.workflow-sidebar .activity-heading { flex-direction: column; gap: 10px; }
+.workflow-sidebar .activity-heading h2 { font-size: 21px; }
+.workflow-sidebar .activity-stats { grid-template-columns: 1fr 1fr; margin: 16px 0; }
+.workflow-sidebar .activity-stats > div { padding: 12px; border-bottom: 1px solid var(--flow-line); }
+.workflow-sidebar .activity-stats > div:nth-child(2n) { border-right: 0; }
+.workflow-sidebar .activity-stats > div:nth-last-child(-n+2) { border-bottom: 0; }
+.workflow-sidebar .activity-stats dd { font-size: 21px; }
+.workflow-sidebar .activity-stats > div:last-child dd { font-size: 15px; }
+.workflow-sidebar .activity-phases { grid-template-columns: 1fr 1fr; gap: 4px; }
+.workflow-sidebar .activity-phases li { padding: 8px 4px; }
+.workflow-sidebar .activity-grid { display: flex; flex-direction: column; gap: 14px; }
+.workflow-sidebar .activity-card { width: 100%; padding: 16px; }
+.workflow-sidebar .activity-card h3 { font-size: 15px; }
+.workflow-sidebar .activity-context { order: 1; }
+.workflow-sidebar .activity-now { order: 0; }
+.workflow-sidebar .activity-findings { order: 2; }
+.workflow-sidebar .activity-ai { order: 3; }
+.workflow-sidebar .activity-coverage { order: 4; }
+.workflow-sidebar .activity-coverage > ul { display: block; }
+.workflow-sidebar .activity-fact strong { font-size: 16px; }
+.workflow-sidebar .results-sidebar { width: 100%; height: auto; padding: 20px; overflow: visible; border: 0; border-top: 1px solid var(--flow-line); }
 @media (max-width: 1050px) {
   .workflow-activity { padding-inline: 20px; }
   .activity-grid { grid-template-columns: minmax(0,1fr) minmax(250px,.6fr); gap: 14px; }
@@ -98,6 +109,8 @@ body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; }
   .activity-ai { order: 3; }
   .activity-coverage { order: 4; }
   .activity-coverage > ul { display: block; }
-  .activity-map-heading { padding: 22px 16px; }
-  body[data-workspace="workflow"] .flow-workspace:has(.results-sidebar:not([hidden])) { height: auto; }
+  body[data-workspace="workflow"] .flow-workspace,
+  body[data-workspace="workflow"] .flow-workspace:has(.results-sidebar:not([hidden])) { height: auto; flex-direction: column; overflow: visible; }
+  body[data-workspace="workflow"] .flow-workspace > .viewport { height: 540px; flex: 0 0 540px; }
+  .workflow-sidebar { width: 100%; flex: none; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
 }

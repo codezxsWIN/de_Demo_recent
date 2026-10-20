@@ -5,6 +5,10 @@ const load = async path => import(`data:text/javascript;base64,${Buffer.from(rea
 const {buildActivityModel, renderWorkflowActivity, renderActivityContext} = await load('vulnassess/ui/static/workflow-activity.js');
 const {buildInsightBrief} = await load('vulnassess/ui/static/workflow-insights.js');
 const scenario = process.argv[2];
+const layout = readFileSync('vulnassess/ui/static/workflow.html', 'utf8');
+assert.ok(layout.indexOf('id="viewport"') < layout.indexOf('id="workflow-activity"'), 'The canvas must come before its background panel');
+assert.ok(layout.indexOf('class="workflow-sidebar"') < layout.indexOf('id="workflow-activity"'), 'Activity belongs in the workflow sidebar');
+assert.doesNotMatch(layout, /class="activity-map-heading"/);
 const base = {
   source: 'Live assessment', target: 'SYNTHETIC target', findingCount: 0, serviceCount: 1,
   scanStatus: 'complete', conclusion: 'SYNTHETIC evidence-only conclusion', captureDetails: [],

@@ -17,8 +17,8 @@ function showWorkspace(page) {
   document.querySelector('.flow-workspace').hidden = page !== 'workflow';
   document.getElementById('assessment-highlights').hidden = page !== 'workflow';
   const skip = document.querySelector('.skip');
-  skip.href = page === 'workflow' ? '#workflow-activity' : '#assessment-overview';
-  skip.textContent = page === 'workflow' ? 'Skip to assessment activity' : 'Skip to assessment overview';
+  skip.href = page === 'workflow' ? '#viewport' : '#assessment-overview';
+  skip.textContent = page === 'workflow' ? 'Skip to workflow canvas' : 'Skip to assessment overview';
   if (page === 'self-defence') { skip.href = '#self-defence-workspace'; skip.textContent = 'Skip to device assessment'; }
   if (page === 'workflow') requestAnimationFrame(fit);
 }
@@ -561,8 +561,7 @@ async function startLiveRun(planBinding = null) {
   runPanel.hidden = true;
   document.getElementById('open-run').setAttribute('aria-expanded', 'false');
   if (target !== 'self') {
-    document.getElementById('workflow-activity').focus({preventScroll: true});
-    document.getElementById('workflow-activity').scrollIntoView({block: 'start'});
+    viewport.focus({preventScroll: true});
   }
   const accept = event => {
     if (target === 'self' && event.type === 'stage') document.getElementById('device-progress').textContent = event.detail;

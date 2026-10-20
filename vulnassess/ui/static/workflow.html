@@ -12,7 +12,7 @@
   <script type="module" src="/static/workflow.js"></script>
 </head>
 <body data-workspace="workflow">
-  <a class="skip" href="#workflow-activity">Skip to assessment activity</a>
+  <a class="skip" href="#viewport">Skip to workflow canvas</a>
   <header class="flow-header">
     <a class="wordmark" href="/workflow" aria-label="VulnAssess workflow"><span class="flow-mark" aria-hidden="true">v/a</span>VulnAssess<span class="product-label">WORKFLOW</span></a>
     <div class="run-controls"><label for="workflow-run">Assessment</label><select id="workflow-run" disabled><option>Loading records</option></select><span id="data-kind" class="data-kind">LOCAL</span></div>
@@ -31,7 +31,7 @@
   <nav class="workspace-nav" aria-label="Assessment workspace">
     <button type="button" data-workspace-page="self-defence" aria-pressed="false">Self-defence</button>
     <button type="button" data-workspace-page="overview" aria-pressed="false"><span>01</span> Overview</button>
-    <button type="button" data-workspace-page="workflow" aria-pressed="true"><span>02</span> Assessment activity</button>
+    <button type="button" data-workspace-page="workflow" aria-pressed="true"><span>02</span> Workflow explorer</button>
     <button type="button" data-workspace-page="insights" aria-pressed="false"><span>03</span> AI & next steps</button>
     <a class="quiet-link" href="/captures">Saved assessments</a>
     <a class="quiet-link" href="/website-check">Public Website Check</a>
@@ -109,8 +109,6 @@
     </details>
   </section>
   <!-- ==================== RUN ANALYSIS PANEL: END ====================== -->
-  <section id="workflow-activity" class="workflow-activity" aria-label="Assessment activity and background" tabindex="-1"></section>
-  <header class="activity-map-heading"><div><h2>Technical workflow</h2><p>Inspect the dependencies, raw evidence and complete execution trace below.</p></div><a href="#workflow-activity">Back to assessment ↑</a></header>
   <main class="flow-workspace">
     <aside id="assessment-brief" class="assessment-brief" aria-label="Assessment context and insights" hidden><p class="brief-empty">Loading context and assessment insights.</p></aside>
     <section id="viewport" class="viewport" aria-label="Assessment workflow canvas" tabindex="0">
@@ -126,11 +124,14 @@
       </div>
       <div class="canvas-footer"><span class="local-indicator" aria-hidden="true"></span><span id="canvas-status">Stored records / no pipeline execution</span><span id="run-hash"></span></div>
     </section>
+    <div class="workflow-sidebar" aria-label="Assessment background alongside the workflow">
+    <section id="workflow-activity" class="workflow-activity" aria-label="Assessment activity and background" tabindex="-1"></section>
     <aside id="live-execution" class="live-execution results-sidebar" aria-label="Live assessment execution" hidden>
       <div class="live-execution-heading"><div><span id="live-execution-mode" class="eyebrow">LIVE RUN / EVENT STREAM</span><h2 id="live-execution-title" tabindex="-1">Waiting for the target</h2><p id="live-execution-context" class="live-execution-context" hidden></p><p id="live-execution-detail" class="live-execution-detail" aria-live="polite">Stage details appear here.</p></div><span id="live-execution-count" class="live-execution-count">0 / 8 stages</span></div>
       <details class="sidebar-stages"><summary>Execution stages & coverage</summary><ol id="live-execution-steps" class="live-execution-steps" aria-label="Live workflow stages"></ol><p id="live-path-boundary" class="live-execution-detail" hidden>This run performs light Nmap discovery, verifies an explicitly supplied URL port, and runs bounded Nikto checks only for an exact in-scope asset tagged environment:test. AI analyzes collected scanner evidence; scores remain deterministic. Nessus reports are imported, not launched.</p></details>
       <details id="live-execution-details" class="live-execution-details" open hidden><summary>Collected evidence & AI results</summary><div id="live-execution-output" class="live-execution-output"></div></details>
     </aside>
+    </div>
     <aside id="node-inspector" class="node-inspector" aria-label="Workflow node inspector" hidden>
       <div class="inspector-heading"><span class="eyebrow">NODE INSPECTOR</span><button id="close-node" class="tool" type="button" title="Close inspector" aria-label="Close inspector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <div id="node-content"></div>
