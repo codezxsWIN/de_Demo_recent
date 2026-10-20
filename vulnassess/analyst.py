@@ -675,6 +675,19 @@ def analysis_schema(
     def constrain(node: Any) -> None:
         if isinstance(node, dict):
             for name, field in node.get("properties", {}).items():
+                if name == "text":
+                    # Field-local guidance reaches every claim and score variant.
+                    # Descriptions guide generation; only validation accepts output.
+                    field["description"] = (
+                        "Use only the cited observations. A null control value means unknown, "
+                        "not absent. Missing security headers and an open port do not prove "
+                        "missing authentication, WAF or rate limiting. When a control is "
+                        "unknown, write 'not established by this scan' or ask 'Verify whether "
+                        "authentication is configured'. Do not describe the target as "
+                        "unauthenticated or without protection unless a cited explicit "
+                        "negative test establishes that fact. This applies to generic risk "
+                        "explanations, verification instructions and benign alternatives too."
+                    )
                 if name in {"finding_ids", "evidence_ids"}:
                     allowed = finding_ids if name == "finding_ids" else evidence_ids
                     if allowed:

@@ -2943,3 +2943,48 @@ VERIFIED locally: 34 focused browser/offline-gate tests passed; Ruff lint and fo
 package is unchanged from the 4,270-test release checkpoint. A complete remote
 matrix rerun is required after publication; do not label it green before observing
 both jobs. This change does not constitute actual browser visual verification.
+
+### AI-CONTROL-GUIDANCE-01 — 2026-10-20 — Field-local unknown-control guidance
+
+Serves the grounded-explanation/AI-boundary component. A human-approved browser
+web-lab run completed collection and five fallback priorities, but Google output
+was withheld for an unsupported auth_required assertion. Original prose was not
+retained, only audit hashes and the validator diagnostic; the exact sentence cannot
+be reconstructed and a validator false positive is not established. One diagnostic
+replay of retained evidence passed all three batches before this change, showing
+intermittence rather than a proven deterministic repair.
+
+Added field-local text descriptions to every generated claim schema, including
+score variants, explaining that unknown controls are not absent and that missing
+headers do not establish missing authentication. Wire fields, validators, scope,
+canonical scores, model choice and unsafe-claim retry policy are unchanged. This is
+generation guidance, not a semantic schema guarantee or a promise of model accuracy.
+Rejected bypassing the validator, automatically retrying unsafe claims until one
+passes, or displaying invalid prose. The rejected original remains Needs review.
+
+Eight synthetic tests cover compact/uncompacted and score-bound/unbound requests,
+immutable schema constants, and all four unknown-control rejection paths. Local
+focused verification: 100 tests passed; each unsafe example was rejected after one
+model call and retained unchanged input scores. A post-change Google replay of the
+same retained case also validated all five findings in three batches; no scanner
+was launched for that replay. Quarantined diagnostic responses stay in ignored
+data/verification, never rendered as accepted findings. Full gate and a fresh
+browser-path verification are pending at this entry; do not report them as passed.
+
+Subsequent browser-path verification PASSED against the same currently authorised
+web endpoint after its cooldown: 16 executed, four not applicable, zero failed.
+Google included all five header findings across three validated batches. New local
+capture assessment-vxdo6e6f passed review/manifest hash verification. Its canonical
+finding/risk/band/weights tuples equal the rejected run's tuples. Original capture
+assessment-fh9hpjp_ remains Needs review; it was not overwritten or upgraded.
+No CVE was confirmed by the live scan, so no live CVE enrichment is claimed.
+Screenshot and diagnostic outputs remain ignored local artifacts. These two
+post-change successes (one replay and one fresh browser run) do not establish a
+statistical reduction in failure rate, a guarantee, or production readiness.
+
+Final offline scripts/check.py verification PASSED: Ruff lint, Ruff format (297
+files), offline Pyright (zero errors/warnings), 4,284 tests plus 530 subtests and
+99.34% Python statement coverage. The full suite took 947.65 seconds. Local log:
+data/verification/analyst-control-guidance-gate-2026-10-20.log. No dependency,
+scope, validator or scoring changes were needed. Changes remain on the local
+codex/analyst-control-guidance review branch until separately published.
