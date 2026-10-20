@@ -26,6 +26,7 @@
       <button type="button" data-view-mode="stages" aria-pressed="false" title="View all stages as a list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3v3H4ZM4 16h3v3H4ZM11 6h9M11 17h9"/></svg>Stages</button>
     </div>
     <button id="toggle-insights" class="insights-toggle" type="button" aria-expanded="false" aria-controls="workflow-sidebar node-inspector">Details</button>
+    <button id="toggle-connections" class="tool-text" type="button" aria-pressed="false" aria-controls="connections">All connections</button>
     <button id="toggle-theme" class="tool-text theme-toggle" type="button" aria-label="Switch to dark theme">Dark theme</button>
   </div>
   <nav class="workspace-nav" aria-label="Assessment workspace">
@@ -37,7 +38,7 @@
     <a class="quiet-link" href="/website-check">Public Website Check</a>
     <p>Evidence first. Every conclusion traceable.</p>
   </nav>
-  <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span>Select a module for internals, status &amp; evidence</span></div>
+  <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span id="connection-hint">Main path only · select a module to reveal its dependencies</span></div>
   <section id="assessment-overview" class="assessment-overview" aria-label="Assessment overview" tabindex="-1"><p>Loading the assessment overview.</p></section>
   <section id="assessment-highlights" class="assessment-highlights" aria-label="Assessment at a glance"></section>
   <section id="self-defence-workspace" class="device-workspace" aria-label="Self-defence" tabindex="-1" hidden>

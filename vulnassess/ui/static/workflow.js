@@ -1,5 +1,5 @@
 import {SIZE, NODE_SPECS, EDGES, ICONS, buildNodes, connectedNodeIds, nodeDetails, evidenceKind, evidenceBasis, finishFailedExecution, executionCounts, stageStateLabel, isLiveAssessmentResult, scanCompletionLabel, nodeExecutionEntry} from './workflow-data.js';
-import {readLayout, moveNode, positionNodes, pathNodeIds} from './workflow-layout.js';
+import {readLayout, moveNode, positionNodes, pathNodeIds, showConnection} from './workflow-layout.js';
 import {requestAnalystProgress} from './analyst-client.js';
 import {PREVIEW_SCENARIOS} from './workflow-preview.js';
 import {mountScanPlanner} from './scan-plan-client.js';
@@ -80,6 +80,7 @@ let activitySignature = '';
 const executionSteps = () => liveState.previewState !== 'idle' && liveState.previewScenario
   ? liveState.previewScenario.steps
   : liveStages.map(([id, label]) => ({id, node: stageNode[id], label: liveState.reuseRecent && id === 'scanner' ? 'Reuse recent Nmap evidence' : liveState.reuseRecent && id === 'context' ? 'Reuse recorded context' : label}));
+let showAllConnections = false;
 
 function appendInvestigation(holder, analyst) {
   const evidence = new Map((analyst.evidence || []).map(item => [item.id, item]));
@@ -988,6 +989,7 @@ function renderGraph() {
   const previewEdges = liveState.previewState !== 'idle'
     ? new Set(executionSteps().flatMap(step => step.edges)) : null;
   for (const edge of EDGES) {
+    if (!showConnection(edge, view.node, showAllConnections, flowEdges)) continue;
     const from = nodeMap.get(edge.from);
     const to = nodeMap.get(edge.to);
     const missing = edge.optional || ['missing', 'optional'].includes(from.state) || ['missing', 'optional'].includes(to.state);
@@ -995,17 +997,23 @@ function renderGraph() {
     const active = view.node === edge.from || view.node === edge.to;
     paths.append(svgElement('path', {d: edgePath(from, to), class: `connection${missing ? ' optional' : ''}${active ? ' highlighted' : ''}${view.node && !active && !liveState.active ? ' faded' : ''}${previewEdges && !previewEdges.has(identity) ? ' out-of-preview' : ''}`, 'marker-end': 'url(#flow-arrow)', 'data-edge': identity}));
     if (completedEdges.has(identity)) paths.append(svgElement('path', {d: edgePath(from, to), class: 'connection-flow-done', 'data-flow-complete': identity}));
-    if (active) paths.append(svgElement('path', {d: edgePath(from, to), class: 'connection-trace', pathLength: 100}));
     if (flowEdges.has(identity)) paths.append(svgElement('path', {d: edgePath(from, to), class: 'connection-flow', pathLength: 100, 'data-live-edge': identity}));
   }
   for (const identity of ['nmap:context', 'context:analyst']) {
+    if (EDGES.some(edge => `${edge.from}:${edge.to}` === identity)) continue;
     if (!flowEdges.has(identity) && !completedEdges.has(identity)) continue;
     const [from, to] = identity.split(':');
+    if (!showConnection({from, to}, view.node, showAllConnections, flowEdges)) continue;
     const flow = edgePath(nodeMap.get(from), nodeMap.get(to));
     paths.append(svgElement('path', {d: flow, class: 'connection optional', 'data-edge': identity}));
     if (completedEdges.has(identity)) paths.append(svgElement('path', {d: flow, class: 'connection-flow-done', 'data-flow-complete': identity}));
     if (flowEdges.has(identity)) paths.append(svgElement('path', {d: flow, class: 'connection-flow', pathLength: 100, 'data-live-edge': identity}));
   }
+  const connectionCount = paths.querySelectorAll('[data-edge]').length;
+  document.getElementById('connection-hint').textContent = showAllConnections
+    ? `All ${connectionCount} dependencies · turn off All connections for a focused view`
+    : view.node ? `${nodeMap.get(view.node).title} · ${connectionCount} direct dependencies · details alongside`
+      : 'Main path only · select a module to reveal its dependencies';
   const list = document.getElementById('node-list');
   list.replaceChildren();
   const previewPath = pathNodeIds(executionSteps(), ['scope', 'nmap', 'context', 'analyst']);
@@ -1426,6 +1434,11 @@ async function loadWorkflow() {
 }
 
 document.getElementById('refresh-workflow').addEventListener('click', loadWorkflow);
+document.getElementById('toggle-connections').addEventListener('click', event => {
+  showAllConnections = !showAllConnections;
+  event.currentTarget.setAttribute('aria-pressed', String(showAllConnections));
+  renderGraph();
+});
 document.getElementById('toggle-insights').addEventListener('click', event => {
   const rail = document.getElementById('workflow-sidebar');
   const open = rail.hidden && inspector.hidden;

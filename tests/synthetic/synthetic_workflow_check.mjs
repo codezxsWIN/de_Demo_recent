@@ -5,6 +5,16 @@ const source = readFileSync(new URL('../../vulnassess/ui/static/workflow-data.js
 const workflow = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const layoutSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-layout.js', import.meta.url), 'utf8');
 const layout = await import(`data:text/javascript;base64,${Buffer.from(layoutSource).toString('base64')}`);
+const beforeEdges = JSON.stringify(workflow.EDGES);
+const defaultEdges = workflow.EDGES.filter(edge => layout.showConnection(edge));
+assert.equal(defaultEdges.length, 6, 'Default view has only the six spine links');
+const focusedEdges = workflow.EDGES.filter(edge => layout.showConnection(edge, 'context'));
+assert.equal(focusedEdges.length, 4);
+assert.ok(focusedEdges.every(edge => edge.from === 'context' || edge.to === 'context'));
+assert.deepEqual(workflow.EDGES.filter(edge => layout.showConnection(edge, 'context', true)), [...workflow.EDGES]);
+assert.ok(layout.showConnection({from: 'context', to: 'analyst'}, '', false, new Set(['context:analyst'])), 'A genuinely running branch remains visible');
+assert.equal(layout.showConnection({from: 'context', to: 'analyst'}), false, 'An idle branch does not clutter the default view');
+assert.equal(JSON.stringify(workflow.EDGES), beforeEdges, 'Focus never mutates dependency data');
 const saved = layout.readLayout({nmap: {x: 410, y: 240}, scope: {x: -1000, y: 9999}, unknown: {x: 25, y: 25}, nikto: {x: 'wrong', y: 50}}, workflow.NODE_SPECS, workflow.SIZE);
 assert.deepEqual(saved.nmap, {x: 410, y: 240});
 assert.deepEqual(saved.scope, {x: 95, y: workflow.SIZE.height - 122});

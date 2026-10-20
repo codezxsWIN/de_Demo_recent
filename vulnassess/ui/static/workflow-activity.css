@@ -107,6 +107,8 @@ body[data-workspace="workflow"] .flow-workspace > .node-inspector { position: re
 .node-operation h3 { font-size: 14px; margin: 22px 0 8px; }
 .node-operation .detail-hint { font-size: 11px; line-height: 1.5; color: var(--flow-muted); }
 .workflow-sidebar[hidden] { display: none; }
+body:not([data-workspace="workflow"]) #toggle-connections { display: none; }
+#toggle-connections[aria-pressed="true"] { color: var(--flow-accent); background: var(--flow-soft); border-radius: 6px; }
 body[data-workspace="workflow"] .flow-header { min-height: 54px; }
 body[data-workspace="workflow"] .workflow-bar { padding-block: 10px; min-height: 66px; }
 body[data-workspace="workflow"] .canvas-heading h1 { font-size: 24px; }
