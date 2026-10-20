@@ -7,7 +7,7 @@ const layoutSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-l
 const layout = await import(`data:text/javascript;base64,${Buffer.from(layoutSource).toString('base64')}`);
 const saved = layout.readLayout({nmap: {x: 410, y: 240}, scope: {x: -1000, y: 9999}, unknown: {x: 25, y: 25}, nikto: {x: 'wrong', y: 50}}, workflow.NODE_SPECS, workflow.SIZE);
 assert.deepEqual(saved.nmap, {x: 410, y: 240});
-assert.deepEqual(saved.scope, {x: 82, y: workflow.SIZE.height - 130});
+assert.deepEqual(saved.scope, {x: 95, y: workflow.SIZE.height - 122});
 assert.equal(saved.unknown, undefined);
 assert.equal(saved.nikto, undefined);
 const moved = layout.moveNode(saved, 'nmap', 640, 330, workflow.SIZE);
@@ -40,12 +40,18 @@ assert.ok(!livePath.has('nessus'), 'import-only scanner must not be marked as ex
 const input = JSON.parse(readFileSync(0, 'utf8'));
 const before = JSON.stringify(input.assessment);
 const nodes = workflow.buildNodes(input.assessment, input.scope);
+const spine = ['scope', 'nmap', 'canonical', 'intel', 'score', 'queue', 'report'].map(id => nodes.find(node => node.id === id));
+assert.ok(spine.every(node => node.y === spine[0].y), 'The main assessment spine stays aligned');
+for (let index = 1; index < spine.length; index++) {
+  assert.ok(spine[index].x > spine[index - 1].x, 'The main spine reads left to right');
+  assert.ok(workflow.EDGES.some(edge => edge.from === spine[index - 1].id && edge.to === spine[index].id), 'Every spine connection must be a real dependency');
+}
 assert.equal(new Set(nodes.map(node => node.id)).size, nodes.length);
 for (const node of nodes) {
-  assert.ok(node.x >= 82 && node.x + 82 <= workflow.SIZE.width, `${node.id} tile must fit horizontally`);
-  assert.ok(node.y >= 49 && node.y + 130 <= workflow.SIZE.height, `${node.id} tile and labels must fit vertically`);
+  assert.ok(node.x >= 95 && node.x + 95 <= workflow.SIZE.width, `${node.id} module must fit horizontally`);
+  assert.ok(node.y >= 48 && node.y + 122 <= workflow.SIZE.height, `${node.id} module and label must fit vertically`);
   for (const other of nodes.filter(other => other.id !== node.id)) {
-    assert.ok(Math.abs(node.x - other.x) >= 164 || Math.abs(node.y - other.y) >= 179, `${node.id} and ${other.id} must not overlap`);
+    assert.ok(Math.abs(node.x - other.x) >= 190 || Math.abs(node.y - other.y) >= 170, `${node.id} and ${other.id} modules must not overlap`);
   }
 }
 for (const edge of workflow.EDGES) {

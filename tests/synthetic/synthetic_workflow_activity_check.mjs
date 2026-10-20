@@ -120,7 +120,7 @@ for (const identity of ['context', 'nmap']) {
     }},
     content: panel, element: makeElement, icon: () => new SyntheticNode('svg'),
     applyLiveRunToNodes: value => value, buildNodes: () => [{id: identity, group: 'transform', title: identity}],
-    nodeDetails: () => ({input: 'WRONG STORED HOST', rows: [], quotes: [], records: []}),
+    nodeDetails: () => ({input: 'SYNTHETIC module input', operation: 'SYNTHETIC internal operation', output: 'SYNTHETIC internal output', provenance: 'SYNTHETIC implementation', rows: [{label: 'WRONG STORED HOST', value: '192.0.2.99'}], quotes: [], records: []}),
     selection: () => ({}), currentAnalysis: () => null, buildInsightBrief, renderActivityContext,
     rows: items => makeElement('div', '', items.map(item => item.value).join(' ')),
   };
@@ -128,6 +128,9 @@ for (const identity of ['context', 'nmap']) {
   renderActualInspector();
   const panelText = flatten(panel).map(item => item.textContent || '').join('\n');
   assert.match(panelText, /SYNTHETIC active endpoint/);
+  assert.match(panelText, /Module internals/);
+  assert.match(panelText, /SYNTHETIC internal operation/);
+  assert.match(panelText, /SYNTHETIC implementation/);
   assert.doesNotMatch(panelText, /WRONG STORED HOST|192\.0\.2\.99/);
   assert.match(panelText, identity === 'context' ? /SYNTHETIC active proof/ : /SYNTHETIC active service/);
 }
@@ -155,4 +158,22 @@ const insight = buildInsightBrief({assessment: {hosts: [], findings: [], scores:
   },
 }});
 assert.equal(insight.priorities[0].title, targetTitle);
+// Details toggles one dock, rather than opening a second panel over the canvas.
+const detailsToggleSource = workflowSource.slice(workflowSource.indexOf("document.getElementById('toggle-insights').addEventListener"), workflowSource.indexOf("document.getElementById('toggle-theme').addEventListener"));
+const rail = {hidden: true};
+const dock = {hidden: true};
+const toggle = new SyntheticNode('button');
+const selectedView = {node: ''};
+new Function('document', 'inspector', 'view', 'updateLocation', 'renderGraph', 'fit', detailsToggleSource)(
+  {getElementById: id => id === 'workflow-sidebar' ? rail : toggle}, dock, selectedView, () => {}, () => {}, () => {},
+);
+toggle.listeners.click({currentTarget: toggle});
+assert.equal(rail.hidden, false);
+assert.equal(toggle.attributes['aria-expanded'], 'true');
+dock.hidden = false; selectedView.node = 'context';
+toggle.listeners.click({currentTarget: toggle});
+assert.equal(rail.hidden, true);
+assert.equal(dock.hidden, true);
+assert.equal(selectedView.node, '');
+assert.equal(toggle.attributes['aria-expanded'], 'false');
 console.log(`PASS synthetic activity scenario: ${scenario}`);

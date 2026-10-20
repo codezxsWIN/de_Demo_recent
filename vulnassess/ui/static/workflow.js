@@ -39,7 +39,7 @@ const runSearch = document.getElementById('run-target-search');
 const providerSelect = document.getElementById('analyst-provider');
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const narrowViewport = matchMedia('(max-width: 960px)');
-const layoutKey = 'vulnassess.workflow.layout.v1';
+const layoutKey = 'vulnassess.workflow.layout.v3';
 function loadLayout() {
   try { return readLayout(JSON.parse(localStorage.getItem(layoutKey)), NODE_SPECS, SIZE); }
   catch { return {}; }
@@ -898,13 +898,13 @@ function fitPreviewPath() {
   const path = pathNodeIds(executionSteps(), ['scope', 'nmap', 'context', 'analyst']);
   const nodes = positionNodes(buildNodes(view.assessment, view.scope), view.layout).filter(node => path.has(node.id));
   if (!nodes.length) return fit();
-  const left = Math.min(...nodes.map(node => node.x)) - 100;
-  const right = Math.max(...nodes.map(node => node.x)) + 100;
+  const left = Math.min(...nodes.map(node => node.x)) - 200;
+  const right = Math.max(...nodes.map(node => node.x)) + 200;
   const topNode = Math.min(...nodes.map(node => node.y)) - 65;
-  const bottomNode = Math.max(...nodes.map(node => node.y)) + 135;
+  const bottomNode = Math.max(...nodes.map(node => node.y)) + 65;
   const width = viewport.clientWidth;
   const height = viewport.clientHeight;
-  const top = document.querySelector('.trace-controls').offsetHeight + 28;
+  const top = 20;
   const bottom = document.querySelector('.canvas-footer').offsetHeight + 25;
   const availableHeight = height - top - bottom;
   view.scale = Math.max(.18, Math.min(1, (width - 40) / (right - left), availableHeight / (bottomNode - topNode)));
@@ -925,14 +925,18 @@ function edgePath(from, to) {
   const horizontal = Math.abs(to.x - from.x) > Math.abs(to.y - from.y) * .75;
   if (horizontal) {
     const direction = Math.sign(to.x - from.x) || 1;
-    const start = {x: from.x + 50 * direction, y: from.y};
-    const end = {x: to.x - 50 * direction, y: to.y};
+    const start = {x: from.x + 52 * direction, y: from.y};
+    const end = {x: to.x - 52 * direction, y: to.y};
+    if (Math.abs(to.x - from.x) > 300 && Math.abs(to.y - from.y) < 60) {
+      const lift = Math.min(from.y, to.y) - 120;
+      return `M${start.x},${start.y} C${start.x},${lift} ${end.x},${lift} ${end.x},${end.y}`;
+    }
     const middle = (start.x + end.x) / 2;
     return `M${start.x},${start.y} C${middle},${start.y} ${middle},${end.y} ${end.x},${end.y}`;
   }
-  const side = Math.max(from.x, to.x) + 105;
-  const start = {x: from.x + 50, y: from.y};
-  const end = {x: to.x + 50, y: to.y};
+  const side = Math.max(from.x, to.x) + 140;
+  const start = {x: from.x + 52, y: from.y};
+  const end = {x: to.x + 52, y: to.y};
   return `M${start.x},${start.y} C${side},${start.y} ${side},${end.y} ${end.x},${end.y}`;
 }
 
@@ -1022,7 +1026,7 @@ function renderGraph() {
     stateMark.setAttribute('aria-hidden', 'true');
     stateMark.textContent = node.state === 'error' ? '!' : node.state === 'complete' ? '✓' : '';
     disc.append(stateMark);
-    button.append(disc, element('strong', 'node-title', node.title), element('span', 'node-subtitle', node.subtitle), element('span', 'node-status', node.status));
+    button.append(disc, element('strong', 'node-title', node.title), element('span', 'node-subtitle', node.subtitle), element('span', 'node-status', node.status), element('span', 'node-inspect-hint', '↗'));
     button.addEventListener('keydown', event => {
       const offsets = {ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20]};
       if (view.mode !== 'canvas' || !event.altKey || !offsets[event.key]) return;
@@ -1040,8 +1044,9 @@ function renderGraph() {
   const lanes = document.getElementById('lanes');
   if (!lanes.children.length) {
     const labels = [
-      {text: '01 / EVIDENCE', x: 65, y: 30}, {text: '02 / INTELLIGENCE', x: 585, y: 0},
-      {text: '03 / RISK & PRIORITY', x: 945, y: 245}, {text: '04 / OUTPUTS', x: 1320, y: 30},
+      {text: 'INTELLIGENCE & OPTIONAL CHECKS', x: 205, y: 15},
+      {text: 'ASSESSMENT FLOW →', x: 5, y: 245},
+      {text: 'SUPPORTING EVIDENCE & REASONING', x: 5, y: 485},
     ];
     for (const label of labels) {
       const item = element('span', 'lane-label', label.text);
@@ -1093,6 +1098,7 @@ function selectNode(identity) {
   view.node = identity;
   updateLocation();
   inspector.hidden = false;
+  document.getElementById('toggle-insights').setAttribute('aria-expanded', 'true');
   renderGraph();
   renderInspector();
   fit();
@@ -1113,6 +1119,17 @@ function renderInspector() {
   title.tabIndex = -1;
   heading.append(glyph, title);
   content.append(heading, element('p', 'node-description', node.subtitle), element('span', `detail-status state-${node.state}`, node.status));
+  const logic = element('div', 'node-operation');
+  logic.append(element('h3', '', 'Module internals'));
+  for (const [label, value] of [['INPUT', details.input], ['OPERATION', details.operation], ['OUTPUT', details.output]]) {
+    const section = element('div', 'operation-row');
+    section.append(element('span', 'detail-label', label), element('p', '', value));
+    logic.append(section);
+  }
+  logic.append(element('p', 'detail-hint', 'This describes the module. Its status and evidence show whether it actually ran.'));
+  const module = element('div', 'module-path');
+  module.append(element('span', 'detail-label', 'IMPLEMENTATION'), element('span', 'evidence', details.provenance));
+  content.append(logic, module);
   if (liveState.active && liveState.previewState === 'idle' && view.node === 'analyst') {
     renderAnalyst();
     return;
@@ -1142,13 +1159,6 @@ function renderInspector() {
   if (liveState.active && ['skipped', 'not_in_mode'].includes(node.state) && liveState.previewState === 'idle') {
     content.append(element('p', 'boundary-note', 'This stage did not execute in the live run. Any records below belong to the selected stored assessment, not this run.'));
   }
-  const logic = element('div', 'node-operation');
-  for (const [label, value] of [['INPUT', details.input], ['OPERATION', details.operation], ['OUTPUT', details.output]]) {
-    const section = element('div', 'operation-row');
-    section.append(element('span', 'detail-label', label), element('p', '', value));
-    logic.append(section);
-  }
-  content.append(logic);
   if (details.rows.length) content.append(rows(details.rows));
   appendQuotes(content, details.quotes);
   if (view.node === 'analyst') renderAnalyst();
@@ -1158,9 +1168,6 @@ function renderInspector() {
     disclosure.append(element('summary', '', 'Raw records'), element('pre', 'evidence', JSON.stringify(details.records, null, 2)));
     content.append(disclosure);
   }
-  const module = element('div', 'module-path');
-  module.append(element('span', 'detail-label', 'IMPLEMENTATION'), element('span', 'evidence', details.provenance));
-  content.append(module);
   const links = element('div', 'node-neighbours');
   for (const edge of EDGES.filter(edge => edge.from === view.node || edge.to === view.node)) {
     const other = nodes.find(item => item.id === (edge.from === view.node ? edge.to : edge.from));
@@ -1420,9 +1427,14 @@ async function loadWorkflow() {
 
 document.getElementById('refresh-workflow').addEventListener('click', loadWorkflow);
 document.getElementById('toggle-insights').addEventListener('click', event => {
-  const brief = document.getElementById('assessment-brief');
-  brief.hidden = !brief.hidden;
-  event.currentTarget.setAttribute('aria-expanded', String(!brief.hidden));
+  const rail = document.getElementById('workflow-sidebar');
+  const open = rail.hidden && inspector.hidden;
+  inspector.hidden = true;
+  rail.hidden = !open;
+  view.node = '';
+  updateLocation();
+  event.currentTarget.setAttribute('aria-expanded', String(open));
+  renderGraph();
   fit();
 });
 document.getElementById('toggle-theme').addEventListener('click', event => {
@@ -1539,6 +1551,7 @@ document.getElementById('close-node').addEventListener('click', () => {
   view.node = '';
   inspector.hidden = true;
   updateLocation();
+  document.getElementById('toggle-insights').setAttribute('aria-expanded', String(!document.getElementById('workflow-sidebar').hidden));
   renderGraph();
   fit();
   document.querySelector(`[data-node="${identity}"]`)?.focus({preventScroll: true});

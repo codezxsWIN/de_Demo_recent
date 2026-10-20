@@ -25,7 +25,7 @@
       <button type="button" data-view-mode="canvas" aria-pressed="true" title="View connected stages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h6v6H3ZM15 3h6v6h-6ZM15 15h6v6h-6ZM9 12h3V6h3M12 12v6h3"/></svg>Canvas</button>
       <button type="button" data-view-mode="stages" aria-pressed="false" title="View all stages as a list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3v3H4ZM4 16h3v3H4ZM11 6h9M11 17h9"/></svg>Stages</button>
     </div>
-    <button id="toggle-insights" class="insights-toggle" type="button" aria-expanded="false" aria-controls="assessment-brief">Assessment brief</button>
+    <button id="toggle-insights" class="insights-toggle" type="button" aria-expanded="false" aria-controls="workflow-sidebar node-inspector">Details</button>
     <button id="toggle-theme" class="tool-text theme-toggle" type="button" aria-label="Switch to dark theme">Dark theme</button>
   </div>
   <nav class="workspace-nav" aria-label="Assessment workspace">
@@ -37,7 +37,7 @@
     <a class="quiet-link" href="/website-check">Public Website Check</a>
     <p>Evidence first. Every conclusion traceable.</p>
   </nav>
-  <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span>Explore the evidence behind this assessment</span></div>
+  <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span>Select a module for internals, status &amp; evidence</span></div>
   <section id="assessment-overview" class="assessment-overview" aria-label="Assessment overview" tabindex="-1"><p>Loading the assessment overview.</p></section>
   <section id="assessment-highlights" class="assessment-highlights" aria-label="Assessment at a glance"></section>
   <section id="self-defence-workspace" class="device-workspace" aria-label="Self-defence" tabindex="-1" hidden>
@@ -124,7 +124,7 @@
       </div>
       <div class="canvas-footer"><span class="local-indicator" aria-hidden="true"></span><span id="canvas-status">Stored records / no pipeline execution</span><span id="run-hash"></span></div>
     </section>
-    <div class="workflow-sidebar" aria-label="Assessment background alongside the workflow">
+    <div id="workflow-sidebar" class="workflow-sidebar" aria-label="Assessment background alongside the workflow" hidden>
     <section id="workflow-activity" class="workflow-activity" aria-label="Assessment activity and background" tabindex="-1"></section>
     <aside id="live-execution" class="live-execution results-sidebar" aria-label="Live assessment execution" hidden>
       <div class="live-execution-heading"><div><span id="live-execution-mode" class="eyebrow">LIVE RUN / EVENT STREAM</span><h2 id="live-execution-title" tabindex="-1">Waiting for the target</h2><p id="live-execution-context" class="live-execution-context" hidden></p><p id="live-execution-detail" class="live-execution-detail" aria-live="polite">Stage details appear here.</p></div><span id="live-execution-count" class="live-execution-count">0 / 8 stages</span></div>
@@ -133,7 +133,7 @@
     </aside>
     </div>
     <aside id="node-inspector" class="node-inspector" aria-label="Workflow node inspector" hidden>
-      <div class="inspector-heading"><span class="eyebrow">NODE INSPECTOR</span><button id="close-node" class="tool" type="button" title="Close inspector" aria-label="Close inspector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <div class="inspector-heading"><span class="eyebrow">MODULE INTERNALS &amp; EVIDENCE</span><button id="close-node" class="tool" type="button" title="Close inspector" aria-label="Close inspector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <div id="node-content"></div>
     </aside>
   </main>

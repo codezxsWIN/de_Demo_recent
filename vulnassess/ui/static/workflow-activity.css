@@ -86,6 +86,39 @@ body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; hei
 .workflow-sidebar .activity-coverage > ul { display: block; }
 .workflow-sidebar .activity-fact strong { font-size: 16px; }
 .workflow-sidebar .results-sidebar { width: 100%; height: auto; padding: 20px; overflow: visible; border: 0; border-top: 1px solid var(--flow-line); }
+/* Connected icon modules, with a clear assessment spine and separate branches. */
+.viewport[data-view="canvas"] .flow-node { width: 190px; min-height: 170px; height: 170px; transform: translate(-50%,-48px); display: flex; flex-direction: column; align-items: center; gap: 0; padding: 0; border: 0; background: transparent; text-align: center; box-shadow: none; }
+.viewport[data-view="canvas"] .flow-node .node-disc { width: 96px; height: 96px; flex: none; border: 2px solid var(--node-tone); border-radius: 28px; box-shadow: 0 6px 16px var(--flow-shadow-contact), inset 0 1px 0 var(--flow-inset); transition: transform .16s ease, box-shadow .16s ease; }
+.viewport[data-view="canvas"] .node-disc > svg { width: 40px; height: 40px; }
+.viewport[data-view="canvas"] .node-disc::before, .viewport[data-view="canvas"] .node-disc::after { display: block; }
+.viewport[data-view="canvas"] .node-title { margin: 10px 0 0; max-width: 190px; font-size: 26px; line-height: 1.15; text-wrap: balance; letter-spacing: -.3px; }
+.viewport[data-view="canvas"] .node-status, .viewport[data-view="canvas"] .node-subtitle { display: none; }
+.viewport[data-view="canvas"] .node-inspect-hint { display: none; }
+.viewport[data-view="canvas"] .node-state-mark { width: 16px; height: 16px; right: -3px; bottom: -3px; font-size: 12px; }
+.viewport[data-view="canvas"] .flow-node[aria-pressed="true"] .node-disc, .viewport[data-view="canvas"] .flow-node:focus-visible .node-disc { outline: 3px solid var(--flow-focus); outline-offset: 6px; }
+.viewport[data-view="canvas"] .flow-node:hover .node-disc { transform: translateY(-4px); box-shadow: 0 0 0 6px var(--flow-soft), 0 10px 24px var(--flow-shadow); }
+.viewport[data-view="canvas"] .lane-label { padding: 0; border: 0; background: none; font: 500 19px var(--flow-mono); letter-spacing: 1.5px; }
+.viewport[data-view="canvas"] .connection { stroke-width: 2.5; opacity: .65; }
+.viewport[data-view="canvas"] .connection.optional { opacity: .18; }
+.viewport[data-view="canvas"] .connection.highlighted { opacity: 1; stroke-width: 4; }
+.viewport[data-view="stages"] .node-inspect-hint { display: none; }
+body[data-workspace="workflow"] .flow-workspace > .node-inspector { position: relative; inset: auto; z-index: 4; width: clamp(320px,30vw,380px); flex: 0 0 clamp(320px,30vw,380px); height: 100%; order: 2; box-shadow: none; }
+.flow-workspace:has(> .node-inspector:not([hidden])) > .workflow-sidebar { display: none; }
+.node-operation h3 { font-size: 14px; margin: 22px 0 8px; }
+.node-operation .detail-hint { font-size: 11px; line-height: 1.5; color: var(--flow-muted); }
+.workflow-sidebar[hidden] { display: none; }
+body[data-workspace="workflow"] .flow-header { min-height: 54px; }
+body[data-workspace="workflow"] .workflow-bar { padding-block: 10px; min-height: 66px; }
+body[data-workspace="workflow"] .canvas-heading h1 { font-size: 24px; }
+body[data-workspace="workflow"] .workspace-nav { gap: 4px; padding-inline: 20px; }
+body[data-workspace="workflow"] .workspace-nav button { padding: 12px 10px; white-space: nowrap; font-size: 12px; }
+body[data-workspace="workflow"] .workspace-nav button > span { display: none; }
+body[data-workspace="workflow"] .workspace-nav p { display: none; }
+body[data-workspace="workflow"] .workspace-filters { padding-block: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  .viewport[data-view="canvas"] .flow-node .node-disc { transition: none; }
+  .viewport[data-view="canvas"] .flow-node:hover .node-disc { transform: none; }
+}
 @media (max-width: 1050px) {
   .workflow-activity { padding-inline: 20px; }
   .activity-grid { grid-template-columns: minmax(0,1fr) minmax(250px,.6fr); gap: 14px; }
@@ -113,4 +146,5 @@ body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; hei
   body[data-workspace="workflow"] .flow-workspace:has(.results-sidebar:not([hidden])) { height: auto; flex-direction: column; overflow: visible; }
   body[data-workspace="workflow"] .flow-workspace > .viewport { height: 540px; flex: 0 0 540px; }
   .workflow-sidebar { width: 100%; flex: none; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
+  body[data-workspace="workflow"] .flow-workspace > .node-inspector { width: 100%; flex: none; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
 }
