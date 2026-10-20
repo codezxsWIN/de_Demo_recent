@@ -871,7 +871,8 @@ function fit() {
   if (!view.assessment) return;
   const width = viewport.clientWidth;
   const height = viewport.clientHeight;
-  const top = document.querySelector('.trace-controls').offsetHeight + 44;
+  // Filters sit above the canvas, so do not subtract their height a second time.
+  const top = 20;
   const bottom = document.querySelector('.canvas-footer').offsetHeight + 40;
   const availableHeight = height - top - bottom;
   view.scale = Math.max(0.18, Math.min(1, (width - 52) / SIZE.width, availableHeight / SIZE.height));
