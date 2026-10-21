@@ -34,6 +34,17 @@ body[data-workspace="self-defence"] :is(.workspace-filters,.run-controls,#previe
   .flow-workspace > .results-sidebar { width: 100%; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
 }
 .assessment-overview { display: grid; grid-template-columns: minmax(0, 1fr) 320px; max-width: 1320px; padding: 24px 32px 48px; gap: 24px 32px; align-items: start; }
+.overview-latest { grid-column: 1 / -1; padding: 24px 28px; border: 1px solid var(--flow-context-accent); border-radius: 8px; background: var(--flow-paper); box-shadow: inset 4px 0 0 var(--flow-context-accent); }
+.overview-latest-label { color: var(--flow-context-accent); font: 650 11px var(--flow-mono); letter-spacing: .08em; }
+.overview-latest h2 { margin: 8px 0; font-size: clamp(20px, 2vw, 28px); overflow-wrap: anywhere; }
+.overview-latest-context { max-width: 850px; color: var(--flow-muted); font-size: 13px; line-height: 1.6; }
+.overview-latest-facts { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 18px 0; padding: 15px 0; border-block: 1px solid var(--flow-line); }
+.overview-latest-facts > div { display: flex; flex-direction: column; min-width: 105px; gap: 2px; }
+.overview-latest-facts strong { font-size: 19px; text-transform: capitalize; }
+.overview-latest-facts span { color: var(--flow-muted); font-size: 11px; }
+.overview-latest h3 { margin: 12px 0 4px; font-size: 14px; }
+.overview-latest-observations { margin: 6px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
+.overview-latest-action { display: inline-block; padding: 8px 0; color: var(--flow-context-accent); font-size: 13px; font-weight: 650; text-underline-offset: 4px; }
 .overview-lead { grid-column: 1 / -1; padding: 24px 28px 0; background: var(--flow-paper); border: 1px solid var(--flow-line); border-radius: 8px; }
 .overview-provenance { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .overview-source { color: var(--flow-muted); font: 11px var(--mono); border: 1px solid var(--flow-line); padding: 5px 8px; border-radius: 4px; }

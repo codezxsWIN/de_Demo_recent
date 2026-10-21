@@ -12,6 +12,13 @@ export function renderSelfDefence(holder, summary, busy) {
     return;
   }
   holder.append(el('p', `Checked ${data.checked_at}. ${data.boundary}`, 'overview-muted'));
+  if (summary.saved_capture_id) {
+    const report = el('a', 'Open your device security report · print / save PDF', 'quiet-link');
+    report.href = `/captures/${encodeURIComponent(summary.saved_capture_id)}/report`;
+    holder.append(report);
+  } else {
+    holder.append(el('p', summary.persistence_warning || 'Report download becomes available when this assessment has a saved checkpoint.', 'overview-muted'));
+  }
   const queue = el('section', '', 'overview-section');
   queue.append(el('h3', 'What to do first'), el('p', 'Evidence-based verification order. These are precautions, not vulnerability severity scores.'));
   const layout = el('div', '', 'device-action-layout');

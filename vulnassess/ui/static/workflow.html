@@ -34,6 +34,7 @@
     <button type="button" data-workspace-page="workflow" aria-pressed="true"><span>02</span> Workflow explorer</button>
     <button type="button" data-workspace-page="insights" aria-pressed="false"><span>03</span> AI & next steps</button>
     <a class="quiet-link" href="/captures">Saved assessments</a>
+    <a id="latest-live-report" class="quiet-link" href="/captures" hidden>Latest live report</a>
     <a class="quiet-link" href="/website-check">Public Website Check</a>
     <p>Evidence first. Every conclusion traceable.</p>
   </nav>
@@ -52,8 +53,8 @@
     <p id="intel-cache-status" role="status">Checking public intelligence cache…</p>
     <label class="run-label" for="analyst-provider">Analyst model</label>
     <select id="analyst-provider"><option value="ollama">Local Ollama</option><option value="openrouter">DeepSeek V4 Flash · OpenRouter free</option><option value="groq">GPT-OSS 120B · Groq (original key)</option><option value="groq_qwen">Qwen 3.8 27B · Groq (second key)</option><option value="google">Gemini 3.5 Flash-Lite · Google</option></select>
-    <label id="cloud-consent" class="cloud-consent" hidden><input id="share-evidence" type="checkbox"> I agree to send bounded scan evidence to the selected provider and, when fallback is enabled, the other configured Google, Groq, or OpenRouter providers.</label>
-    <label class="cloud-consent"><input id="allow-fallback" type="checkbox" checked> If the selected cloud provider is unavailable, try configured alternatives, then local Ollama. Local-only selection stays local. Evidence-only reports remain available if AI fails.</label>
+    <label id="cloud-consent" class="cloud-consent"><input id="share-evidence" type="checkbox"> I agree to send bounded scan evidence to configured cloud providers if the selected analyst is unavailable. Local Ollama stays on this device unless I enable and consent to fallback.</label>
+    <label class="cloud-consent"><input id="allow-fallback" type="checkbox" checked> Try configured alternative providers if generation is unavailable. A slow local Ollama attempt is capped at 45 seconds only when cloud fallback is consented to. Evidence-only reports remain available if AI fails.</label>
     <div class="new-target-check"><label class="run-label" for="new-target">Target address</label><div><input id="new-target" type="text" placeholder="Authorised IP or hostname" spellcheck="false"><button id="check-target" class="tool-text" type="button">Check scope</button></div><p id="target-check-result" role="status">The live run pins the address, scans the top 100 TCP ports plus your URL’s exact port, runs bounded Nikto only for configured test assets, and reports each stage.</p></div>
     <label class="run-label" for="live-run-mode">Run mode</label>
     <select id="live-run-mode"><option value="new">New live assessment + AI</option><option value="self">Self-defence · check this device + AI</option><option value="reuse">Re-analyze retained scan evidence · no scan</option><option value="saved">Fresh intelligence + AI · saved CVE evidence · no scan</option></select>
@@ -138,5 +139,9 @@
     </aside>
   </main>
   <div id="workflow-announcement" class="sr-only" aria-live="polite"></div>
+  <dialog id="assessment-report-dialog" class="assessment-report-dialog" aria-label="Assessment report">
+    <div class="assessment-report-toolbar"><strong>Assessment report</strong><div><button id="print-assessment-report" type="button">Print / save PDF</button><button id="close-assessment-report" type="button">Close</button></div></div>
+    <div id="assessment-report-body" class="assessment-report-body"></div>
+  </dialog>
 </body>
 </html>

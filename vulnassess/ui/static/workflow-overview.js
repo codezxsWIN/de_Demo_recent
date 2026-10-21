@@ -121,6 +121,7 @@ export function renderAssessmentOverview(holder, brief, inspect) {
     context.append(row);
   }
   context.append(el('h4', '', 'Protection signals'));
+  context.append(el('p', 'overview-muted', 'Unknown means this assessment did not establish the control—not that the control is absent. Open the context evidence to see what was actually observed.'));
   if (!brief.controls.length) context.append(el('p', 'overview-muted', 'No control observations in this selection. Select one target for its context.'));
   for (const control of brief.controls) {
     const row = el('div', 'overview-control');

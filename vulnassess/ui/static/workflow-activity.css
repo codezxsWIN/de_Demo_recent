@@ -78,11 +78,11 @@ body[data-workspace="workflow"] .flow-workspace > .viewport { min-height: 0; hei
 .workflow-sidebar .activity-grid { display: flex; flex-direction: column; gap: 14px; }
 .workflow-sidebar .activity-card { width: 100%; padding: 16px; }
 .workflow-sidebar .activity-card h3 { font-size: 15px; }
-.workflow-sidebar .activity-context { order: 1; }
+.workflow-sidebar .activity-context { order: 2; }
 .workflow-sidebar .activity-now { order: 0; }
-.workflow-sidebar .activity-findings { order: 2; }
-.workflow-sidebar .activity-ai { order: 3; }
-.workflow-sidebar .activity-coverage { order: 4; }
+.workflow-sidebar .activity-findings { order: 4; }
+.workflow-sidebar .activity-ai { order: 1; }
+.workflow-sidebar .activity-coverage { order: 3; }
 .workflow-sidebar .activity-coverage > ul { display: block; }
 .workflow-sidebar .activity-fact strong { font-size: 16px; }
 .workflow-sidebar .results-sidebar { width: 100%; height: auto; padding: 20px; overflow: visible; border: 0; border-top: 1px solid var(--flow-line); }
@@ -107,6 +107,28 @@ body[data-workspace="workflow"] .flow-workspace > .node-inspector { position: re
 .node-operation h3 { font-size: 14px; margin: 22px 0 8px; }
 .node-operation .detail-hint { font-size: 11px; line-height: 1.5; color: var(--flow-muted); }
 .workflow-sidebar[hidden] { display: none; }
+.assessment-report-action { display: block; width: 100%; margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--workspace-violet); border-radius: 8px; background: var(--flow-soft); color: var(--flow-accent); font: 600 13px/1.4 var(--flow-font); text-align: left; cursor: pointer; }
+.overview-report-action { display: inline-flex; align-items: center; margin: 8px 0 14px; padding: 10px 14px; border: 1px solid var(--workspace-violet); border-radius: 7px; background: var(--flow-soft); }
+.assessment-report-action:hover, .assessment-report-action:focus-visible { outline: 2px solid var(--workspace-violet); outline-offset: 2px; }
+.assessment-report-dialog { width: min(900px, calc(100vw - 32px)); max-height: min(90dvh, 1000px); padding: 0; border: 1px solid var(--flow-line-strong); border-radius: 12px; background: var(--flow-paper); color: var(--flow-ink); box-shadow: 0 22px 70px var(--flow-shadow); }
+.assessment-report-dialog::backdrop { background: color-mix(in srgb, var(--flow-ink) 75%, transparent); }
+.assessment-report-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--flow-line); background: var(--flow-paper); }
+.assessment-report-toolbar > div { display: flex; gap: 8px; }
+.assessment-report-toolbar button { padding: 8px 12px; border: 1px solid var(--flow-line-strong); border-radius: 6px; background: var(--flow-soft); color: var(--flow-ink); cursor: pointer; }
+.assessment-report-body { padding: 24px 32px 40px; line-height: 1.6; overflow-wrap: anywhere; }
+.assessment-report-body h1 { margin: 0 0 20px; font-size: 28px; }
+.assessment-report-body h2 { margin: 28px 0 12px; padding-top: 18px; border-top: 1px solid var(--flow-line); font-size: 19px; }
+.assessment-report-body .report-context .activity-fact { margin-bottom: 12px; }
+.assessment-report-body .report-services li { padding: 3px 0; }
+.assessment-report-body .decision-frame { border: 0; padding: 0; }
+@media print {
+  body:has(#assessment-report-dialog[open]) > :not(#assessment-report-dialog) { display: none !important; }
+  #assessment-report-dialog[open] { position: static; display: block; width: 100%; max-width: none; max-height: none; margin: 0; border: 0; box-shadow: none; color: black; background: white; }
+  #assessment-report-dialog .assessment-report-toolbar { display: none; }
+  #assessment-report-dialog .assessment-report-body { padding: 0; }
+  #assessment-report-dialog .decision-frame { break-inside: auto; }
+  #assessment-report-dialog .recorded-analysis-card { break-inside: avoid; }
+}
 body[data-workspace="workflow"] .flow-header { min-height: 54px; }
 body[data-workspace="workflow"] .workflow-bar { padding-block: 10px; min-height: 66px; }
 body[data-workspace="workflow"] .canvas-heading h1 { font-size: 24px; }

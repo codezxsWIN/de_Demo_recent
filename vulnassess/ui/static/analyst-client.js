@@ -35,12 +35,12 @@ export async function requestAnalyst(runId, hostIp) {
   return validateAnalystResponse(body, runId, hostIp);
 }
 
-export async function requestAnalystProgress(runId, hostIp, onProgress = () => {}, provider = 'ollama') {
+export async function requestAnalystProgress(runId, hostIp, onProgress = () => {}, provider = 'ollama', allowFallback = false) {
   if (!['ollama', 'openrouter', 'groq', 'groq_qwen', 'google'].includes(provider)) throw new Error('Unknown analyst provider.');
-  const cloud = provider !== 'ollama';
+  const cloud = provider !== 'ollama' || allowFallback;
   const response = await fetch(`/api/analyst/${encodeURIComponent(runId)}/${encodeURIComponent(hostIp)}/events`, {
     cache: 'no-store', credentials: 'same-origin',
-    ...(cloud ? {method: 'POST', headers: {'Content-Type': 'application/json', 'X-VulnAssess-Action': 'cloud-analyst'}, body: JSON.stringify({provider, share_evidence: true})} : {}),
+    ...(cloud ? {method: 'POST', headers: {'Content-Type': 'application/json', 'X-VulnAssess-Action': 'cloud-analyst'}, body: JSON.stringify({provider, share_evidence: true, ...(allowFallback && provider === 'ollama' ? {allow_fallback: true} : {})})} : {}),
   });
   if (!response.ok) {
     const failure = await response.json().catch(() => null);
@@ -55,7 +55,7 @@ export async function requestAnalystProgress(runId, hostIp, onProgress = () => {
     if (!line) return;
     const event = JSON.parse(line);
     if (event.type === 'stage') {
-      if (typeof event.stage !== 'string' || !['running', 'complete'].includes(event.state)
+      if (typeof event.stage !== 'string' || !['pending', 'running', 'complete', 'skipped', 'error'].includes(event.state)
           || typeof event.detail !== 'string') throw new Error('Invalid analyst progress event.');
       onProgress(event);
     } else if (event.type === 'result') {

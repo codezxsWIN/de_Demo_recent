@@ -196,7 +196,7 @@ def test_planned_run_consumes_approval_and_uses_exact_pinned_tool(application):
             application.scan_plans.claim(draft["plan_id"], draft["plan_hash"], context)
 
 
-def test_cooldown_does_not_consume_approved_plan(application):
+def test_concurrent_scan_does_not_consume_approved_plan(application):
     with patch.object(application, "target_check", side_effect=accepted_check):
         context = application.plan_context("172.28.0.12", "demo")
         draft = application.scan_plans.create(baseline(context), context)
@@ -204,7 +204,7 @@ def test_cooldown_does_not_consume_approved_plan(application):
         application._last_live_scan["172.28.0.12"] = time.monotonic()
         with (
             patch("vulnassess.live_assessment.run") as scanner,
-            pytest.raises(ConfigError, match="wait 10 minutes"),
+            pytest.raises(ConfigError, match="already running"),
         ):
             application.live_report(
                 "172.28.0.12",

@@ -18,11 +18,13 @@ import yaml
 
 import vulnassess.analyst as analyst
 import vulnassess.capture_history as capture_history
+import vulnassess.decision_focus as decision_focus
 import vulnassess.evidence_requests as evidence_requests
 import vulnassess.live_assessment as live_assessment
 import vulnassess.orchestrator as orchestrator
 import vulnassess.protocols as protocols
 import vulnassess.public_website as public_website
+import vulnassess.report_composer as report_composer
 import vulnassess.scan_plans as scan_plans
 from vulnassess.ai_boundary import digest
 from vulnassess.errors import AdapterError, ConfigError, LLMUnavailable, NeedsReview, ScopeError
@@ -39,11 +41,21 @@ from vulnassess.saved_cve_case import (
 from vulnassess.schema import ContextProfile, Finding, Host, Service
 from vulnassess.settings import CONFIG_FILES, Settings
 from vulnassess.target_intake import resolve_addresses
-from vulnassess.ui import capture_review
+from vulnassess.ui import assessment_report, capture_review
 from vulnassess.ui.entry import render_entry
 from vulnassess.ui.reader import local_path, open_read_store
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
+
+
+def _load_decision_focus(directory, record):
+    try:
+        return decision_focus.load_saved(directory, record)
+    except (ConfigError, OSError):
+        # The optional AI selection must never hide the independent evidence ledger.
+        return {"unavailable": True}
+
+
 # data: images carry Cobe's embedded land-map texture; without it the globe has no continents.
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -611,6 +623,8 @@ class UiApplication:
         host_ip: str,
         on_progress: Callable[[str, str, str], None] | None = None,
         provider: str = "ollama",
+        allow_fallback: bool = False,
+        cloud_sharing_authorized: bool = False,
     ) -> dict[str, Any]:
         if on_progress is not None:
             on_progress("records", "running", "Reading the selected stored assessment")
@@ -619,6 +633,25 @@ class UiApplication:
         payload["supplemental_evidence"] = self.evidence_requests.evidence(run_id, host_ip)
         if on_progress is not None:
             on_progress("records", "complete", "Stored assessment loaded")
+        if allow_fallback:
+            outcome = analyst.analyze_optional(
+                payload,
+                host_ip,
+                provider,
+                on_progress or (lambda *_: None),
+                allow_fallback=True,
+                cloud_sharing_authorized=cloud_sharing_authorized,
+            )
+            if outcome["analyst"] is None:
+                detail = (
+                    outcome["ai_attempts"][-1]["detail"]
+                    if outcome["ai_attempts"]
+                    else "No analyst provider responded"
+                )
+                if outcome["ai_status"] == "needs_review":
+                    raise NeedsReview(detail)
+                raise LLMUnavailable(detail)
+            return {"run_id": run_id, **outcome["analyst"], "ai_attempts": outcome["ai_attempts"]}
         return {
             "run_id": run_id,
             **analyst.analyze_target(
@@ -640,6 +673,7 @@ class UiApplication:
         *,
         reuse_recent: bool = False,
         allow_fallback: bool = False,
+        cloud_sharing_authorized: bool = False,
         replay_saved: bool = False,
         plan_id: str | None = None,
         plan_hash: str | None = None,
@@ -684,8 +718,11 @@ class UiApplication:
             )
             if on_capture:
                 on_capture(capture)
+            analyst_options = {"allow_fallback": allow_fallback}
+            if cloud_sharing_authorized:
+                analyst_options["cloud_sharing_authorized"] = True
             outcome = analyst.analyze_optional(
-                payload, ip, provider, on_progress, allow_fallback=allow_fallback
+                payload, ip, provider, on_progress, **analyst_options
             )
             summary = live_assessment.assessment_summary(
                 target, ip, services, payload, outcome["analyst"]
@@ -739,14 +776,9 @@ class UiApplication:
         with self._live_lock:
             now = time.monotonic()
             recent = self._recent_live_cases.get(target_ip)
-            # The launch cooldown is not an expiry date for retained evidence.
-            case = recent[1] if recent and (reuse_recent or now - recent[0] < 600) else None
+            case = recent[1] if recent and reuse_recent else None
             if case is not None and reuse_recent and case.get("target") != target:
                 case = None
-            if case is not None and not reuse_recent:
-                raise ConfigError(
-                    "This target was scanned in the last 10 minutes. Choose re-analyze recent evidence, or wait before a new Nmap scan."
-                )
             if case is None and reuse_recent:
                 case = load_saved_target_case(
                     self.config_dir.resolve().parent / "data" / "live" / "raw",
@@ -756,10 +788,9 @@ class UiApplication:
                 if case["resolved_ip"] != target_ip:
                     raise ConfigError("Saved target address changed; no AI request was sent")
             if case is None:
-                previous = self._last_live_scan.get(target_ip, 0.0)
-                if previous and now - previous < 600:
+                if target_ip in self._last_live_scan:
                     raise ConfigError(
-                        "A scan of this target is already running or its evidence is unavailable; wait 10 minutes before another live scan"
+                        "A live scan of this target is already running; wait for it to finish before starting another."
                     )
                 if planned_context is not None and plan_id is not None and plan_hash is not None:
                     saved_context, current_context = planned_context
@@ -812,8 +843,11 @@ class UiApplication:
                         "assessment_summary": summary,
                     }
                 )
+            analyst_options = {"allow_fallback": allow_fallback}
+            if cloud_sharing_authorized:
+                analyst_options["cloud_sharing_authorized"] = True
             outcome = analyst.analyze_optional(
-                payload, target_ip, provider, on_progress, allow_fallback=allow_fallback
+                payload, target_ip, provider, on_progress, **analyst_options
             )
             summary = live_assessment.assessment_summary(
                 target,
@@ -866,6 +900,7 @@ class UiApplication:
                 on_capture=on_capture,
                 on_case=remember_case,
                 allow_fallback=allow_fallback,
+                **({"cloud_sharing_authorized": True} if cloud_sharing_authorized else {}),
                 **({"plan_execution": execution} if execution else {}),
                 self_defence=self_defence,
             )
@@ -873,6 +908,9 @@ class UiApplication:
             if execution:
                 execution.finish(failed=True)
             raise
+        finally:
+            with self._live_lock:
+                self._last_live_scan.pop(target_ip, None)
         if execution:
             result["scan_plan"] = execution.finish(failed=scanner_failed)
         return result
@@ -998,6 +1036,31 @@ class UiApplication:
                             if saved.get("legacy") is True
                             else capture_review.review(saved)
                         )
+                elif (
+                    parts[0] != "api"
+                    and history_parts[2:] in (["report"], ["report", "download"])
+                    and not query
+                ):
+                    saved = capture_history.load(root, history_parts[1])
+                    standalone = history_parts[-1] == "download"
+                    try:
+                        composition = report_composer.load_saved(root / history_parts[1], saved)
+                    except (ConfigError, OSError):
+                        # An optional presentation artifact cannot suppress the
+                        # independently verified assessment and its evidence.
+                        composition = {"unavailable": True}
+                    document = assessment_report.render(
+                        saved,
+                        standalone=standalone,
+                        composition=composition,
+                        policy=self.configurations["weights"]["values"],
+                        decision_focus=_load_decision_focus(root / history_parts[1], saved),
+                    )
+                    return Response(
+                        200,
+                        document.encode("utf-8"),
+                        "application/octet-stream" if standalone else "text/html; charset=utf-8",
+                    )
                 else:
                     return error_response(400, "Invalid saved assessment request")
                 return (
@@ -1134,7 +1197,15 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def _stream_analyst(self, run_id: str, host_ip: str, provider: str = "ollama") -> None:
+    def _stream_analyst(
+        self,
+        run_id: str,
+        host_ip: str,
+        provider: str = "ollama",
+        *,
+        allow_fallback: bool = False,
+        cloud_sharing_authorized: bool = False,
+    ) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Content-Security-Policy", CSP)
@@ -1158,6 +1229,11 @@ class UiRequestHandler(BaseHTTPRequestHandler):
                 run_id,
                 host_ip,
                 provider=provider,
+                **(
+                    {"allow_fallback": True, "cloud_sharing_authorized": cloud_sharing_authorized}
+                    if allow_fallback
+                    else {}
+                ),
                 on_progress=lambda stage, state, detail: send(
                     {"type": "stage", "stage": stage, "state": state, "detail": detail}
                 ),
@@ -1187,6 +1263,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
         provider: str,
         reuse_recent: bool = False,
         allow_fallback: bool = False,
+        cloud_sharing_authorized: bool = False,
         replay_saved: bool = False,
         plan_id: str | None = None,
         plan_hash: str | None = None,
@@ -1222,6 +1299,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
                 lambda capture: send({"type": "scan", "scan": capture}),
                 reuse_recent=reuse_recent,
                 allow_fallback=allow_fallback,
+                **({"cloud_sharing_authorized": True} if cloud_sharing_authorized else {}),
                 replay_saved=replay_saved,
                 **({"plan_id": plan_id, "plan_hash": plan_hash} if plan_id is not None else {}),
             )
@@ -1478,7 +1556,13 @@ class UiRequestHandler(BaseHTTPRequestHandler):
                 or not isinstance(body["target"], str)
                 or not 0 < len(body["target"]) <= 512
                 or body["provider"] not in ("ollama", "openrouter", "groq", "groq_qwen", "google")
-                or body["share_evidence"] is not (body["provider"] != "ollama")
+                or type(body["share_evidence"]) is not bool
+                or (body["provider"] != "ollama" and body["share_evidence"] is not True)
+                or (
+                    body["provider"] == "ollama"
+                    and body["share_evidence"] is True
+                    and not body.get("allow_fallback", False)
+                )
                 or type(body.get("reuse_recent", False)) is not bool
                 or type(body.get("replay_saved", False)) is not bool
                 or type(body.get("allow_fallback", False)) is not bool
@@ -1502,22 +1586,28 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             self._stream_live(
                 body["target"],
                 body["provider"],
-                body.get("reuse_recent", False),
-                body.get("allow_fallback", False),
-                body.get("replay_saved", False),
-                body.get("plan_id"),
-                body.get("plan_hash"),
+                reuse_recent=body.get("reuse_recent", False),
+                allow_fallback=body.get("allow_fallback", False),
+                cloud_sharing_authorized=body["share_evidence"],
+                replay_saved=body.get("replay_saved", False),
+                plan_id=body.get("plan_id"),
+                plan_hash=body.get("plan_hash"),
             )
             return
+        valid_cloud = body in (
+            {"provider": "openrouter", "share_evidence": True},
+            {"provider": "groq", "share_evidence": True},
+            {"provider": "groq_qwen", "share_evidence": True},
+            {"provider": "google", "share_evidence": True},
+        )
+        valid_local_fallback = body == {
+            "provider": "ollama",
+            "share_evidence": True,
+            "allow_fallback": True,
+        }
         if (
             not isinstance(body, dict)
-            or body
-            not in (
-                {"provider": "openrouter", "share_evidence": True},
-                {"provider": "groq", "share_evidence": True},
-                {"provider": "groq_qwen", "share_evidence": True},
-                {"provider": "google", "share_evidence": True},
-            )
+            or not (valid_cloud or valid_local_fallback)
             or len(parts) != 6
             or parts[:3] != ["", "api", "analyst"]
             or parts[5] != "events"
@@ -1531,7 +1621,16 @@ class UiRequestHandler(BaseHTTPRequestHandler):
         ):
             self._reply(error_response(400, "Invalid cloud analyst request"))
             return
-        self._stream_analyst(parts[3], parts[4], provider=body["provider"])
+        self._stream_analyst(
+            parts[3],
+            parts[4],
+            provider=body["provider"],
+            **(
+                {"allow_fallback": True, "cloud_sharing_authorized": True}
+                if valid_local_fallback
+                else {}
+            ),
+        )
 
 
 class UiServer(ThreadingHTTPServer):

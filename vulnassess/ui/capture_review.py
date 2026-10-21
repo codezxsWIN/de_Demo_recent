@@ -148,6 +148,12 @@ def review(record):
         ("AI analysis attempted", record["analysis_attempted_at"] or "Not recorded"),
     ]
     content = '<p class="notice">Historical, read-only assessment. No new scan, intelligence fetch or AI call. Saved approvals are never restored.</p>'
+    identity = escape(record["capture_id"], quote=True)
+    content += (
+        f'<p><a href="/captures/{identity}/report">Open readable assessment report</a> · '
+        f'<a href="/captures/{identity}/report/download" download="VulnAssess-{identity}.html">'
+        "Download self-contained report</a> · Print or save PDF from your browser.</p>"
+    )
     content += (
         "<dl>"
         + "".join(

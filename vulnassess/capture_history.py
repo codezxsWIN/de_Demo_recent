@@ -14,6 +14,7 @@ from vulnassess.errors import ConfigError
 from vulnassess.run_history import encoded
 
 MAX_BYTES = 8 * 1024 * 1024
+_CAPTURE_TIME_DEFAULT = object()
 RESULT_KEYS = frozenset(
     {
         "target",
@@ -574,7 +575,40 @@ def load(root, identity):
     if any(record["result"][key] != manifest.get(key) for key in ("target", "resolved_ip")):
         raise ConfigError("Saved assessment target does not match its manifest")
     _summary_facts(record["result"], payload)
-    return {**record, "payload": payload, "read_only": True}
+    loaded = {**record, "payload": payload, "read_only": True}
+    if "redis-lua-check.json" in manifest.get("files", {}):
+        from vulnassess.finding_assurance import bounded_redis_proof
+
+        proof_bytes = _bytes(directory, "redis-lua-check.json")
+        if sha256(proof_bytes).hexdigest() != manifest["files"]["redis-lua-check.json"]:
+            raise ConfigError("Bounded protocol proof changed during review")
+        loaded["bounded_protocol_proofs"] = [
+            bounded_redis_proof(
+                _json(proof_bytes),
+                record["result"]["resolved_ip"],
+                payload.get("findings", []),
+                manifest["files"]["redis-lua-check.json"],
+            )
+        ]
+    if "analysis-source.json" in manifest.get("files", {}):
+        reference = _json(_bytes(directory, "analysis-source.json"))
+        if (
+            set(reference)
+            - {"source_capture", "source_snapshot_hash", "mode", "source_intelligence_recorded_at"}
+            or not re.fullmatch(
+                r"assessment-[a-zA-Z0-9_-]{1,80}", str(reference.get("source_capture", ""))
+            )
+            or not re.fullmatch(r"[a-f0-9]{64}", str(reference.get("source_snapshot_hash", "")))
+            or reference.get("mode") != "retained-evidence reanalysis; no scanner or feed refresh"
+        ):
+            raise ConfigError("Saved reanalysis source reference is invalid")
+        if reference.get("source_intelligence_recorded_at") is not None:
+            try:
+                _timestamp(reference["source_intelligence_recorded_at"])
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ConfigError("Saved reanalysis intelligence timestamp is invalid") from error
+        loaded["analysis_source"] = reference
+    return loaded
 
 
 def _has_receipt(directory: Path) -> bool:
@@ -643,9 +677,8 @@ def _listing_for_review(root: str | Path, page: int = 1) -> dict[str, Any]:
             candidates.append(path.name)
         if len(candidates) > 10000:
             raise ConfigError("History index exceeds the local review budget")
-    candidates.sort(reverse=True)
     rows = []
-    for identity in candidates[(page - 1) * 20 : page * 20]:
+    for identity in candidates:
         try:
             directory = _directory(root, identity)
             if _has_receipt(directory):
@@ -667,10 +700,18 @@ def _listing_for_review(root: str | Path, page: int = 1) -> dict[str, Any]:
             rows.append({"capture_id": identity, **row})
         except (ConfigError, OSError):
             rows.append({"capture_id": identity, "status": "needs_review"})
-    return {"captures": rows, "page": page, "page_size": 20, "total": len(candidates)}
+    rows.sort(key=lambda row: (row.get("captured_at") or "", row["capture_id"]), reverse=True)
+    return {
+        "captures": rows[(page - 1) * 20 : page * 20],
+        "page": page,
+        "page_size": 20,
+        "total": len(candidates),
+    }
 
 
-def save(directory, result, *, config_hash=None, final=False):
+def save(
+    directory, result, *, config_hash=None, final=False, captured_at_override=_CAPTURE_TIME_DEFAULT
+):
     """Publish one write-once checkpoint. Final review cannot change source state."""
     directory = _directory(Path(directory).parent, Path(directory).name)
     safe_result = {key: value for key, value in result.items() if key in RESULT_KEYS}
@@ -678,6 +719,8 @@ def save(directory, result, *, config_hash=None, final=False):
         raise ConfigError("Saved assessment collection status must be complete or partial")
     now = datetime.now(UTC).isoformat()
     if final:
+        if captured_at_override is not _CAPTURE_TIME_DEFAULT:
+            raise ConfigError("Final AI review cannot change collection time")
         previous = load(directory.parent, directory.name)
         _same_collection(previous["result"], safe_result)
         _summary_facts(safe_result, previous["payload"])
@@ -693,7 +736,18 @@ def save(directory, result, *, config_hash=None, final=False):
         if "scan_status" in payload and payload["scan_status"] != safe_result["scan_status"]:
             raise ConfigError("Saved assessment collection status does not match its evidence")
         manifest_raw = _bytes(directory, "manifest.json")
-        captured_at = manifest_time(_json(manifest_raw)) or now
+        declared_time = manifest_time(_json(manifest_raw))
+        if captured_at_override is _CAPTURE_TIME_DEFAULT:
+            captured_at = declared_time or now
+        else:
+            try:
+                captured_at = (
+                    None if captured_at_override is None else _timestamp(captured_at_override)
+                )
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ConfigError("Reanalysis capture timestamp is invalid") from error
+            if declared_time and captured_at != declared_time:
+                raise ConfigError("Reanalysis capture timestamp conflicts with its manifest")
         core = {
             "schema_version": 1,
             "capture_id": directory.name,
@@ -742,9 +796,8 @@ def listing(root, page=1):
             candidates.append(path.name)
         if len(candidates) > 10000:
             raise ConfigError("History index exceeds the local review budget")
-    candidates.sort(reverse=True)
     rows = []
-    for identity in candidates[(page - 1) * 20 : page * 20]:
+    for identity in candidates:
         try:
             record = _selected(_directory(root, identity))
             rows.append(
@@ -760,4 +813,10 @@ def listing(root, page=1):
             )
         except ConfigError:
             rows.append({"capture_id": identity, "status": "needs_review"})
-    return {"captures": rows, "page": page, "page_size": 20, "total": len(candidates)}
+    rows.sort(key=lambda row: (row.get("captured_at") or "", row["capture_id"]), reverse=True)
+    return {
+        "captures": rows[(page - 1) * 20 : page * 20],
+        "page": page,
+        "page_size": 20,
+        "total": len(candidates),
+    }

@@ -40,6 +40,8 @@ def _service(port_node: ET.Element) -> Service:
     banner = " ".join(
         part for part in [f"{port}/{protocol}", name, product, version, extrainfo] if part
     )
+    if tunnel == "ssl":
+        banner += " [Nmap tunnel=ssl]"
     return Service(
         port=port,
         protocol=protocol,

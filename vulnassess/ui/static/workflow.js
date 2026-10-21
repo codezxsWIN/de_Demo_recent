@@ -72,6 +72,7 @@ const liveStages = [
   ['report', 'Build live assessment summary'],
 ];
 const liveState = {active: false, busy: false, previewState: 'idle', previewScenario: null, target: '', provider: '', reuseRecent: false, stages: new Map(), scan: null, result: null, error: '', needsReview: false};
+let latestSavedCapture = null;
 const stageNode = {scope: 'scope', scanner: 'nmap', endpoint_scan: 'nmap', nikto: 'nikto', canonical: 'canonical', nvd: 'nvd', epss: 'epss', kev: 'kev', intel: 'intel', context: 'context', score: 'score', queue: 'queue', rationale: 'rationale', model: 'analyst', evidence: 'analyst', coverage: 'analyst', prompt: 'analyst', generation: 'analyst', validation: 'analyst', report: 'report'};
 const retainedStages = new Set(['scanner', 'endpoint_scan', 'canonical', 'context']);
 const displayStageState = (id, state) => liveState.savedCapture && state === 'complete' && retainedStages.has(id) ? 'Retained' : stageStateLabel(state);
@@ -204,6 +205,9 @@ function appendLiveSummary(holder, summary) {
     const saved = element('a', 'quiet-link', 'Open saved assessment · read-only');
     saved.href = `/captures/${encodeURIComponent(summary.saved_capture_id)}`;
     section.append(saved);
+    const report = element('a', 'quiet-link', 'Open assessment report · print / save PDF');
+    report.href = `/captures/${encodeURIComponent(summary.saved_capture_id)}/report`;
+    section.append(report);
   }
   if (summary.persistence_warning) section.append(element('p', 'boundary-note', summary.persistence_warning));
   if (summary.ai_coverage) {
@@ -324,6 +328,50 @@ function renderLiveResult() {
     if (plan.state === 'needs_reapproval') holder.append(element('p', 'analysis-error', 'An approved step was not completed. Collected evidence is retained; review a fresh plan before another execution.'));
   }
   if (liveState.error) holder.append(element('p', 'analysis-error', liveState.error));
+}
+
+function showAssessmentRail() {
+  if (!inspector.hidden) return;
+  const rail = document.getElementById('workflow-sidebar');
+  if (rail.hidden) {
+    rail.hidden = false;
+    document.getElementById('toggle-insights').setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(fit);
+  }
+}
+
+function openAssessmentReport() {
+  const summary = liveState.result?.assessment_summary || liveState.scan?.assessment_summary;
+  if (!summary) return;
+  const body = document.getElementById('assessment-report-body');
+  body.replaceChildren();
+  body.append(element('p', 'activity-eyebrow', 'CURRENT ASSESSMENT · EVIDENCE-BOUND REPORT'));
+  body.append(element('h1', '', liveState.target || liveState.result?.target || 'Assessment'));
+  appendLiveSummary(body, summary);
+  if (view.assessment) {
+    const brief = buildInsightBrief({assessment: view.assessment, host: view.host, finding: view.finding, live: liveState, storedAnalysis: currentAnalysis()});
+    const context = element('section', 'report-context');
+    context.append(element('h2', '', 'Context and supporting evidence'));
+    renderActivityContext(context, brief);
+    body.append(context);
+  }
+  const services = liveState.result?.services || liveState.scan?.services || [];
+  if (services.length) {
+    const observed = element('section', 'report-services');
+    observed.append(element('h2', '', 'Observed services'));
+    const list = element('ul');
+    for (const service of services) list.append(element('li', '', `${service.port}/${service.protocol || 'tcp'} · ${service.name || 'unknown'}${service.product ? ` · ${service.product} ${service.version || ''}` : ''}`));
+    observed.append(list, element('p', 'boundary-note', 'A detected service is not by itself a vulnerability finding.'));
+    body.append(observed);
+  }
+  const analyst = liveState.result?.analyst;
+  if (analyst && !appendBatchReview(body, analyst)) {
+    body.append(element('h2', '', `Validated AI interpretation · ${analyst.model}`));
+    body.append(element('p', '', analyst.analysis.summary));
+    appendModelContextEffect(body, analyst);
+    appendInvestigation(body, analyst);
+  }
+  document.getElementById('assessment-report-dialog').showModal();
 }
 
 function renderLiveProgress() {
@@ -534,7 +582,8 @@ async function startLiveRun(planBinding = null) {
     document.getElementById('target-check-result').textContent = 'Enter a target address first.';
     return;
   }
-  if (provider !== 'ollama' && !document.getElementById('share-evidence').checked) {
+  const cloudFallback = provider !== 'ollama' || document.getElementById('allow-fallback').checked;
+  if (cloudFallback && !document.getElementById('share-evidence').checked) {
     document.getElementById('target-check-result').textContent = 'Confirm evidence sharing before using a cloud model.';
     return;
   }
@@ -560,7 +609,9 @@ async function startLiveRun(planBinding = null) {
   renderLiveProgress();
   renderLiveExecution();
   renderLiveResult();
+  renderGraph();
   fitPreviewPath();
+  if (target !== 'self') showAssessmentRail();
   runPanel.hidden = true;
   document.getElementById('open-run').setAttribute('aria-expanded', 'false');
   if (target !== 'self') {
@@ -581,9 +632,11 @@ async function startLiveRun(planBinding = null) {
       renderGraph();
     } else if (event.type === 'result' && isLiveAssessmentResult(event.result)) {
       liveState.result = event.result;
+      void refreshLatestReportLink();
       renderLiveResult();
       renderLiveExecution();
       renderGraph();
+      if (target !== 'self') showAssessmentRail();
     } else if (event.type === 'needs-review' && typeof event.message === 'string') {
       const failure = new Error(event.message);
       failure.name = 'NeedsReviewError';
@@ -598,7 +651,7 @@ async function startLiveRun(planBinding = null) {
     const response = await fetch('/api/live-assessment/events', {
       method: 'POST', cache: 'no-store', credentials: 'same-origin',
       headers: {'Content-Type': 'application/json', 'X-VulnAssess-Action': 'live-assessment'},
-      body: JSON.stringify({target, provider, share_evidence: provider !== 'ollama', reuse_recent: reuseRecent, replay_saved: replaySaved, allow_fallback: document.getElementById('allow-fallback').checked, event_version: 3, ...(planBinding || {})}),
+      body: JSON.stringify({target, provider, share_evidence: cloudFallback, reuse_recent: reuseRecent, replay_saved: replaySaved, allow_fallback: document.getElementById('allow-fallback').checked, event_version: 3, ...(planBinding || {})}),
     });
     if (!response.ok) {
       const failure = await response.json().catch(() => null);
@@ -851,6 +904,57 @@ async function getRecord(path) {
   return payload;
 }
 
+async function refreshLatestReportLink() {
+  const link = document.getElementById('latest-live-report');
+  try {
+    const history = await getRecord('/api/captures?page=1');
+    const latest = history.captures?.find(item => item.status === 'recorded');
+    if (!latest) { link.hidden = true; latestSavedCapture = null; return; }
+    const saved = await getRecord(`/api/captures/${encodeURIComponent(latest.capture_id)}`);
+    if (saved.capture_id !== latest.capture_id || !saved.result?.assessment_summary) throw new Error('Latest capture could not be verified');
+    latestSavedCapture = saved;
+    link.href = `/captures/${encodeURIComponent(latest.capture_id)}/report`;
+    link.title = `${latest.target} · ${latest.scan_status} scan · AI ${latest.ai_status}`;
+    link.hidden = false;
+    if (view.assessment) renderGraph();
+  } catch { link.hidden = true; latestSavedCapture = null; }
+}
+
+function renderLatestSavedCard(holder) {
+  if (!latestSavedCapture || liveState.active) return;
+  const saved = latestSavedCapture;
+  const result = saved.result;
+  const card = element('section', 'overview-latest');
+  card.append(element('span', 'overview-latest-label', 'LATEST SAVED LIVE ASSESSMENT'));
+  card.append(element('h2', '', result.target));
+  card.append(element('p', 'overview-latest-context', `The overview below is the older stored run ${view.assessment.run.run_id}. It does not contain this live assessment. Open the separate verified report to see its evidence and recommendations.`));
+  const facts = element('div', 'overview-latest-facts');
+  for (const [label, value] of [
+    ['Collection', result.scan_status],
+    ['Services observed', result.services?.length ?? '—'],
+    ['Scanner observations', result.finding_count ?? '—'],
+    ['AI analysis', result.ai_status?.replaceAll('_', ' ') || 'Unknown'],
+  ]) {
+    const item = element('div');
+    item.append(element('strong', '', value), element('span', '', label));
+    facts.append(item);
+  }
+  card.append(facts);
+  const observations = saved.payload?.findings || [];
+  if (observations.length) {
+    card.append(element('h3', '', 'What the latest scan observed'));
+    const items = element('ul', 'overview-latest-observations');
+    for (const finding of observations.slice(0, 3)) items.append(element('li', '', finding.title || 'Recorded scanner observation'));
+    if (observations.length > 3) items.append(element('li', 'overview-muted', `+ ${observations.length - 3} more in the report`));
+    card.append(items);
+    card.append(element('p', 'overview-latest-context', 'Scanner observations require verification; they are not confirmed exploits.'));
+  }
+  const report = element('a', 'overview-latest-action', 'Open the latest assessment report →');
+  report.href = `/captures/${encodeURIComponent(saved.capture_id)}/report`;
+  card.append(report);
+  holder.prepend(card);
+}
+
 function currentAnalysis() {
   return view.assessment ? view.analyses.get(`${view.assessment.run.run_id}/${view.host}`) : null;
 }
@@ -937,12 +1041,25 @@ function renderGraph() {
   const activityKey = JSON.stringify([brief, liveState.active, liveState.busy, liveState.error, [...liveState.stages], activityServices]);
   if (activityKey !== activitySignature) {
     renderWorkflowActivity(document.getElementById('workflow-activity'), brief, liveState, activityServices, selectNode);
+    if (liveState.result?.assessment_summary || liveState.scan?.assessment_summary) {
+      const report = element('button', 'assessment-report-action', 'View full report · print / save PDF');
+      report.type = 'button';
+      report.addEventListener('click', openAssessmentReport);
+      document.getElementById('workflow-activity').querySelector('.activity-heading')?.after(report);
+    }
     activitySignature = activityKey;
   }
-  const signature = JSON.stringify(brief);
+  const signature = JSON.stringify([brief, latestSavedCapture?.capture_id]);
   if (signature !== briefSignature) {
     renderInsightBrief(document.getElementById('assessment-brief'), brief, selectNode);
     renderAssessmentOverview(document.getElementById('assessment-overview'), brief, selectNode);
+    renderLatestSavedCard(document.getElementById('assessment-overview'));
+    if (liveState.result?.assessment_summary || liveState.scan?.assessment_summary) {
+      const report = element('button', 'overview-action overview-report-action', 'Open full assessment report · print / save PDF →');
+      report.type = 'button';
+      report.addEventListener('click', openAssessmentReport);
+      document.querySelector('#assessment-overview .overview-verdict')?.after(report);
+    }
     renderInsightHighlights(document.getElementById('assessment-highlights'), brief, selectNode);
     briefSignature = signature;
   }
@@ -1150,7 +1267,7 @@ function renderInspector() {
   }
   if (liveState.active && liveState.previewState === 'idle'
       && ['canonical', 'score', 'queue', 'rationale', 'report'].includes(view.node)) {
-    content.append(element('p', 'boundary-note', 'Live run data is held in memory. This view does not claim a stored finding, stored score, or printable report artifact.'));
+    content.append(element('p', 'boundary-note', 'Live display and retained evidence are separate. When a saved checkpoint is available, open its read-only report below; no new scan or AI call is launched.'));
     if (view.node === 'report') appendLiveSummary(content, liveState.result?.assessment_summary || liveState.scan?.assessment_summary);
     else if (view.node !== 'canonical') appendDecisionFrame(content, liveState.scan?.decision_frame || liveState.result?.decision_frame);
     return;
@@ -1240,6 +1357,11 @@ function renderAnalyst() {
   if (live?.status === 'error' || live?.status === 'needs_review') holder.append(element('p', 'analysis-error', live.error));
   if (live?.result && !appendBatchReview(holder, live.result)) {
     const result = live.result;
+    if (Array.isArray(result.ai_attempts) && result.ai_attempts.length && result.ai_attempts.every(item => typeof item?.provider === 'string' && typeof item?.status === 'string')) {
+      const providerNames = {ollama: 'Local Ollama', google: 'Google Gemini', groq: 'Groq GPT-OSS', groq_qwen: 'Groq Qwen', openrouter: 'OpenRouter'};
+      const attempts = result.ai_attempts.map(item => `${providerNames[item.provider] || item.provider}: ${item.status.replaceAll('_', ' ')}`);
+      holder.append(element('p', 'boundary-note', `AI provider attempts · ${attempts.join(' → ')}`));
+    }
     appendDecisionFrame(holder, result.decision_frame);
     holder.append(element('p', 'analysis-summary', result.analysis.summary));
     appendModelContextEffect(holder, result);
@@ -1265,7 +1387,8 @@ function renderAnalyst() {
 
 async function analyzeTarget(hostIp = view.host, runId = view.assessment?.run.run_id, provider = 'ollama') {
   if (!hostIp || !runId || !view.assessment) return {status: 'error', error: 'No recorded target selected'};
-  if (provider !== 'ollama' && !document.getElementById('share-evidence').checked) {
+  const localFallback = provider === 'ollama' && document.getElementById('allow-fallback').checked;
+  if ((provider !== 'ollama' || localFallback) && !document.getElementById('share-evidence').checked) {
     const error = 'Confirm evidence sharing before using a cloud model.';
     document.getElementById('target-check-result').textContent = error;
     runPanel.hidden = false;
@@ -1298,7 +1421,7 @@ async function analyzeTarget(hostIp = view.host, runId = view.assessment?.run.ru
           if (detail) detail.textContent = event.detail;
         }
       }
-    }, provider);
+    }, provider, localFallback);
     const live = view.analyses.get(key);
     view.analyses.set(key, {...live, status: 'complete', result: response});
   } catch (error) {
@@ -1442,6 +1565,10 @@ document.getElementById('toggle-theme').addEventListener('click', event => {
   event.currentTarget.textContent = dark ? 'Light theme' : 'Dark theme';
   event.currentTarget.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} theme`);
 });
+document.getElementById('close-assessment-report').addEventListener('click', () => {
+  document.getElementById('assessment-report-dialog').close();
+});
+document.getElementById('print-assessment-report').addEventListener('click', () => window.print());
 // ==================== RUN ANALYSIS: PANEL OPEN/CLOSE CONTROLS (START) ====================
 document.getElementById('open-run').addEventListener('click', () => {
   runPanel.hidden = !runPanel.hidden;
@@ -1507,10 +1634,12 @@ document.getElementById('import-nessus').addEventListener('click', async () => {
 });
 document.getElementById('preview-flow').addEventListener('click', previewLiveFlow);
 document.getElementById('stop-run').addEventListener('click', () => { runState.stop = true; document.getElementById('stop-run').disabled = true; });
-providerSelect.addEventListener('change', () => {
-  document.getElementById('cloud-consent').hidden = providerSelect.value === 'ollama';
+function updateCloudConsent() {
+  document.getElementById('cloud-consent').hidden = providerSelect.value === 'ollama' && !document.getElementById('allow-fallback').checked;
   document.getElementById('share-evidence').checked = false;
-});
+}
+providerSelect.addEventListener('change', updateCloudConsent);
+document.getElementById('allow-fallback').addEventListener('change', updateCloudConsent);
 runSearch.addEventListener('input', renderRunTargets);
 runTargets.addEventListener('change', event => {
   if (event.target.type !== 'checkbox') return;
@@ -1629,3 +1758,4 @@ new ResizeObserver(() => {
 }).observe(viewport);
 setViewMode(view.mode);
 loadWorkflow();
+void refreshLatestReportLink();

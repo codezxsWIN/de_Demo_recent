@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from vulnassess import intel, intel_online, live_assessment
-from vulnassess.errors import ConfigError, LLMUnavailable, NeedsReview
+from vulnassess.errors import AdapterError, ConfigError, LLMUnavailable, NeedsReview
 from vulnassess.store import Store
 from vulnassess.ui.server import UiApplication
 
@@ -154,6 +154,9 @@ def test_live_web_run_scans_requested_port_and_runs_bounded_nikto():
                 encoding="utf-8",
             )
         else:
+            assert kwargs["stderr"] == subprocess.STDOUT
+            assert kwargs["stdout"].writable()
+            assert "capture_output" not in kwargs
             output = Path(command[command.index("-output") + 1])
             output.write_text(
                 json.dumps(
@@ -201,6 +204,8 @@ def test_live_web_run_scans_requested_port_and_runs_bounded_nikto():
     assert requested_port_command[requested_port_command.index("-p") + 1] == "7001"
     nikto_command = next(command for command in calls if "-output" in command)
     assert nikto_command[nikto_command.index("-Tuning") + 1] == "123b"
+    assert nikto_command[nikto_command.index("-timeout") + 1] == "5"
+    assert nikto_command[nikto_command.index("-maxtime") + 1] == "90s"
     assert "-nolookup" in nikto_command
     assert "Host: agent.example.test:7001" in nikto_command
     assert [service["port"] for service in result["services"]] == [80, 7001]
@@ -208,6 +213,36 @@ def test_live_web_run_scans_requested_port_and_runs_bounded_nikto():
     assert analyst_payloads[0]["findings"][0]["tool"] == "nikto"
     assert result["assessment_summary"]["scanner_coverage"]["nikto"].startswith("complete:")
     assert any(stage == "nikto" and state == "complete" for stage, state, _ in events)
+
+
+def test_finalized_nikto_report_retains_evidence_but_excludes_ip_pinning_artifact(tmp_path):
+    report = tmp_path / "nikto.json"
+    report.write_text(json.dumps([{
+        "ip": "192.0.2.10", "host": "192.0.2.10", "port": 4280,
+        "end_time": "2026-10-21 12:00:00 +0000",
+        "ssl_info": {"altnames": "lab.example.test"},
+        "vulnerabilities": [
+            {"id": "013587", "url": "/", "msg": "Suggested security header missing: referrer-policy."},
+            {"id": "999993", "url": "/", "msg": "Hostname '192.0.2.10' does not match certificate names (SAN: lab.example.test)."},
+        ],
+    }]), encoding="utf-8")
+    endpoint = {"scheme": "https", "host": "lab.example.test", "port": 4280}
+    findings, excluded = live_assessment._parse_pinned_nikto(
+        report, "192.0.2.10", endpoint, require_finalized=True
+    )
+    assert len(findings) == 1
+    assert findings[0].tool_native_id == "013587"
+    assert excluded == 1
+
+    endpoint["port"] = 4281
+    with pytest.raises(AdapterError, match="target, port"):
+        live_assessment._parse_pinned_nikto(report, "192.0.2.10", endpoint, require_finalized=True)
+    endpoint["port"] = 4280
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    del payload[0]["end_time"]
+    report.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(AdapterError, match="completion marker"):
+        live_assessment._parse_pinned_nikto(report, "192.0.2.10", endpoint, require_finalized=True)
 
 
 def test_public_scope_exception_without_test_asset_tag_never_launches_nikto():
@@ -678,14 +713,25 @@ def test_model_retry_reuses_recent_scan_without_starting_nmap(tmp_path):
         },
     }
 
-    def first_run(*args, **kwargs):
+    calls = 0
+
+    def scanner_run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
         kwargs["on_case"](case)
-        raise RuntimeError("model unavailable")
+        if calls == 1:
+            raise RuntimeError("model unavailable")
+        return {
+            "services": case["services"],
+            "scan_status": "complete",
+            "reused_scan": False,
+            "assessment_summary": {"finding_count": 0},
+        }
 
     with (
         patch.object(app, "target_check", return_value=check),
         patch("vulnassess.ui.server.time.monotonic", return_value=100),
-        patch("vulnassess.ui.server.live_assessment.run", side_effect=first_run) as scanner,
+        patch("vulnassess.ui.server.live_assessment.run", side_effect=scanner_run) as scanner,
         patch(
             "vulnassess.ui.server.analyst.analyze_target",
             return_value={"analysis": {"summary": "SSH observed"}},
@@ -698,13 +744,12 @@ def test_model_retry_reuses_recent_scan_without_starting_nmap(tmp_path):
                 lambda *event: events.append(event),
                 captures.append,
             )
-        with pytest.raises(ConfigError, match="Choose re-analyze recent evidence"):
-            app.live_report(
-                "scanme.nmap.org",
-                "openrouter",
-                lambda *event: events.append(event),
-                captures.append,
-            )
+        fresh = app.live_report(
+            "scanme.nmap.org",
+            "openrouter",
+            lambda *event: events.append(event),
+            captures.append,
+        )
         result = app.live_report(
             "scanme.nmap.org",
             "openrouter",
@@ -713,7 +758,8 @@ def test_model_retry_reuses_recent_scan_without_starting_nmap(tmp_path):
             reuse_recent=True,
         )
 
-    assert scanner.call_count == 1
+    assert scanner.call_count == 2
+    assert fresh["reused_scan"] is False
     assert result["reused_scan"] is True
     assert result["services"] == case["services"]
     assert captures[-1]["services"] == case["services"]
@@ -721,3 +767,4 @@ def test_model_retry_reuses_recent_scan_without_starting_nmap(tmp_path):
     assert any(stage == "scanner" and "Reused" in detail for stage, _, detail in events)
     assert any(stage == "canonical" and "Reused" in detail for stage, _, detail in events)
     assert result["assessment_summary"]["finding_count"] == 0
+    assert app._last_live_scan == {}

@@ -63,6 +63,48 @@ def test_validation_rejection_is_visible_and_does_not_fallback():
     assert result["analyst"] is None
 
 
+def test_bounded_grounding_rejection_can_use_fresh_validated_provider_when_opted_in():
+    def analyze(*_, provider, on_progress):
+        if provider == "groq":
+            on_progress("validation", "running", "Checking claims")
+            raise NeedsReview("Needs review: analyst output contains unsupported numbers") from LLMUnavailable(
+                "analyst output contains unsupported numbers"
+            )
+        return {"model": "test", "analysis": {"summary": "validated"}}
+
+    with (
+        patch.object(analyst, "fallback_providers", return_value=["google"]),
+        patch.object(analyst, "analyze_target", side_effect=analyze) as calls,
+    ):
+        result = analyst.analyze_optional(
+            {}, "127.0.0.1", "groq", lambda *_: None, allow_fallback=True
+        )
+    assert [call.kwargs["provider"] for call in calls.call_args_list] == ["groq", "google"]
+    assert result["ai_status"] == "validated"
+    assert [item["status"] for item in result["ai_attempts"]] == ["needs_review", "validated"]
+
+
+def test_unknown_service_can_fallback_only_when_explicitly_enabled():
+    def analyze(*_, provider, on_progress):
+        if provider == "groq":
+            on_progress("validation", "running", "Checking claims")
+            raise NeedsReview("Needs review: analyst output contains an unknown service") from LLMUnavailable(
+                "analyst output contains an unknown service"
+            )
+        return {"model": "test", "analysis": {"summary": "validated"}}
+
+    with (
+        patch.object(analyst, "fallback_providers", return_value=["google"]),
+        patch.object(analyst, "analyze_target", side_effect=analyze) as calls,
+    ):
+        result = analyst.analyze_optional(
+            {}, "127.0.0.1", "groq", lambda *_: None, allow_fallback=True
+        )
+    assert [call.kwargs["provider"] for call in calls.call_args_list] == ["groq", "google"]
+    assert result["used_provider"] == "google"
+    assert [item["status"] for item in result["ai_attempts"]] == ["needs_review", "validated"]
+
+
 def test_local_selection_never_sends_evidence_to_cloud():
     with (
         patch.object(analyst, "fallback_providers", return_value=["google"]),
@@ -72,6 +114,46 @@ def test_local_selection_never_sends_evidence_to_cloud():
     ):
         analyst.analyze_optional({}, "127.0.0.1", "ollama", lambda *_: None, allow_fallback=True)
     assert calls.call_count == 1
+
+
+def test_local_fallback_requires_explicit_cloud_sharing_and_caps_local_wait():
+    local = analyst.OllamaClient("http://127.0.0.1:11434", "test-model", timeout=180)
+    seen = []
+
+    def analyze(value, host, *, provider, on_progress, client=None):
+        seen.append((provider, client))
+        if provider == "ollama":
+            raise LLMUnavailable("local generation timed out")
+        return {"model": "test", "analysis": {"summary": "validated"}}
+
+    with (
+        patch.object(analyst, "fallback_providers", return_value=["google", "ollama"]),
+        patch.object(analyst, "provider_client", return_value=local),
+        patch.object(analyst, "analyze_findings", side_effect=analyze),
+    ):
+        result = analyst.analyze_optional(
+            {}, "127.0.0.1", "ollama", lambda *_: None,
+            allow_fallback=True, cloud_sharing_authorized=True,
+        )
+    assert [provider for provider, _ in seen] == ["ollama", "google"]
+    assert seen[0][1].timeout == 45
+    assert seen[1][1] is None
+    assert result["used_provider"] == "google"
+
+
+def test_local_invalid_claim_does_not_fallback_even_with_cloud_consent():
+    local = analyst.OllamaClient("http://127.0.0.1:11434", "test-model", timeout=180)
+    with (
+        patch.object(analyst, "fallback_providers", return_value=["google"]),
+        patch.object(analyst, "provider_client", return_value=local),
+        patch.object(analyst, "analyze_findings", side_effect=NeedsReview("fabricated citation")) as calls,
+    ):
+        result = analyst.analyze_optional(
+            {}, "127.0.0.1", "ollama", lambda *_: None,
+            allow_fallback=True, cloud_sharing_authorized=True,
+        )
+    assert calls.call_count == 1
+    assert result["ai_status"] == "needs_review"
 
 
 def test_all_provider_outages_end_with_evidence_only():

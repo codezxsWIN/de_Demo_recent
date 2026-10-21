@@ -14,8 +14,8 @@ from vulnassess.store import Store
 from vulnassess.ui.server import UiApplication
 
 
-def capture(tmp_path):
-    directory = tmp_path / "assessment-synthetic"
+def capture(tmp_path, identity="assessment-synthetic", captured_at=None):
+    directory = tmp_path / identity
     directory.mkdir()
     payload = {
         "hosts": [{"ip": "127.0.0.1", "services": []}],
@@ -32,6 +32,8 @@ def capture(tmp_path):
         "resolved_ip": "127.0.0.1",
         "files": {"case.json": hashlib.sha256(raw).hexdigest()},
     }
+    if captured_at is not None:
+        manifest["captured_at"] = captured_at
     (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     result = {
         "target": "self",
@@ -200,6 +202,17 @@ def test_listing_paginates_and_discloses_corrupt_metadata(tmp_path):
     assert capture_history.listing(tmp_path)["captures"][0]["status"] == "needs_review"
     with pytest.raises(ConfigError):
         capture_history.listing(tmp_path, -1)
+
+
+def test_saved_assessments_are_ordered_by_recorded_time_not_random_id(tmp_path):
+    old, result = capture(tmp_path, "assessment-zz-old", "2026-10-20T23:00:00+05:30")
+    capture_history.save(old, result, config_hash="config")
+    new, result = capture(tmp_path, "assessment-aa-new", "2026-10-21T00:00:00+05:30")
+    capture_history.save(new, result, config_hash="config")
+    for listing in (capture_history.listing, capture_history._listing_for_review):
+        assert [row["capture_id"] for row in listing(tmp_path)["captures"]] == [
+            "assessment-aa-new", "assessment-zz-old"
+        ]
 
 
 def test_failed_atomic_publication_leaves_evidence_checkpoint_usable(tmp_path, monkeypatch):

@@ -174,6 +174,72 @@ def test_case_packages_all_target_evidence_without_mutating_records():
     assert any(item["kind"] == "deterministic_priority" for item in evidence)
 
 
+def test_four_service_cve_case_fits_budget_without_local_paths_or_lost_intelligence():
+    payload = demo_payload()
+    host = next(item for item in payload["hosts"] if item["ip"] == "172.28.0.12")
+    host["services"] = [
+        {
+            "port": port,
+            "protocol": "tcp",
+            "name": "redis" if port == 6379 else "http",
+            "product": "Redis key-value store" if port == 6379 else "nginx",
+            "version": "5.0.7" if port == 6379 else "1.31.7",
+            "tls": port in {81, 443},
+            "banner": f"{port}/tcp scanner fingerprint, bounded source evidence",
+        }
+        for port in (80, 81, 443, 6379)
+    ]
+    finding = copy.deepcopy(
+        next(item for item in payload["findings"] if item["host_ip"] == host["ip"])
+    )
+    finding.update(
+        port=6379,
+        tool="redis-check",
+        cve_ids=["CVE-2022-0543"],
+        title="Redis Lua package.loadlib exposed (CVE-2022-0543)",
+        description="A bounded Lua type inspection established the vulnerable configuration; no OS command execution was attempted.",
+        evidence="Fixed EVAL type inspection returned table:function; no keys, libraries or OS commands accessed.",
+        provenance={
+            "tool": "redis-check",
+            "record_index": 1,
+            "raw_path": "C:/PRIVATE-LOCAL-PATH/" + "retained/" * 180,
+        },
+    )
+    payload["findings"] = [finding]
+    score = copy.deepcopy(
+        next(item for item in payload["scores"] if item["finding_id"] == finding["id"])
+    )
+    payload["scores"] = [{**score, "risk": 100.0, "base_score": 10.0, "env_score": 9.1}]
+    payload["enrichments"] = [
+        {
+            "finding_id": finding["id"],
+            "cve_id": "CVE-2022-0543",
+            "cvss31_base": 10.0,
+            "epss": 0.99351,
+            "epss_percentile": 0.9994,
+            "kev": True,
+            "match_method": "scanner_cve",
+            "match_confidence": "high",
+            "feed_dates": {"nvd": "2026-10-21", "epss": "2026-10-20", "kev": "2026-10-20"},
+        }
+    ]
+    payload["scanner_coverage"] = {
+        "nmap": "top 100 TCP ports; explicit TCP/6379 check complete",
+        "nikto": "not HTTP; no Nikto scan launched",
+        "nessus": "no report imported",
+    }
+    original = copy.deepcopy(payload)
+    case, evidence, aliases = analyst.build_case(payload, host["ip"])
+    prompt = analyst.build_prompt(case, evidence, len(aliases))
+    assert len(case["services"]) == 4 and len(case["findings"]) == 1
+    assert len(prompt) < analyst.MAX_PROMPT_CHARS - 600
+    assert "PRIVATE-LOCAL-PATH" not in prompt
+    assert case["findings"][0]["intelligence"][0]["epss"] == 0.99351
+    assert case["findings"][0]["intelligence"][0]["kev"] is True
+    assert case["findings"][0]["deterministic_score"]["risk"] == 100.0
+    assert payload == original
+
+
 @pytest.mark.parametrize("inclusive", [True, False, None])
 def test_case_preserves_vulnerable_version_boundary_semantics(inclusive):
     payload = demo_payload()
@@ -207,6 +273,9 @@ def test_decision_frame_exposes_context_and_stored_priority_to_model_and_output(
     assert "auth_required" in frame["coverage_review"]["unknown_controls"]
     assert any("Unverified controls" in limit for limit in frame["coverage_review"]["limits"])
     assert "DECISION FRAME" in analyst.build_prompt(case, evidence, len(case["findings"]))
+    assert "finding-specific analysis" in analyst.build_prompt(
+        case, evidence, len(case["findings"])
+    )
 
 
 def test_zero_finding_frame_has_verification_candidates_not_fake_risk_scores():
@@ -225,6 +294,7 @@ def test_zero_finding_frame_has_verification_candidates_not_fake_risk_scores():
     assert frame["context"]["exposure"]["value"] == "internet_facing"
     assert any("No vulnerability findings" in limit for limit in frame["coverage_review"]["limits"])
     assert "verification_only" in analyst.build_prompt(case, evidence, 0)
+    assert "finding-specific analysis" not in analyst.build_prompt(case, evidence, 0)
 
 
 def test_legacy_unobserved_controls_are_unknown_in_model_case():
@@ -607,7 +677,7 @@ def test_unknown_control_guard_distinguishes_missing_evidence_from_absent_contro
     assert auth_guard.search("without authentication") is not None
 
 
-def test_invalid_control_assertion_fails_closed_without_correction_attempt():
+def test_invalid_control_assertion_requires_a_new_fully_validated_answer():
     payload = demo_payload()
     case, evidence, _ = analyst.build_case(payload, "172.28.0.12")
     good = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
@@ -625,9 +695,182 @@ def test_invalid_control_assertion_fails_closed_without_correction_attempt():
             return super().generate_structured(prompt, schema, **kwargs)
 
     client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert len(client.prompts) == 2
+    assert "not been established by the scan" in client.prompts[1]
+    assert (
+        result["analysis"]["recommended_actions"][0]["reason"]
+        == good["recommended_actions"][0]["reason"]
+    )
+    assert result["canonical_scores_changed"] is False
+
+
+def test_distinct_grounding_failures_get_bounded_corrections_without_prompt_growth():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    good = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad_control = copy.deepcopy(good)
+    bad_control["recommended_actions"][0]["reason"] = "There is no TLS on this host."
+    bad_number = copy.deepcopy(good)
+    bad_number["summary"] = "The host has 987654 unknown components."
+
+    class CorrectingClient(FakeClient):
+        def __init__(self):
+            super().__init__(None)
+            self.prompts = []
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.prompts.append(prompt)
+            self.result = [bad_control, bad_number, good][len(self.prompts) - 1]
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert len(client.prompts) == 3
+    assert all(len(prompt) <= analyst.MAX_PROMPT_CHARS for prompt in client.prompts)
+    assert "prior complete answers failed these checks" in client.prompts[-1]
+    assert result["analysis"]["summary"] == good["summary"]
+    assert result["canonical_scores_changed"] is False
+
+
+def test_repeated_unsupported_control_assertion_is_never_published():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    bad = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad["recommended_actions"][0]["reason"] = "There is no TLS on this host."
+
+    class RepeatingClient(FakeClient):
+        def __init__(self):
+            super().__init__(bad)
+            self.calls = 0
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.calls += 1
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = RepeatingClient()
     with pytest.raises(NeedsReview, match="unsupported control assertion about tls"):
         analyst.analyze_target(payload, "172.28.0.12", client)
-    assert len(client.prompts) == 1
+    assert client.calls == 2
+
+
+def test_zero_finding_action_requires_observed_service_citation_after_retry():
+    payload = demo_payload()
+    payload["findings"] = []
+    payload["scores"] = []
+    payload["enrichments"] = []
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    exposure_id = case["context"]["exposure"]["evidence_id"]
+    service_id = case["services"][0]["evidence_id"]
+    good = {
+        "summary": "Observed services need configuration verification; no vulnerability was established.",
+        "confidence": "low",
+        "context_effect": {
+            "explanation": "Internet exposure raises verification urgency.",
+            "evidence_ids": [exposure_id],
+        },
+        "recommended_actions": [
+            {
+                "order": 1,
+                "action": "Verify the observed service configuration.",
+                "reason": "The scan observed a network service.",
+                "finding_ids": [],
+                "evidence_ids": [service_id],
+            }
+        ],
+        "correlations": [],
+        "uncertainties": ["Authentication was not established by this scan."],
+    }
+    bad = copy.deepcopy(good)
+    bad["recommended_actions"][0]["evidence_ids"] = [exposure_id]
+
+    class CorrectingClient(FakeClient):
+        def __init__(self):
+            super().__init__(None)
+            self.prompts = []
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.prompts.append(prompt)
+            self.result = bad if len(self.prompts) == 1 else good
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert len(client.prompts) == 2
+    assert "Observed service evidence IDs" in client.prompts[1]
+    assert service_id in result["analysis"]["recommended_actions"][0]["evidence_ids"]
+
+
+def test_unsupported_number_requires_new_validated_answer():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    good = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad = copy.deepcopy(good)
+    bad["summary"] = "The assessment requires 777777 actions."
+
+    class CorrectingClient(FakeClient):
+        def __init__(self):
+            super().__init__(None)
+            self.prompts = []
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.prompts.append(prompt)
+            self.result = bad if len(self.prompts) == 1 else good
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert len(client.prompts) == 2
+    assert "numeric values only from the" in client.prompts[1]
+    assert result["analysis"]["summary"] == good["summary"]
+    assert result["canonical_scores_changed"] is False
+
+
+def test_unknown_service_requires_new_grounded_answer():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    good = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad = copy.deepcopy(good)
+    bad["summary"] = "The FTP service needs review."
+
+    class CorrectingClient(FakeClient):
+        def __init__(self):
+            super().__init__(None)
+            self.prompts = []
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.prompts.append(prompt)
+            self.result = bad if len(self.prompts) == 1 else good
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert len(client.prompts) == 2
+    assert "previous answer named a service that was not observed" in client.prompts[1]
+    assert case["services"][0]["evidence_id"] in client.prompts[1]
+    assert result["analysis"]["summary"] == good["summary"]
+    assert result["canonical_scores_changed"] is False
+
+
+def test_repeated_unknown_service_remains_rejected():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    bad = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad["summary"] = "The FTP service needs review."
+
+    class RepeatingClient(FakeClient):
+        def __init__(self):
+            super().__init__(bad)
+            self.calls = 0
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.calls += 1
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = RepeatingClient()
+    with pytest.raises(NeedsReview, match="unknown service"):
+        analyst.analyze_target(payload, "172.28.0.12", client)
+    assert client.calls == 2
 
 
 def test_local_model_wait_is_bounded_before_generation():
@@ -951,7 +1194,7 @@ def test_all_case_text_is_bounded_and_cannot_close_the_untrusted_block() -> None
 
     assert payload == original
     for text in (
-        case["services"][0]["banner"],
+        next(item["text"] for item in evidence if item["id"] == case["services"][0]["evidence_id"]),
         case["target"]["hostname"],
         case["context"]["role"]["evidence"],
     ):

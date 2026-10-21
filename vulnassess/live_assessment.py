@@ -10,6 +10,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import replace
@@ -33,7 +34,12 @@ from vulnassess import (
 from vulnassess.ai_boundary import digest
 from vulnassess.errors import AdapterError, ConfigError, IntelUnavailable, NeedsReview
 from vulnassess.readers import parse_nikto_json, parse_nmap_xml
-from vulnassess.readers._input import read_capture, reject_xml_declarations, validate_tree
+from vulnassess.readers._input import (
+    load_json_capture,
+    read_capture,
+    reject_xml_declarations,
+    validate_tree,
+)
 from vulnassess.scan_plans import PlanExecution
 from vulnassess.settings import Settings
 from vulnassess.store import Store
@@ -412,6 +418,50 @@ def _validated_endpoint(check: dict[str, Any]) -> dict[str, Any] | None:
     return {"host": host.lower(), "scheme": scheme, "port": port, "path": path}
 
 
+def _parse_pinned_nikto(
+    output: Path,
+    target_ip: str,
+    endpoint: dict[str, Any],
+    *,
+    require_finalized: bool = False,
+) -> tuple[list[Any], int]:
+    """Accept only this run's bounded report; remove a TLS name artefact of IP pinning."""
+    _, raw = load_json_capture(output, "nikto")
+    reports = [raw] if isinstance(raw, dict) else raw if isinstance(raw, list) else []
+    if not reports or any(
+        not isinstance(report, dict)
+        or report.get("ip") != target_ip
+        or str(report.get("port")) != str(endpoint["port"])
+        or not isinstance(report.get("vulnerabilities"), list)
+        or require_finalized
+        and not report.get("end_time")
+        for report in reports
+    ):
+        raise AdapterError("nikto: report target, port, or completion marker did not validate")
+    parsed = parse_nikto_json(output, "live", host_ip=target_ip)
+    # Nikto connects to the pinned IP; a certificate for the authorised hostname
+    # is not a hostname-mismatch finding for the actual requested URL.
+    names = {
+        name.removeprefix("DNS:").casefold()
+        for report in reports
+        for name in re.split(r"[,\s]+", str((report.get("ssl_info") or {}).get("altnames") or ""))
+        if name
+    }
+    artifact = endpoint["scheme"] == "https" and endpoint["host"].casefold() in names
+    retained = [
+        finding
+        for finding in parsed
+        if not (
+            artifact
+            and finding.tool_native_id == "999993"
+            and finding.description.startswith(
+                f"Hostname '{target_ip}' does not match certificate names"
+            )
+        )
+    ]
+    return retained, len(parsed) - len(retained)
+
+
 def _scan_requested_endpoint(
     binary: str,
     target_ip: str,
@@ -603,31 +653,65 @@ def _scan_requested_endpoint(
         "-nolookup",
         "-Tuning",
         "123b",
+        "-timeout",
+        "5",
         "-maxtime",
-        f"{min(120, timeout)}s",
+        f"{min(90, max(10, timeout - 20))}s",
     ]
     if endpoint["scheme"] == "https":
         nikto_command.append("-ssl")
     emit("nikto", "running", f"Nikto: bounded checks against pinned {target_ip}:{port}")
     try:
-        result = subprocess.run(
-            nikto_command,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-            cwd=orchestrator._nikto_cwd(argv),
-        )
-        if result.returncode != 0 or not output.is_file():
-            detail = (result.stderr or result.stdout or f"Nikto exited {result.returncode}").strip()
-            emit("nikto", "error", detail[:500])
+        # Some Nikto launchers leave a child holding inherited console pipe
+        # handles after the JSON report is final. A temporary file avoids
+        # waiting for pipe EOF while keeping bounded diagnostics on failure.
+        with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as transcript:
+            result = subprocess.run(
+                nikto_command,
+                stdout=transcript,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=timeout,
+                check=False,
+                cwd=orchestrator._nikto_cwd(argv),
+            )
+            if result.returncode != 0 or not output.is_file():
+                transcript.seek(0)
+                detail = transcript.read(500).strip() or f"Nikto exited {result.returncode}"
+                emit("nikto", "error", detail[:500])
+                return host, findings, "complete", "failed"
+        nikto_findings, excluded = _parse_pinned_nikto(output, target_ip, endpoint)
+    except subprocess.TimeoutExpired:
+        try:
+            nikto_findings, excluded = _parse_pinned_nikto(
+                output, target_ip, endpoint, require_finalized=True
+            )
+        except AdapterError:
+            emit(
+                "nikto",
+                "error",
+                f"Nikto exceeded {timeout}s; no final, target-matched report was accepted",
+            )
             return host, findings, "complete", "failed"
-        nikto_findings = parse_nikto_json(output, "live", host_ip=target_ip)
-    except (OSError, subprocess.TimeoutExpired, AdapterError) as error:
+        findings.extend(nikto_findings)
+        emit(
+            "nikto",
+            "error",
+            f"Nikto exceeded {timeout}s after writing a final, target-matched report; "
+            f"{len(nikto_findings)} findings retained as partial evidence"
+            + (f"; {excluded} IP-pinning TLS artefact excluded" if excluded else ""),
+        )
+        return host, findings, "complete", "partial"
+    except (OSError, AdapterError) as error:
         emit("nikto", "error", f"Nikto failed: {type(error).__name__}")
         return host, findings, "complete", "failed"
     findings.extend(nikto_findings)
-    emit("nikto", "complete", f"Nikto completed; {len(nikto_findings)} findings parsed")
+    emit(
+        "nikto",
+        "complete",
+        f"Nikto completed; {len(nikto_findings)} findings parsed"
+        + (f"; {excluded} IP-pinning TLS artefact excluded" if excluded else ""),
+    )
     return host, findings, "complete", "complete"
 
 
@@ -642,6 +726,7 @@ def run(
     on_capture: Callable[[dict[str, Any]], None] | None = None,
     on_case: Callable[[dict[str, Any]], None] | None = None,
     allow_fallback: bool = False,
+    cloud_sharing_authorized: bool = False,
     plan_execution: PlanExecution | None = None,
     self_defence: bool = False,
 ) -> dict[str, Any]:
@@ -891,6 +976,10 @@ def run(
         if feed_meta
         else "unavailable",
         "context": [profile.to_json()],
+        "scoring_policy": {
+            "weights": settings.weights,
+            "hash": scoring.weights_hash(settings.weights),
+        },
         "scanner_coverage": {
             "nmap": (
                 f"top 100 TCP ports; explicit TCP/{endpoint['port']} check {endpoint_scan_status}"
@@ -998,9 +1087,10 @@ def run(
                 "stage_events": stage_events.copy(),
             }
         )
-    outcome = analyst.analyze_optional(
-        payload, target_ip, provider, on_progress, allow_fallback=allow_fallback
-    )
+    analyst_options = {"allow_fallback": allow_fallback}
+    if cloud_sharing_authorized:
+        analyst_options["cloud_sharing_authorized"] = True
+    outcome = analyst.analyze_optional(payload, target_ip, provider, on_progress, **analyst_options)
     summary = assessment_summary(
         target,
         target_ip,

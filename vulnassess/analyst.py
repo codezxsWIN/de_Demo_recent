@@ -20,6 +20,7 @@ from vulnassess.ai_boundary import (
     verify_claims,
     verify_consistency,
 )
+from vulnassess.claim_semantics import verify_semantic_claims
 from vulnassess.context_facts import interpreted_control
 from vulnassess.errors import ConfigError, LLMUnavailable, NeedsReview, ProviderUnavailable
 from vulnassess.explain import (
@@ -30,9 +31,11 @@ from vulnassess.explain import (
     allowed_numbers,
     sanitise,
 )
+from vulnassess.finding_assurance import assurance
 from vulnassess.google import GeminiClient
 from vulnassess.groq import GroqClient, GroqQwenClient
 from vulnassess.openrouter import OpenRouterClient
+from vulnassess.service_context import endpoint_context, service_evidence_text
 from vulnassess.website_metadata import observation_parts
 
 MAX_EVIDENCE = 128
@@ -300,12 +303,18 @@ def _assemble_case(
     )
     services = []
     for service in observed_services[:MAX_SERVICES] if for_model else observed_services:
-        quote = " ".join(
-            _clean(service.get(key), 100)
-            for key in ("port", "protocol", "name", "product", "version", "cpe", "banner")
-            if service.get(key) not in (None, "")
+        quote = service_evidence_text(service)
+        services.append(
+            {
+                **{
+                    key: value for key, value in service.items() if not for_model or key != "banner"
+                },
+                # A false scanner flag means no positive TLS observation, not a
+                # negative handshake test. Keep this distinction in the model input.
+                "tls": True if service.get("tls") is True else None,
+                "evidence_id": cite("nmap_service", quote),
+            }
         )
-        services.append({**service, "evidence_id": cite("nmap_service", quote)})
 
     context = {
         "role": dict(profile["role"]),
@@ -322,6 +331,23 @@ def _assemble_case(
         + list(context["manual"].items())
     ):
         feature["evidence_id"] = cite(f"context_{name}", _clean(feature.get("evidence"), 240))
+
+    for service in services:
+        endpoint = endpoint_context(service, context)
+        service["endpoint_context"] = {
+            "role_candidate": endpoint["role_candidate"],
+            "controls": {
+                key: fact["value"]
+                for key, fact in endpoint["controls"].items()
+                if fact.get("scope") != "not_applicable"
+            },
+            "exposure_scope": "host_only; access_policy_unknown",
+        }
+        irrelevant = [
+            key for key, fact in endpoint["control_relevance"].items() if fact["value"] is False
+        ]
+        if irrelevant:
+            service["endpoint_context"]["not_applicable"] = irrelevant
 
     enrichments: dict[str, list[dict[str, Any]]] = {}
     for item in payload["enrichments"]:
@@ -488,7 +514,15 @@ def _assemble_case(
                 "cwe_ids": finding.get("cwe_ids", []),
                 "native_severity": finding.get("native_severity"),
                 "native_confidence": finding.get("native_confidence"),
-                "provenance": finding.get("provenance", {}),
+                "provenance": (
+                    {
+                        key: value
+                        for key, value in finding.get("provenance", {}).items()
+                        if key in {"tool", "record_index"}
+                    }
+                    if for_model
+                    else finding.get("provenance", {})
+                ),
                 "evidence_id": finding_evidence,
                 "intelligence": intel,
                 "intel_included": len(intel),
@@ -496,6 +530,8 @@ def _assemble_case(
                 "deterministic_score": score_record,
             }
         )
+        if assurance(finding):
+            findings[-1]["cve_status"] = "package-dependent candidate; exploitability untested"
         if for_model:
             update_coverage()
             if len(build_prompt(_clean_record(case), evidence, len(alias_map))) > MAX_PROMPT_CHARS:
@@ -850,7 +886,7 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
         "DECISION FRAME (derived index, not new evidence):\n"
         + frame
         + "\nFULL CASE:\n"
-        + json.dumps(case, ensure_ascii=True),
+        + json.dumps(case, ensure_ascii=True, separators=(",", ":")),
         limit=MAX_PROMPT_CHARS,
     )
     untrusted += "\n" + "\n".join(
@@ -859,9 +895,7 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
     contract = (
         f"Return only compact JSON with schema_version={SCHEMA_VERSION!r}. "
         "Use the supplied strict JSON schema; all fields are required and extra fields fail. "
-        "Every prose field (summary, explanation, action, reason, observation, hypothesis, "
-        "verification, alternative and each uncertainty) is an object containing text plus "
-        "its own label, finding_ids, evidence_ids, confidence 0..1, verification_action "
+        "Every prose field is an object containing text, label, finding_ids, evidence_ids, confidence 0..1, verification_action "
         "and score. Every prose object must cite at least one supplied evidence ID; "
         "never use an empty evidence_ids array. Do not return a separate claims list. "
         "Do not return quote text. Cite the exact evidence IDs that support each statement; "
@@ -874,9 +908,15 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
         "For every recommended action, correlation, and investigation, parent evidence_ids and finding_ids must include every ID cited by its child claims. "
         "The context_effect parent evidence_ids must include all evidence IDs cited by its explanation. "
         f"Valid finding IDs: {', '.join(f'F{i + 1}' for i in range(alias_count)) or 'none'}. "
-        "When findings are supplied, each recommended action and correlation must cite at least one of these finding IDs in its parent finding_ids array. "
+        "With findings, actions and correlations must cite supplied finding IDs in parent finding_ids. "
         f"Valid evidence IDs (copy exactly; do not create or infer IDs): {valid_evidence_ids}. "
         "Every citation must be one of these exact IDs. "
+        "Advice/verification/alternatives use inferred, uncertainties unknown; observed means direct evidence. "
+        "TLS is endpoint-specific: unknown is not false; positives require cited tls=observed. "
+        "Co-occurring services prove no redirect, proxy, bypass or unauthenticated console. "
+        "Respect cve_status; a Redis banner/type response cannot confirm package identity. For Redis use native controls, not WAF. "
+        "Management roles are fingerprint candidates; scope vantage proves no access policy. "
+        "Ask neutral control-verification questions; specify an authorized check and decision from its outcome. "
         "Finding citation requirements: " + "; ".join(citation_requirements) + ". "
         "An action, correlation or investigation naming a finding must cite at least one "
         "of that finding's listed supporting IDs, not just a service or context ID. "
@@ -893,8 +933,18 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
         if case.get("self_defence")
         else ""
     )
+    finding_guidance = (
+        "Findings are present. Choose up to two distinct, highest-value observations. "
+        "Actions must name the observed behavior/header/CVE and cite that finding's own evidence. "
+        "Explain verification before changes; scanner wording does not prove exploitability. "
+        "Use role/exposure for finding-specific analysis, not generic unknown-control questions "
+        "unless the finding directly concerns that control. "
+        if case["findings"]
+        else ""
+    )
     return (
         personal_guidance
+        + finding_guidance
         + "You are a defensive vulnerability analyst. Analyze the supplied target case. "
         "Coverage states what is included and omitted; do not imply omitted records were reviewed. "
         "Use coverage_review limits to name meaningful blind spots and choose the next verification. "
@@ -909,27 +959,18 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
         "With zero findings, cite the exposure evidence ID in context_effect; cite an "
         "observed service in each verification action. "
         "Do not merely restate the role or exposure label. "
-        "A control value of null means unknown, not absent: never claim unauthenticated "
-        "access, no WAF, no TLS, or no rate limiting from a null control. Phrase these "
-        "as questions to verify, and distinguish missing evidence from a negative test. "
-        "When a control is unknown, use only wording such as 'not established by this scan' "
-        "or 'verify whether TLS/authentication/WAF/rate limiting is configured'. Never "
-        "write 'no TLS', 'without TLS', 'no authentication', 'unauthenticated access', "
-        "'lacks TLS', 'lacks authentication', 'TLS is absent', 'authentication is absent', "
-        "'no WAF', or 'no rate limiting' unless that exact negative was explicitly tested "
-        "and recorded in evidence; an open port alone is not that test. "
+        "Null controls are unknown, not absent. Say 'not established by this scan' or "
+        "'verify whether the control is configured'. Negative claims such as 'lacks TLS', "
+        "unauthenticated access, missing WAF or absent rate limiting require explicit "
+        "endpoint-bound negative tests; an open port is not such a test. "
         "Correlate scanner findings, services, asset context, CVSS, EPSS and KEV. Identify likely "
         "duplicates or interacting weaknesses and produce a practical remediation sequence. "
-        "The investigations array must contain exactly one item, even with zero findings. "
-        "Choose a specific observed service or finding. The hypothesis must pose a testable "
-        "exposure or configuration question, not repeat the summary. The verification must "
-        "begin with Check, Compare, Review, Inspect, Confirm, Verify or Validate and name "
-        "what to inspect. The alternative must give a distinct benign explanation. "
-        "Do not make an alternative by guessing that the target is internal or that an "
-        "unknown control is absent or present. Base it on observed evidence, such as a "
-        "service banner alone not proving an exploitable vulnerability. "
-        "Cite the observation supporting it. An investigation is unverified, "
-        "never a new finding or authorization to scan. "
+        "Investigations contains exactly one item about an observed service/finding, even "
+        "with zero findings. Pose a testable question distinct from the summary. Begin "
+        "verification with Check, Compare, Review, Inspect, Confirm, Verify or Validate; "
+        "name what to inspect. The cited benign alternative explains observations; it is not remediation or advice. Never guess "
+        "internal placement or control status. Investigations are unverified, not findings "
+        "or permission to scan. "
         "If the case has zero vulnerability findings, explicitly state that this limited scan did not "
         "establish a vulnerability; never say that no vulnerabilities exist, were found or detected, "
         "or that a service is secure. Provide only cautious service-exposure observations or "
@@ -1187,6 +1228,97 @@ def _validate_display_analysis(
     }
 
 
+def validate_prose_identifiers(prose, case, evidence):
+    """Apply the same factual identifier/number allowlists live and at report read."""
+    known_cves = {
+        str(identifier).upper()
+        for finding in case["findings"]
+        for identifier in finding.get("cve_ids", [])
+    }
+    known_cves.update(
+        str(item["cve_id"]).upper()
+        for finding in case["findings"]
+        for item in finding.get("intelligence", [])
+        if item.get("cve_id")
+    )
+    numbers = allowed_numbers({"case": json.dumps(case, ensure_ascii=True)})
+    request_text = json.dumps({"case": case, "evidence": evidence}, ensure_ascii=True).casefold()
+    known_ports = {
+        str(item["port"])
+        for item in [*case["services"], *case["findings"]]
+        if item.get("port") is not None
+    }
+    for text in prose:
+        if {identifier.upper() for identifier in CVE_IDENTIFIER.findall(text)} - known_cves:
+            raise LLMUnavailable("analyst output contains unsupported CVE identifiers")
+        if any(
+            identifier.casefold() not in request_text for identifier in IP_IDENTIFIER.findall(text)
+        ):
+            raise LLMUnavailable("analyst output contains an unknown host IP")
+        if any(
+            identifier.casefold() not in request_text
+            for identifier in DOMAIN_IDENTIFIER.findall(text)
+        ):
+            raise LLMUnavailable("analyst output contains an unknown host name")
+        if any(
+            (match[0] or match[1]) not in known_ports for match in PORT_IDENTIFIER.findall(text)
+        ):
+            raise LLMUnavailable("analyst output contains an unknown port")
+        if any(
+            (match[0] or match[1]).casefold() not in request_text
+            for match in SERVICE_ASSERTION.findall(text)
+        ):
+            raise LLMUnavailable("analyst output contains an unknown service")
+        if set(NUMBER.findall(text)) - numbers:
+            raise LLMUnavailable("analyst output contains unsupported numbers")
+
+
+def validate_control_grounding(result, services, prose):
+    """Share endpoint-scoped unknown-control checks between live and saved reports."""
+    hypotheses = {
+        item["hypothesis"]
+        for index, item in enumerate(result.get("investigations", []))
+        if any(
+            claim["path"] == f"investigations.{index}.hypothesis"
+            and claim["label"] == "hypothesis"
+            and claim["verification_action"]
+            for claim in result["claims"]
+        )
+    }
+    uncertainties = set(result.get("uncertainties", []))
+    for key, pattern in UNKNOWN_CONTROL_ASSERTIONS.items():
+        for index, text in enumerate(prose):
+            match = pattern.search(text)
+            if not match:
+                continue
+            ports = {int(a or b) for a, b in PORT_IDENTIFIER.findall(text)}
+            endpoints = [
+                service for service in services if not ports or service.get("port") in ports
+            ]
+            # Negative assertions require explicit, endpoint-bound negative evidence.
+            # Neither a host aggregate nor an unrelated listener can supply it.
+            if endpoints and all(
+                endpoint_context(service)["controls"][key]["value"] is False
+                for service in endpoints
+            ):
+                continue
+            if text in hypotheses:
+                continue
+            if text in uncertainties and UNCERTAINTY_WORDING.search(text):
+                continue
+            start = max((text.rfind(mark, 0, match.start()) for mark in ".!?;"), default=-1) + 1
+            end = min(
+                (p for mark in ".!?;" if (p := text.find(mark, match.end())) >= 0),
+                default=len(text),
+            )
+            if UNKNOWN_CONTROL_QUALIFIERS.search(text[start:end]):
+                continue
+            raise LLMUnavailable(
+                f"analyst output makes an unsupported control assertion about {key} "
+                f"in prose claim {index + 1}: {match.group(0)!r}"
+            )
+
+
 def validate_grounding(
     result: dict[str, Any], case: dict[str, Any], evidence: list[dict[str, str]]
 ) -> None:
@@ -1268,24 +1400,6 @@ def validate_grounding(
                     missing_support = (
                         f"analyst {section} cites {finding_id} without its supporting evidence"
                     )
-    known_cves = {
-        str(identifier).upper()
-        for finding in case["findings"]
-        for identifier in finding.get("cve_ids", [])
-    }
-    known_cves.update(
-        str(item["cve_id"]).upper()
-        for finding in case["findings"]
-        for item in finding["intelligence"]
-        if item.get("cve_id")
-    )
-    numbers = allowed_numbers({"case": json.dumps(case, ensure_ascii=True)})
-    request_text = json.dumps({"case": case, "evidence": evidence}, ensure_ascii=True).casefold()
-    known_ports = {
-        str(item["port"])
-        for item in [*case["services"], *case["findings"]]
-        if item.get("port") is not None
-    }
     prose = [result["summary"], result["context_effect"]["explanation"], *result["uncertainties"]]
     prose.extend(
         item[field] for item in result["recommended_actions"] for field in ("action", "reason")
@@ -1301,76 +1415,11 @@ def validate_grounding(
         for item in result["claims"]
         if item["verification_action"] is not None
     )
-    for text in prose:
-        if {identifier.upper() for identifier in CVE_IDENTIFIER.findall(text)} - known_cves:
-            raise LLMUnavailable("analyst output contains unsupported CVE identifiers")
-        if any(
-            identifier.casefold() not in request_text for identifier in IP_IDENTIFIER.findall(text)
-        ):
-            raise LLMUnavailable("analyst output contains an unknown host IP")
-        if any(
-            identifier.casefold() not in request_text
-            for identifier in DOMAIN_IDENTIFIER.findall(text)
-        ):
-            raise LLMUnavailable("analyst output contains an unknown host name")
-        if any(
-            (match[0] or match[1]) not in known_ports for match in PORT_IDENTIFIER.findall(text)
-        ):
-            raise LLMUnavailable("analyst output contains an unknown port")
-        if any(
-            (match[0] or match[1]).casefold() not in request_text
-            for match in SERVICE_ASSERTION.findall(text)
-        ):
-            raise LLMUnavailable("analyst output contains an unknown service")
-        if set(NUMBER.findall(text)) - numbers:
-            raise LLMUnavailable("analyst output contains unsupported numbers")
+    validate_prose_identifiers(prose, case, evidence)
     context_ids = {case["context"][key]["evidence_id"] for key in ("role", "exposure")}
     if not context_ids & set(result["context_effect"]["evidence_ids"]):
         raise LLMUnavailable("analyst context effect lacks role or exposure context evidence")
-    # Check unknown-control assertions across every prose claim, including
-    # hypotheses, verification steps, alternatives, and uncertainties.
-    verified_hypothesis_paths = {
-        claim["path"]
-        for claim in result["claims"]
-        if claim["path"].startswith("investigations.")
-        and claim["path"].endswith(".hypothesis")
-        and claim["label"] == "hypothesis"
-        and claim["verification_action"]
-    }
-    verified_hypotheses = {
-        item["hypothesis"]
-        for index, item in enumerate(result["investigations"])
-        if f"investigations.{index}.hypothesis" in verified_hypothesis_paths
-    }
-    explicit_uncertainties = set(result["uncertainties"])
-    for key, pattern in UNKNOWN_CONTROL_ASSERTIONS.items():
-        if case["context"]["controls"].get(key, {}).get("value") is None:
-            for index, text in enumerate(prose):
-                match = pattern.search(text)
-                if match:
-                    if text in verified_hypotheses:
-                        continue
-                    if text in explicit_uncertainties and UNCERTAINTY_WORDING.search(text):
-                        continue
-                    # A control name inside an explicit unknown/verification statement is
-                    # not an assertion that the control is absent.
-                    sentence_start = (
-                        max((text.rfind(mark, 0, match.start()) for mark in ".!?;"), default=-1) + 1
-                    )
-                    sentence_end = min(
-                        (
-                            position
-                            for mark in ".!?;"
-                            if (position := text.find(mark, match.end())) >= 0
-                        ),
-                        default=len(text),
-                    )
-                    if UNKNOWN_CONTROL_QUALIFIERS.search(text[sentence_start:sentence_end]):
-                        continue
-                    raise LLMUnavailable(
-                        f"analyst output makes an unsupported control assertion about {key} "
-                        f"in prose claim {index + 1}: {match.group(0)!r}"
-                    )
+    validate_control_grounding(result, case["services"], prose)
     if not case["findings"]:
         exposure_id = case["context"]["exposure"]["evidence_id"]
         if exposure_id not in result["context_effect"]["evidence_ids"]:
@@ -1400,6 +1449,7 @@ def validate_grounding(
                     if case.get("self_defence")
                     else "analyst action lacks observed service citation"
                 )
+    verify_semantic_claims(result["claims"], evidence, claim_text)
     # Finish all safety checks before offering a bounded structural regeneration.
     if missing_support:
         raise LLMUnavailable(missing_support)
@@ -1424,6 +1474,28 @@ def validate_grounding(
 
 PROVIDERS = ("ollama", "openrouter", "groq", "groq_qwen", "google")
 AI_STAGES = ("model", "evidence", "coverage", "prompt", "generation", "validation")
+
+
+def _retryable_grounding_failure(error: Exception) -> bool:
+    """Only a fresh provider answer may follow these rejected model-quality claims."""
+    if not isinstance(error, NeedsReview) or "canary" in str(error).casefold():
+        return False
+    cause = error.__cause__
+    if not isinstance(cause, LLMUnavailable) or isinstance(cause, ProviderUnavailable):
+        return False
+    detail = str(cause)
+    return bool(
+        detail
+        in {
+            "analyst output contains unsupported numbers",
+            "analyst output contains an unknown service",
+            "analyst action lacks observed service citation",
+        }
+        or re.fullmatch(
+            r"analyst output makes an unsupported control assertion about (auth_required|rate_limiting|waf|tls) in prose claim \d+: .+",
+            detail,
+        )
+    )
 
 
 def provider_client(
@@ -1475,10 +1547,11 @@ def analyze_optional(
     on_progress: Callable[[str, str, str], None],
     *,
     allow_fallback: bool = False,
+    cloud_sharing_authorized: bool = False,
 ) -> dict[str, Any]:
     """Preserve scan success; retry providers only for availability/generation failure."""
     candidates = [provider]
-    if allow_fallback and provider != "ollama":
+    if allow_fallback and (provider != "ollama" or cloud_sharing_authorized):
         candidates.extend(item for item in fallback_providers() if item != provider)
     attempts: list[dict[str, Any]] = []
     status = "unavailable"
@@ -1486,6 +1559,7 @@ def analyze_optional(
         active = "model"
         seen: set[str] = set()
         result = None
+        retryable_rejection = False
         if attempts:
             for stage in AI_STAGES:
                 on_progress(
@@ -1499,8 +1573,16 @@ def analyze_optional(
             on_progress(stage, state, detail)
 
         try:
-            result = analyze_findings(payload, host_ip, provider=candidate, on_progress=progress)
+            kwargs: dict[str, Any] = {"provider": candidate, "on_progress": progress}
+            if candidate == "ollama" and allow_fallback and cloud_sharing_authorized:
+                # CPU-only Ollama must not hold an explicitly authorized cloud fallback
+                # for the full local-only deadline.
+                local_client = provider_client("ollama")
+                local_client.timeout = min(local_client.timeout, 45.0)
+                kwargs["client"] = local_client
+            result = analyze_findings(payload, host_ip, **kwargs)
         except (LLMUnavailable, ConfigError) as error:
+            retryable_rejection = _retryable_grounding_failure(error)
             rejected = (
                 active == "validation"
                 or isinstance(error, ConfigError)
@@ -1536,6 +1618,31 @@ def analyze_optional(
                         stage, "skipped", "AI processing stopped; scan evidence is preserved"
                     )
         else:
+            # Report composition is a separate presentation step. A provider
+            # failure here does not discard the already validated assessment.
+            if result.get("analysis", {}).get("schema_version") == SCHEMA_VERSION:
+                from vulnassess.report_composer import compose
+
+                on_progress(
+                    "report",
+                    "running",
+                    "Composing the assessment report from validated analysis",
+                )
+                try:
+                    document = compose(result, payload, provider_client(candidate))
+                    result = {**result, "report_document": document}
+                    on_progress(
+                        "validation",
+                        "complete",
+                        "AI report structure checked against validated source claims",
+                    )
+                except (LLMUnavailable, ConfigError, KeyError, TypeError, ValueError):
+                    result = {**result, "report_document_status": "unavailable"}
+                    on_progress(
+                        "validation",
+                        "complete",
+                        "Analysis validated; standard report layout retained",
+                    )
             attempts.append(
                 {"provider": candidate, "status": "validated", "model": result.get("model")}
             )
@@ -1566,7 +1673,11 @@ def analyze_optional(
                 "used_provider": candidate,
                 "ai_attempts": attempts,
             }
-        if status == "needs_review":
+        if status == "needs_review" and not (
+            allow_fallback
+            and (provider != "ollama" or cloud_sharing_authorized)
+            and retryable_rejection
+        ):
             break
     return {
         "analyst": None,
@@ -1760,7 +1871,9 @@ def analyze_target(
 
         generation_options["on_raw"] = capture_raw
         result: dict[str, Any] | None = None
-        for attempt in range(2):
+        base_prompt = prompt
+        rejected_reasons: list[str] = []
+        for attempt in range(3):
             audit["attempt"] = attempt + 1
             raw = active_client.generate_structured(
                 prompt,
@@ -1785,30 +1898,154 @@ def analyze_target(
                 validate_grounding(result, case, evidence)
                 break
             except LLMUnavailable as error:
-                # Only a known support-association error can request one new answer.
-                # Never modify model citations, relax validation, or retry unsafe claims.
-                repairable = re.fullmatch(
+                # Allow at most two fresh corrections for distinct, narrowly classified
+                # failures. Repeated rejection stops immediately; checks never relax.
+                # The rejected answer is never published or edited, and the new answer
+                # must pass the same complete schema and grounding checks.
+                missing_support = re.fullmatch(
                     r"analyst (recommended_actions|correlations|investigations) cites F\d+ without its supporting evidence",
                     str(error),
                 )
-                if attempt or not repairable or audit.get("canary_seen"):
-                    raise
-                correction = (
-                    "\nSERVER VALIDATION FEEDBACK: the previous answer was rejected. "
-                    "Generate a NEW complete answer. For EVERY named finding, each parent row AND "
-                    "its child claims must cite that finding's own supporting evidence, not just "
-                    "service or context IDs. Use these server-issued finding-to-raw-evidence pairs: "
-                    + json.dumps(
-                        {item["id"]: item["evidence_id"] for item in case["findings"]},
-                        sort_keys=True,
-                    )
-                    + ". Keep canonical scores unchanged. Do not invent quotes, identifiers or controls."
+                unsupported_control = re.fullmatch(
+                    r"analyst output makes an unsupported control assertion about (auth_required|rate_limiting|waf|tls) in prose claim \d+: .+",
+                    str(error),
                 )
-                if len(prompt) + len(correction) > MAX_PROMPT_CHARS:
+                missing_service = (
+                    str(error) == "analyst action lacks observed service citation"
+                    and not case["findings"]
+                )
+                unknown_service = str(error) == "analyst output contains an unknown service"
+                unsupported_numbers = str(error) == "analyst output contains unsupported numbers"
+                semantic_failure = str(error).startswith(
+                    (
+                        "Needs review: unsupported TLS assertion",
+                        "Needs review: unsupported negative TLS assertion",
+                        "Needs review: unsupported HTTP redirect assertion",
+                        "Needs review: unsupported negative HTTP redirect assertion",
+                        "Needs review: unsupported reverse-proxy topology",
+                        "Needs review: unsupported bypass topology",
+                        "Needs review: observed label on procedural/uncertainty field",
+                        "Needs review: investigation alternative is an action",
+                        "Needs review: package-dependent CVE asserted as confirmed",
+                    )
+                )
+                if (
+                    attempt >= 2
+                    or str(error) in rejected_reasons
+                    or not (
+                        missing_support
+                        or unsupported_control
+                        or missing_service
+                        or unknown_service
+                        or unsupported_numbers
+                        or semantic_failure
+                    )
+                    or audit.get("canary_seen")
+                ):
                     raise
-                audit.update(decision="reject", reason="missing_finding_support")
+                rejected_reasons.append(str(error))
+                if semantic_failure:
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: previous answer rejected: "
+                        + str(error)
+                        + ". Generate a NEW complete answer, never edit evidence. Advice, alternatives and verification use inferred; "
+                        "uncertainties use unknown. Do not assert TLS, plaintext, redirects or proxy routing unless the exact cited "
+                        "endpoint evidence establishes it. Describe missing controls as not established and ask neutral verification questions. "
+                        "Every original evidence, score and schema requirement still applies."
+                    )
+                elif missing_support:
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: the previous answer was rejected. "
+                        "Generate a NEW complete answer. For EVERY named finding, each parent row AND "
+                        "its child claims must cite that finding's own supporting evidence, not just "
+                        "service or context IDs. Use these server-issued finding-to-raw-evidence pairs: "
+                        + json.dumps(
+                            {item["id"]: item["evidence_id"] for item in case["findings"]},
+                            sort_keys=True,
+                        )
+                        + ". Keep canonical scores unchanged. Do not invent quotes, identifiers or controls."
+                    )
+                elif unsupported_control:
+                    control = unsupported_control.group(1)
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: the previous answer was rejected for "
+                        f"claiming an unknown {control} control was absent. Generate a NEW complete "
+                        "answer. This control has not been established by the scan. Do not state "
+                        "or hypothesize that it is absent, disabled, bypassed, or unauthenticated. "
+                        "Say 'not established by this scan' and recommend verifying whether "
+                        "the control is configured. Apply this to every prose field, including "
+                        "investigation hypotheses and alternatives. Keep citations and scores "
+                        "subject to the same requirements."
+                    )
+                elif missing_service:
+                    service_ids = sorted(item["evidence_id"] for item in case["services"])
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: the previous answer was rejected. "
+                        "Generate a NEW complete answer. There are no vulnerability findings. "
+                        "Every recommended action must cite at least one observed service "
+                        "in its parent evidence_ids, in addition to any relevant context IDs. "
+                        "Observed service evidence IDs: " + json.dumps(service_ids) + ". "
+                        "Do not invent a service, finding, control state, or score."
+                    )
+                elif unknown_service:
+                    observed = [
+                        {
+                            "evidence_id": item["evidence_id"],
+                            "port": item.get("port"),
+                            "service": item.get("name"),
+                            "product": item.get("product"),
+                        }
+                        for item in case["services"]
+                    ]
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: the previous answer named a service "
+                        "that was not observed. Generate a NEW complete answer. Describe only "
+                        "the services in this server-issued list: "
+                        + json.dumps(observed, sort_keys=True)
+                        + ". Cite their evidence IDs where relevant. Do not infer another "
+                        "service from the target URL, hostname, a port number, or a generic "
+                        "application label. If service identity is uncertain, say so. Keep all "
+                        "original citation, control, numeric, and score checks active."
+                    )
+                else:
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: the previous answer was rejected "
+                        "because its prose contained a number not present in the bounded case. "
+                        "Generate a NEW complete answer. Avoid all digits in prose when no "
+                        "findings are recorded. Otherwise copy numeric values only from the "
+                        "exact cited evidence and stored deterministic score. Do not invent "
+                        "counts, percentages, versions, ports, risk values, or numbered steps. "
+                        "Keep canonical scores unchanged and satisfy every original citation "
+                        "and claim constraint."
+                    )
+                if attempt:
+                    correction = (
+                        "\nSERVER VALIDATION FEEDBACK: prior complete answers failed these checks: "
+                        + json.dumps([reason[:180] for reason in rejected_reasons])
+                        + ". Generate a NEW complete answer satisfying every original rule. "
+                        "Use the supplied finding-to-evidence map; alternatives are explanations, not advice. "
+                        "Do not invent facts, change evidence or change scores."
+                    )
+                if len(base_prompt) + len(correction) > MAX_PROMPT_CHARS:
+                    raise
+                audit.update(
+                    decision="reject",
+                    reason=(
+                        "unsupported_semantic_claim"
+                        if semantic_failure
+                        else "missing_finding_support"
+                        if missing_support
+                        else "unsupported_control_assertion"
+                        if unsupported_control
+                        else "missing_service_citation"
+                        if missing_service
+                        else "unknown_service_assertion"
+                        if unknown_service
+                        else "unsupported_numeric_claim"
+                    ),
+                )
                 append_audit(audit, AUDIT_PATH)
-                prompt += correction
+                prompt = base_prompt + correction
                 audit = {
                     **audit,
                     "decision": "validate",
@@ -1821,9 +2058,9 @@ def analyze_target(
                 progress(
                     "validation",
                     "running",
-                    "Unsupported citation rejected; requesting one bounded correction; all checks stay active",
+                    f"Unsupported claim rejected; requesting bounded correction {attempt + 1}/2; all checks stay active",
                 )
-                progress("generation", "running", "Generating one corrected response")
+                progress("generation", "running", "Generating a new corrected response")
         # The bounded retry loop either validates a response and breaks, or raises.
         result = cast(dict[str, Any], result)
         coverage = case["coverage"]
