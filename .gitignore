@@ -1,5 +1,6 @@
 # Local data, generated reports, secrets, and virtual environments
 data/
+intel_snapshots/
 reports/
 .env
 .env.*
