@@ -4,7 +4,9 @@ const byId = id => document.getElementById(id);
 const panels = [...document.querySelectorAll('.panel')];
 const loaded = new Set();
 const versions = new Map();
+const explanationCases = new Map();
 let ticketRows = [];
+let explanationTrigger = null;
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -57,6 +59,82 @@ function details(target, record, title) {
   target.append(list);
   const raw = element('details');
   raw.append(element('summary', 'View API record'), element('pre', JSON.stringify(record, null, 2))); target.append(raw);
+}
+function rememberExplanationCases(data) {
+  if (!Array.isArray(data.cases)) throw new Error('The case catalog did not include vulnerability cases.');
+  for (const item of data.cases) {
+    if (!item || typeof item.id !== 'string' || !item.id) throw new Error('A vulnerability case is missing its identifier.');
+    explanationCases.set(item.id, item);
+  }
+  return data.cases;
+}
+function explanationSection(title, text, className = '') {
+  const section = element('section', undefined, `explanation-section ${className}`);
+  section.append(element('h3', title), element('p', text));
+  return section;
+}
+function explanationChecklist(title, items) {
+  const section = element('section', undefined, 'explanation-section explanation-checklist');
+  const list = element('ol');
+  items.forEach(item => list.append(element('li', item)));
+  section.append(element('h3', title), list);
+  return section;
+}
+function renderExplanation(target, item) {
+  const guide = item.explanation;
+  const textFields = ['category','meaning','scenario','impact','source'];
+  const listFields = ['patch','verify','prerequisites'];
+  if (!guide || !textFields.every(key => typeof guide[key] === 'string' && guide[key].trim())
+      || !listFields.every(key => Array.isArray(guide[key]) && guide[key].length && guide[key].every(value => typeof value === 'string' && value.trim()))
+      || !['name','endpoint','expected','current_scanner_coverage'].every(key => typeof item[key] === 'string' && item[key].trim())) {
+    throw new Error(`Missing complete reviewed explanation for ${item.id}. Check the local case catalog and guidance.`);
+  }
+  byId('explanation-title').textContent = item.name;
+  byId('explanation-label').textContent = `${item.id} / ${item.category === 'network' ? 'Network security' : 'Application security'}`;
+  const summary = explanationSection('In plain English', guide.meaning, 'explanation-summary');
+  const location = element('div', undefined, 'explanation-location');
+  location.append(element('span', 'Affected entry point'), element('code', item.endpoint));
+  const overview = element('div', undefined, 'explanation-grid');
+  overview.append(explanationSection('Why it matters', guide.impact), explanationSection('How it happens', guide.scenario));
+  const proof = explanationSection('What a check should show', item.expected, 'explanation-proof');
+  proof.append(element('h4', 'How the workflow checks it'), element('p', item.current_scanner_coverage));
+  const actions = element('div', undefined, 'explanation-grid');
+  actions.append(explanationChecklist('How to fix it', guide.patch), explanationChecklist('How to confirm the fix', guide.verify));
+  const limits = element('details', undefined, 'explanation-limits');
+  limits.append(element('summary', 'Before testing & evidence limits'));
+  const prerequisites = element('ul');
+  guide.prerequisites.forEach(value => prerequisites.append(element('li', value)));
+  limits.append(prerequisites, element('p', guide.source), element('p', 'This guide describes the implemented lab case. Current observations come from the verifier receipt, not from opening this explanation.'));
+  target.append(summary, location, overview, proof, actions, limits);
+  target.scrollTop = 0;
+}
+function openExplanation(identity, trigger) {
+  const dialog = byId('case-explanation');
+  explanationTrigger = trigger;
+  byId('explanation-label').textContent = `${identity} / Implemented lab case`;
+  byId('explanation-title').textContent = 'Understanding this weakness';
+  if (!dialog.open) dialog.showModal();
+  document.body.classList.add('explanation-open');
+  byId('explanation-close').focus();
+  return renderRequest('explanation-body', async () => {
+    if (!explanationCases.has(identity)) rememberExplanationCases(await request('/__lab__/ground-truth'));
+    const item = explanationCases.get(identity);
+    if (!item) throw new Error(`Missing vulnerability case ${identity} in the local catalog.`);
+    return item;
+  }, renderExplanation);
+}
+function explanationCard(item, note = '') {
+  const card = element('button', undefined, 'case case-card');
+  card.type = 'button';
+  card.dataset.caseId = item.id;
+  card.setAttribute('aria-label', `Explain ${item.id}: ${item.name}`);
+  card.setAttribute('aria-haspopup', 'dialog');
+  card.setAttribute('aria-controls', 'case-explanation');
+  card.append(element('span', item.id, 'case-label'), element('strong', item.name, 'case-name'), element('span', item.endpoint, 'case-endpoint'), element('span', item.expected, 'case-summary'));
+  if (note) card.append(element('span', note, 'case-note'));
+  card.append(element('span', 'Read explanation', 'case-action'));
+  card.addEventListener('click', () => openExplanation(item.id, card));
+  return card;
 }
 function table(target, rows, columns, caption, onSelect) {
   if (!rows.length) { target.append(element('p', 'No matching records. Change the search or filter and retry.', 'status')); return; }
@@ -145,7 +223,7 @@ function loadNetwork() {
   byId('network-detail').hidden = true;
   return renderRequest('network-result', () => request('/__lab__/inventory'), (target, data) => {
     if (typeof data.network_enabled !== 'boolean' || !Array.isArray(data.services)) throw new Error('Expected network_enabled and services in the local inventory response.');
-    target.append(element('p', data.network_enabled ? 'Network services enabled in backend configuration. Reachability and findings require separate checks.' : 'Network services disabled. Start the backend with --network, then refresh inventory.', 'status'));
+    target.append(element('p', data.network_enabled ? 'Original FTP/TLS services enabled in backend configuration. Reachability and findings require separate checks.' : 'Optional FTP/TLS services disabled. HTTP services listed below are independent; --network requires its separately provided prerequisites.', 'status'));
     if (data.boundary) target.append(element('p', printable(data.boundary), 'muted'));
     table(target, data.services, [['name','Service'],['port','Loopback port'],['transport','Transport'],['mode','Declared mode'],['endpoint','Local endpoint']], 'Declared configuration · not scanner evidence', row => {
       const detail = byId('network-detail'); detail.replaceChildren(); detail.hidden = false;
@@ -153,14 +231,23 @@ function loadNetwork() {
     });
   });
 }
-function loadGuide() {
-  return renderRequest('case-list', () => request('/__lab__/ground-truth'), (target, data) => {
-    if (!Array.isArray(data.cases)) throw new Error('The answer key did not include test cases.');
-    for (const item of data.cases) {
-      const row = element('article', undefined, 'case');
-      row.append(element('strong', `${item.id} · ${item.name}`), element('p', item.endpoint), element('p', item.expected || item.current_scanner_coverage || 'Consult the machine-readable answer key.')); target.append(row);
+function loadNetworkCases() {
+  return renderRequest('network-cases', () => request('/__lab__/ground-truth'), (target, data) => {
+    const cases = rememberExplanationCases(data).filter(item => item.category === 'network');
+    cases.sort((left, right) => Number(['HD-23','HD-24'].includes(right.id)) - Number(['HD-23','HD-24'].includes(left.id)));
+    for (const item of cases) {
+      const note = ['HD-13','HD-14','HD-15','HD-16'].includes(item.id) ? 'Requires the original optional FTP/TLS listeners; inventory alone does not establish that they are running.' : ['HD-23','HD-24'].includes(item.id) ? 'Native High: dedicated management listener and protected comparison.' : 'Checkable on the current HTTP service with the extended verifier.';
+      target.append(explanationCard(item, note));
     }
   });
+}
+function loadGuide() {
+  return renderRequest('case-list', () => request('/__lab__/ground-truth'), (target, data) => {
+    rememberExplanationCases(data).forEach(item => target.append(explanationCard(item)));
+  });
+}
+function loadImpact() {
+  return renderRequest('impact-profile', () => request('/api/profile'), (target, data) => details(target, data.profile, 'Current fictional profile'));
 }
 function comparisonLinks(event) {
   event?.preventDefault(); const query = encodeURIComponent(byId('comparison-query').value);
@@ -174,11 +261,11 @@ function comparisonLinks(event) {
   }
 }
 const loaders = {
-  network:loadNetwork, customers:loadCustomers,
+  network:() => Promise.all([loadNetwork(), loadNetworkCases()]), customers:loadCustomers,
   orders:() => Promise.all([loadFixtureList('order'), loadRecord('order', byId('order-id').value)]),
   support:() => Promise.all([loadTickets(), loadRecord('ticket', byId('ticket-id').value)]),
   documents:() => Promise.all([loadFixtureList('document'), loadRecord('document', byId('document-id').value)]),
-  settings:loadProfile, 'lab-guide':loadGuide
+  settings:loadProfile, 'lab-guide':loadGuide, impact:loadImpact
 };
 function navigate() {
   const requested = location.hash.slice(1);
@@ -199,9 +286,40 @@ byId('documents-refresh').addEventListener('click', () => loadFixtureList('docum
 byId('tickets-refresh').addEventListener('click', loadTickets);
 byId('ticket-filter').addEventListener('input', showTickets);
 byId('profile-refresh').addEventListener('click', loadProfile);
-byId('network-refresh').addEventListener('click', loadNetwork);
+byId('network-refresh').addEventListener('click', () => Promise.all([loadNetwork(), loadNetworkCases()]));
 byId('guide-refresh').addEventListener('click', loadGuide);
 byId('comparison-form').addEventListener('submit', comparisonLinks);
+document.querySelectorAll('[data-explain-case]').forEach(button => button.addEventListener('click', () => openExplanation(button.dataset.explainCase, button)));
+byId('explanation-close').addEventListener('click', () => byId('case-explanation').close());
+byId('case-explanation').addEventListener('keydown', event => {
+  if (event.key === 'Escape' && byId('case-explanation').open) {
+    event.preventDefault();
+    event.stopPropagation();
+    byId('case-explanation').close();
+  }
+});
+byId('case-explanation').addEventListener('close', () => {
+  document.body.classList.remove('explanation-open');
+  if (explanationTrigger?.isConnected) explanationTrigger.focus();
+  else byId('main').focus();
+});
+byId('export-fixtures').addEventListener('click', () => renderRequest('export-result', () => request('/api/admin/export'), (target, data) => details(target, data.export, 'Fictional workspace export')));
+byId('admin-check').addEventListener('click', () => renderRequest('admin-check-result', () => request('/api/admin/summary'), (target, data) => details(target, data, 'Administrator authorization result')));
+byId('role-form').addEventListener('submit', async event => {
+  event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
+  await renderRequest('role-result', () => request('/api/profile', {method:'POST', body:new URLSearchParams({role:byId('impact-role').value})}), (target, data) => {
+    details(target, data.profile, 'Updated fictional profile'); displaySession(data.profile); loadImpact();
+    loaded.delete('settings');
+  });
+  button.disabled = false;
+});
+byId('order-write-form').addEventListener('submit', async event => {
+  event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
+  await renderRequest('order-write-result', () => request(`/api/orders/${encodeURIComponent(byId('write-order-id').value)}`, {method:'POST', body:new URLSearchParams({total:byId('write-order-total').value})}), (target, data) => {
+    details(target, data.order, 'Retained fictional order'); loaded.delete('orders');
+  });
+  button.disabled = false;
+});
 byId('login-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
   await renderRequest('login-result', () => request('/api/login', {method:'POST', body:new URLSearchParams({username:byId('username').value,password:byId('password').value})}), (target, data) => {

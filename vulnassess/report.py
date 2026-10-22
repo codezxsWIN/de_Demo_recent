@@ -98,6 +98,8 @@ def _ranked(
         profile = profiles.get(item.host_ip)
         role = f"{profile.role.value} ({profile.role.confidence:.2f})" if profile else "unknown"
         exposure = profile.exposure.value.replace("_", "-") if profile else ""
+        epss = _cell(_percent(item.epss_percentile)) if item.cve_id else "not applicable (no CVE)"
+        kev = ("yes" if item.kev else "no") if item.cve_id else "not applicable (no CVE)"
         details.append(
             _row(
                 [
@@ -107,8 +109,8 @@ def _ranked(
                     f"<td>{_cell(exposure)}</td>",
                     f"<td>{_cell(item.base_score)}</td>",
                     f"<td>{_cell(item.env_score)}</td>",
-                    f"<td>{_cell(_percent(item.epss_percentile))}</td>",
-                    f"<td>{'yes' if item.kev else 'no'}</td>",
+                    f"<td>{epss}</td>",
+                    f"<td>{kev}</td>",
                     f"<td>{_cell(item.fix)}</td>",
                 ]
             )

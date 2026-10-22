@@ -3086,3 +3086,481 @@ subset, including the inspector-routing regression, separately passed 99 tests /
 passed at 1,127px viewport width without document-wide horizontal overflow;
 narrow-device visual QA was not performed. Full-gate log:
 data/verification/workflow-activity-gate-20261020.log.
+
+## 2026-10-23 - HARBOR-IMPACT-01: bounded, observable application impact
+
+PROJECT.md components: Lab and demo / Risk ranking; stages 3 (safe evidence
+collection) and 7 (report). Reproducible impact and paired authorization controls
+support evidence-backed prioritisation without treating lab results as expert
+ranking validation.
+
+Choose three real, bounded application behaviors: anonymous bulk export of
+fictional business records (HD-17), protected-role mass assignment followed by a
+separate administrator authorization request (HD-18), and cross-account order
+total modification confirmed by a separate read (HD-19). Mutable records live
+only in process memory, with independent vulnerable and secure workspaces.
+SQL-injection fixtures remain disposable and read-only. The verifier restores
+the original vulnerable role and total in finally blocks and raises an explicit
+error if restoration fails. The site exposes manual training controls; opening
+the page does not automatically perform these operations.
+
+Alternatives rejected: host command execution, arbitrary filesystem reads,
+external callbacks and real payment integration add containment risks irrelevant
+to the ranking question. A response merely echoing an attacker-supplied role or
+total would not demonstrate an authorization decision or retained mutation.
+Changing only titles or severity labels would not provide additional evidence.
+
+Conflict / resolution / why: the request asks for 100/100 weaknesses; preserve
+the configured deterministic native-severity policy instead of assigning fake
+CVSS/EPSS/KEV values or changing the frozen ranking configuration. Each new
+observed case uses the existing HarborDesk High severity mapping (60/100).
+Custom lab weaknesses are not assigned CVEs. Trusted metadata and
+fixture-specific remediation guidance are wired into the existing canonical
+adapter, receipt provenance and generic workflow display. No fixed model,
+storage, command or configuration schema changes are made.
+
+No dependencies are added or removed. Use the existing Python standard-library
+web server without optional network mode. MISSING: `pyftpdlib` prevents the
+optional FTP/TLS lab and its test module from loading. MISSING: `make`, Python
+modules `ruff`, `pyright`, `pytest_cov` and `coverage` prevent the complete
+required gate; no installation or download is authorized to bypass that gap.
+Do not call a web-only check a complete scanner, feed, model or quality gate.
+
+TESTED WITH MOCKS baseline: `python -m pytest tests\test_harbordesk_lab.py
+tests\test_harbordesk_extended.py tests\test_harbordesk_probe.py
+tests\test_harbordesk_model_budget.py -q` produced `59 passed in 6.05s`.
+The socket guard remained enabled. New synthetic regression tests exercise
+authorization, actual state read-back, bounds, independent comparison state,
+negative verifier observations, restoration on interruption, explicit restoration
+errors, canonical provenance, fix guidance and unchanged deterministic ranking.
+Post-change execution evidence is recorded separately after validation; no
+unexecuted result is asserted by this decision.
+
+## 2026-10-23 - HARBOR-NET-02: preserve executable cases and add bounded network observations
+
+PROJECT.md components: Lab and demo / Risk ranking; stages 3 (safe collection)
+and 7 (report). The user clarified that every existing weakness, including the
+new application cases, must remain executable and trackable rather than becoming
+display-only. The temporary source-only read-only change was restored before
+restarting the running lab; no existing case or network implementation is removed.
+
+Conflict / resolution / why: "not too risky" means retain the loopback,
+fictional-data, no-host-execution boundary, not replace observations with labels.
+Preserve the original application and FTP/TLS implementations and HD-17/18/19.
+Add actual cleartext HTTP transport (HD-20), unauthenticated declared-service
+inventory (HD-21), and observed HTTP version-banner disclosure (HD-22). Record
+actual response evidence and trusted native severity, without fake CVEs, forced
+100/100 scores, traffic interception, new external listeners or host enumeration.
+The original FTP/TLS source stays unchanged.
+
+Alternatives rejected: an illustrative catalog without observable conditions
+would not meet tracking/testing; host command execution, stronger exploit chains
+and weakening TLS configurations would create unnecessary containment risk.
+The new HTTP checks work with the already-running standard-library web lab and
+do not justify installing optional packages. The inventory and minimized-banner
+comparisons are additional controls, not removal of vulnerable routes. A /secure/
+path on HTTP is explicitly not represented as transport encryption.
+
+The catalog lists all network cases but never creates a finding by itself.
+The identity/scope-gated verifier produces evidence, canonical provenance and
+existing configured priorities. HTTP observations are distinguished from the
+optional FTP/TLS coverage status. No dependency, scope, fixed schema or ranking
+configuration is changed. Previous active-case tests are retained and expanded
+with original-case preservation, negative network observations and native-priority
+checks. Execution results follow validation; this entry does not assert a gate pass.
+
+## 2026-10-23 - HARBOR-NET-03: High-impact network proof without host exploitation
+
+PROJECT.md components: Lab and demo / Risk ranking; stages 3 and 7. The user
+requests meaningful High-impact capabilities, not merely low-priority header
+findings. Keep every existing case and add a real dedicated management service
+on loopback 8791, with an authorization comparison on 8792. Both use only the
+already available standard library and the existing fictional workspace records.
+The existing web command shape and original FTP/TLS implementation are unchanged.
+
+Choose unauthenticated full fictional backup retrieval (HD-23) and unauthenticated
+configuration writes with an independently observed 200-to-503 dispatch change
+(HD-24). All changes affect a disposable process-memory queue, never real host
+services, files, commands, traffic volume or outside destinations. Verify both
+service identities before writes, cap requests, reject foreign Host/Origin
+values, restore the original state even after a lost response, and make
+verification errors explicit. Existing protected comparisons are retained;
+the two new checks also test denied and allowed fixture-administrator access.
+
+Alternatives rejected: inflating the severity of a version header does not show
+capability; real command execution, remote-code exploits, legacy TLS weakening
+and host-level denial of service would add unnecessary risk. Replacing missing
+pyftpdlib with a new FTP implementation would risk changing the original network
+cases. No dependency is added, removed, installed or downloaded.
+
+Conflict / resolution / why: preserve the requested real, trackable behavior
+within the standing lab boundary. High is a native classification supported by
+the fictional full-backup and management-control observations, not a fabricated
+CVSS/CVE/EPSS claim or forced 100/100 rank. The unchanged configuration yields
+60/100 for these High findings. Record observed protocol services only after
+actual identified HTTP responses, and keep optional FTP/TLS coverage separate.
+Tests cover identity refusal before writes, functional state changes,
+authorization, request bounds, loopback fences, error restoration and canonical
+ranking. Full-gate execution remains dependent on human-provided missing tools.
+
+## 2026-10-23 - HARBOR-VERIFY-04: observed functional proof; full gate blocked
+
+TESTED WITH MOCKS: with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`,
+`python -m pytest tests\test_harbordesk_lab.py tests\test_harbordesk_extended.py
+tests\test_harbordesk_probe.py tests\test_harbordesk_model_budget.py
+tests\synthetic\test_synthetic_harbordesk_impact.py
+tests\synthetic\test_synthetic_harbordesk_management.py -q` produced
+`120 passed in 4.69s`: 120 passed, zero failed, zero skipped (no skip reasons).
+The socket-denial fixture stayed enabled. This is not scanner or model evidence.
+
+VERIFIED: `node --check labs\harbordesk\site.js`, Python AST/JSON parsing,
+`git diff --check`, and
+`git diff --quiet HEAD -- labs\harbordesk\network.py` returned exit 0.
+The last command establishes that the original FTP/TLS source was not changed.
+
+VERIFIED: `python -u -m labs.harbordesk` started the portal and the two
+management listeners. Startup included
+`Training management: http://127.0.0.1:8791/; protected comparison: 127.0.0.1:8792`.
+Listener inspection reported `127.0.0.1:8787`, `127.0.0.1:8791` and
+`127.0.0.1:8792`, all owned by Python PID 27836. The service was left running.
+
+VERIFIED: `python -m labs.harbordesk.verify --extended` exited 0 and returned
+`"passed": 19`, `"total": 19`, `"management_status": "enabled"`, and 17/17
+passed secure controls. HD-23 returned a backup with 3 customers, 2 orders,
+2 tickets and 2 documents. HD-24 returned
+`"baseline_dispatch_status": 200`, `"modified_dispatch_status": 503`,
+`"unauthenticated_write_status": 200`. Follow-up requests returned
+`paused=false`, dispatch HTTP 200, role `customer`, and order total 280.
+
+VERIFIED: `python -B -` calling `harbordesk_probe.run`, `context.build_profile`
+and `scoring.score_available` produced `"canonical_findings": 19`,
+`"unscored": 0`; both HD-23/HD-24 had `"native_severity": "High"`,
+`"risk": 60.0`, `"band": "High"`, `"cves": []`. Observed HTTP services were
+8791 and 8792, not fabricated fingerprints. Actual receipts, canonical findings
+and priority summary were retained in ignored
+`data/harbordesk-final-20261022T200233822751Z/`.
+
+VERIFIED: browser DOM form submissions on the management console returned
+`"afterPause":{"paused":true,"status":503}` and
+`"afterResume":{"paused":false,"status":200}`. Original state was restored.
+The refreshed network page showed nine network cases with HD-23 and HD-24
+first, retaining the original FTP/TLS cases. DOM submissions were used because
+physical Playwright clicks were blocked while the shared browser view was hidden;
+initial same-document navigation also required a reload to replace stale assets.
+These tool limitations are not presented as successful physical-click checks.
+
+MISSING: `make` and Python modules `ruff`, `pyright`, `pytest_cov`, `coverage`.
+The required full quality gate, lint, formatter, type gate and source coverage
+are not certified. The available offline Pyright wrapper previously exited 127:
+`MISSING offline Pyright prerequisite: installed pyright package with dist/index.js`.
+No validator was weakened and no package was installed to bypass this blocker.
+
+MISSING: optional `pyftpdlib`; the original FTP/TLS integration test module
+cannot import and those listeners were not started. Human-captured HarborDesk
+scanner artifacts remain absent at `tests/fixtures/nmap/harbordesk.xml`,
+`tests/fixtures/nikto/harbordesk.json` and `tests/fixtures/zap/harbordesk.json`;
+existing captures for other lab applications do not supply those inputs.
+
+NOT RUN: Nmap, Nikto, ZAP, feed retrieval, models and the optional FTP/TLS lab.
+The observed management checks are actual local application/network evidence,
+not scanner output, production compromise, model accuracy or research validation.
+
+TESTED WITH MOCKS: the final repeat of the same six-file pytest command produced
+`120 passed in 6.50s`, zero failures and zero skips. VERIFIED: the final
+`node --check labs\harbordesk\site.js`, `git diff --check`, and
+`git diff --quiet HEAD -- labs\harbordesk\network.py` each exited 0.
+Final bounded GETs returned
+`GET http://127.0.0.1:8791/config status=200 paused=False` and
+`GET http://127.0.0.1:8791/dispatch status=200`.
+The three loopback listeners remained owned by PID 27836. The inspected temporary
+browser-output file was removed; ignored real verification receipts were retained.
+Concurrent worktree changes outside this HarborDesk task were left untouched.
+The full quality gate remains blocked, not passed.
+
+## 2026-10-23 - INTEL-DELIVERY-01: Recorded intelligence delivery; online expansion pending
+
+Serves PROJECT.md stage 6 (CVE intelligence), stages 5/7 (bounded interpretation
+and reporting), and the cross-cutting reproducible-ranking component. Delivering
+the evidence already available helps investigate the research question without
+changing its scoring hypothesis or manufacturing missing publisher information.
+
+Conflict / resolution / why: the request proposes automatic public NVD/CPE,
+FIRST EPSS, CISA KEV and MITRE CWE retrieval, while the standing boundary requires
+offline processing and human-approved fixed-interface changes. The approval
+request returned no available human decision. Autopilot is not an ADR approval.
+Comprehensive online coverage, new CWE/CPE retrieval and any new cache/interface
+schemas remain **PROPOSED, not approved or implemented by this increment**.
+The existence of the earlier targeted public transport is not approval to expand
+it. No provider, feed, model, credential or scanner operation was exercised.
+
+Choose the compatible delivery increment:
+
+- Supply at most two recorded HTTP(S) advisory references per included CVE to
+  the analyst, each at most 200 characters. Keep them in citable bounded evidence,
+  explicitly count withheld/duplicate/over-budget references, and reject malformed
+  reference containers. Links containing credentials, whitespace/control tokens
+  or unsupported schemes are not included. A retained reference is not a verified
+  fix, proof of publisher identity or proof of target applicability.
+- Retain existing prompt/evidence budgets and rejection rules. Do not add a
+  description field to the compact intelligence object or change the model's
+  output schema. Original payloads and numerical priorities are not rewritten.
+- Show existing CPE-derived CVE associations in the read-only finding projection
+  with their recorded match method/confidence. Preserve scanner-named identifiers
+  separately; do not claim that a product association confirms exploitability.
+- Expose CWE identifiers and explicitly distinguish an absent CVE association
+  from negative exploitation evidence. The analyst and saved report disclose that
+  CWE definitions were not retrieved. Recorded reports use "not applicable (no
+  CVE)" rather than a misleading negative KEV result for no-CVE priorities.
+
+Reuse existing analyst, score-fact, findings and report components. No fixed
+model, function contract, table, CLI, configuration, score formula, scope or
+dependency is changed. Alternatives rejected: a second intelligence engine would
+duplicate authority; invented CWE explanations or replacement feed evidence
+would misrepresent source availability; silently enabling online lookup would
+bypass review; dropping CPE candidates would conceal evidence already retained.
+
+TESTED WITH MOCKS: new pure synthetic delivery tests reproduce missing advisory
+delivery, malformed-reference acceptance, hidden CPE associations and no-CVE
+reporting defects without contacting a publisher or model. The initial focused
+run reported 11 failures and one pass. The corrected implementation passes the
+new cases, including URL withholding, four-service prompt-budget preservation,
+cross-finding isolation and unchanged input/score records.
+
+VERIFIED: the combined focused local execution used:
+
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; $env:PYTHONDONTWRITEBYTECODE='1'; python -m pytest -q -p no:cacheprovider -- tests\synthetic\synthetic_intelligence_delivery_test.py tests\test_all.py::TestCvss31 tests\test_all.py::TestScoring tests\test_all.py::TestContext tests\test_all.py::TestEvaluate tests\test_evaluate_research.py tests\test_control_applicability.py tests\synthetic\test_synthetic_scoring_edges.py tests\synthetic\test_synthetic_scoring_input_boundary.py; exit $LASTEXITCODE
+```
+
+The execution runner reported exit code 0 and:
+
+```text
+243 passed
+40 subtests passed
+0 failed
+0 skipped
+Skip reasons: none
+Runtime: 8.49s
+```
+
+MISSING: `make`, Python modules `ruff`, `pyright`, and `pytest_cov` prevent the
+required complete gate and whole-package coverage measurement. An incorrectly
+broadened test invocation also encountered the unrelated missing `pyftpdlib`
+package during collection; that invocation is not a pass and is not evidence
+that the selected delivery tests failed. It was corrected to explicit selectors.
+Nothing was installed to bypass these prerequisites.
+
+NOT RUN: Ruff lint/format, Pyright, complete pytest/coverage, real publisher
+integration, MITRE taxonomy retrieval, CPE API applicability validation, scanner
+execution and independent expert evaluation. Source inspection and synthetic
+delivery tests do not certify those integrations or establish ranking improvement.
+The next online increment requires the actual human-approved ADR and reviewed
+source contracts/artifacts; the remaining quality gate requires approved tooling.
+
+Clarification: URL credential withholding covers authority userinfo, and the
+control-token check covers recognised syntax. Neither is a general secret
+detector, publisher-identity verifier or assertion that a reference is safe.
+
+VERIFIED: `git --no-pager diff --check -- README.md vulnassess\analyst.py
+vulnassess\report.py vulnassess\score_facts.py
+vulnassess\ui\assessment_report.py vulnassess\ui\vulnerability_findings.py`
+returned exit code 0 with no output. This is whitespace validation, not Ruff.
+
+MISSING: real fixture directories `tests\fixtures\nessus`, `tests\fixtures\cwe`
+and `tests\fixtures\cpe` are absent. `tests\fixtures\nikto` contains only
+`.gitkeep`, `README.md` and `EXAMPLE-synthetic-dvwa.json`, not a real capture.
+These omissions prevent real-integration claims; the increment tests pure
+delivery of already-recorded information rather than parser/provider correctness.
+
+## 2026-10-23 - HARBOR-EXPLAIN-05: readable, clickable case explanations
+
+PROJECT.md stage 7 (Report) and cross-cutting Lab/demo. Make each implemented
+weakness understandable through the same reviewed guidance used by the workflow.
+This supports traceability from an observation to its consequence, expected proof,
+remediation and verification; it does not establish ranking accuracy.
+
+Choose native keyboard-accessible case buttons and a responsive dialog with
+plain-English meaning, impact, mechanism, entry point, expected verifier proof,
+fix checklist and confirmation steps. Keep prerequisites/evidence limits in
+progressive disclosure. Restore focus on close and leave all active testing
+controls separate and unchanged. Opening a guide performs only a catalog read,
+never an active check, state mutation, score change or model call.
+
+Reuse vulnassess.harbordesk_guidance rather than duplicate per-case descriptions
+in JavaScript. Add reviewed explanation content to the existing author-catalog
+response without changing its original case fields or the canonical finding,
+score, storage, command or configuration contracts. Missing guidance produces an
+explicit error, not a sample or success-shaped fallback. Treat every rendered
+value as text and distinguish expected proof from a current retained observation.
+
+Alternatives rejected: raw JSON does not meet the readability request; tooltips
+cannot comfortably present fixes and evidence; a new UI library or live LLM
+adds unnecessary provisioning, disclosure and consistency costs. Replacing
+existing testing buttons with explanations would hide the capabilities the user
+explicitly asked to preserve. No dependencies are added or installed. Planned
+validation covers all 23 case guides, safe text rendering, errors, focus,
+close-during-load and out-of-order responses, plus the preserved active lab.
+
+HARBOR-EXPLAIN-05 keyboard adjustment: VERIFIED browser probing with
+`page.keyboard.press('Escape')` returned
+`{"escapeKeyReachedDialog":true,"nativeCancelEvent":false,"dialogStillOpen":true}`
+in the embedded browser. Add an explicit dialog-scoped Escape handler that closes
+and restores focus, rather than relying solely on the missing native cancel
+event. Keep native Tab containment and ordinary-key behavior. Extend the offline
+DOM regression to cover this observed host behavior; no active lab route changes.
+
+HARBOR-EXPLAIN-05 readability adjustment: VERIFIED browser viewport checks at
+320x740, 390x844 and 1280x900 returned `horizontalOverflow:false` for the
+explanation body/header. The grids used one column on narrow layouts and two on
+desktop. They also exposed retained internal scroll offsets (for example
+`scrollTop:692.7999877929688` at 320px), so reset the body to the beginning when
+rendering each explanation. Add a regression for opening after a scrolled case;
+do not change or remove any active training operation.
+
+HARBOR-EXPLAIN-05 wording: replace the shared guide's jargon-heavy meaning
+sentences with plain-English descriptions (for example, signing in, another
+account's record, a database instruction and an expired certificate). Keep the
+technical mechanism, expected proof, limits, fixes and confirmation steps
+alongside them. This is a wording change only; finding identities, scores,
+evidence, case implementations and the guidance field structure are unchanged.
+
+## 2026-10-23 - HARBOR-EXPLAIN-06: explanation verification and remaining gates
+
+TESTED WITH MOCKS: with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`,
+`python -m pytest tests\test_harbordesk_lab.py tests\test_harbordesk_extended.py
+tests\test_harbordesk_probe.py tests\test_harbordesk_model_budget.py
+tests\synthetic\test_synthetic_harbordesk_impact.py
+tests\synthetic\test_synthetic_harbordesk_management.py
+tests\synthetic\test_synthetic_harbordesk_explanations.py -q` returned
+`125 passed in 3.53s`, with zero failures/skips. The new pytest assertion confirms
+`9 explanation interaction checks passed` in the network-denied Node VM.
+These cover card semantics, safe text rendering, focus, close/Escape, scroll
+reset, explicit content errors and delayed/out-of-order responses. They are
+synthetic logic tests, not scanner, model or real-browser evidence.
+
+VERIFIED: actual browser checks opened all 23 cases and found all six explanation
+sections, restored focus for every card, activated a card with Enter, kept Tab
+inside the dialog, and closed/restored focus with Escape. Five direct shortcuts
+also opened their expected guides. The final browser result included
+`"allCasesExplained":23,"readOnlyOpening":true,"everyCaseStartsAtTop":true,
+"escapeAndFocusReturnForAll":true`; no non-GET requests were made while opening
+the guides. The active HD-24 explanation was left open for the user.
+
+VERIFIED: `page.setViewportSize` checks at 320, 390 and 1280 pixels returned
+`"inViewport":true,"noHorizontalOverflow":true` for every size. Narrow grids
+used one column; desktop used two. A screenshot review confirmed the summary,
+impact/mechanism, proof and checklist hierarchy; each new guide starts at its
+beginning rather than a previous guide's scroll offset.
+
+VERIFIED: `node --check labs\harbordesk\site.js` exited 0.
+`git diff --quiet HEAD -- labs\harbordesk\network.py` exited 0, preserving the
+original FTP/TLS source. A task-scoped `git diff --check -- ...` covering the
+explanation paths exited 0. The global `git diff --check` instead reported
+`vulnassess/intel_online.py:256: new blank line at EOF.` This concurrent,
+unrelated change was left untouched; no clean whole-worktree check is claimed.
+
+VERIFIED: `python -m labs.harbordesk.verify --extended` still returned 19/19
+intentional conditions and 17/17 passed secure controls after the explanation
+changes. The catalog is not used to manufacture detections or adjust scores.
+
+VERIFIED: the final `python -B -` bounded catalog/state check returned
+`{"cases":23,"complete_explanations":23,"explanation_field":"cases[].explanation",
+"state":{"role":"customer","order_total":280,"paused":false}}`.
+The explanations are per-case fields, not a separate top-level `guides` array.
+Listener inspection reported 127.0.0.1 ports 8787, 8791 and 8792 owned by PID
+43112. The requested services remain running in detached session
+`harbordesk-explanations-final-20261023`; owned temporary browser outputs were
+removed and unrelated worktree edits preserved.
+
+MISSING: Make, Ruff lint/format, Pyright, pytest-cov/coverage and optional
+pyftpdlib. The full required gate and source coverage remain blocked, not passed.
+No dependency was added, installed or downloaded.
+
+MISSING: human HarborDesk scanner captures at
+`tests/fixtures/nmap/harbordesk.xml`, `tests/fixtures/nikto/harbordesk.json`
+and `tests/fixtures/zap/harbordesk.json`, as recorded in HARBOR-VERIFY-04.
+
+NOT RUN: scanners, models, feeds and optional FTP/TLS integration. This increment
+serves stage 7/Lab-demo comprehension and traceability, not parser certification,
+research-success measurement or a verified new scan from opening a dialog.
+
+## 2026-10-23 - HELPY-CHECK-01: verified cancellation and evidence-grounding fixes
+
+PROJECT.md stage 7 (Report) and cross-cutting Lab/demo. The user's Helpy check
+serves faithful evidence explanation, not new scores, scans or expanded model
+authorization. Trace the existing saved-report panel, same-origin API, source
+selector and consent boundary directly.
+
+TESTED WITH MOCKS baseline: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+tests\test_helpy.py -q` returned `19 passed in 7.65s`. New synthetic regressions
+then returned `5 failed, 18 passed in 2.45s`. They reproduced a late answer
+repopulating Clear conversation, a 19-finding capture described as 12, an omitted
+thirteenth CVE described as zero CVEs, retained HarborDesk verifier coverage
+omitted, and Nikto collection asserted when only Nmap coverage was recorded.
+
+Choose versioned pending-request ownership, explicit transport abort and stale
+reply suppression on Clear/Close/provider-change/page-hide. Validate the response
+before adding a model-labeled reply, so malformed excerpts cannot render partial
+success. Preserve same-capture validation, plain-text rendering, cloud/voice
+consent, extractive answers and existing model schema. Client cancellation does
+not establish that server-side model work stopped; document this limitation.
+
+Evaluate capture-wide counts and CVE facts over all retained findings while
+retaining the existing bounded excerpt budget and disclosing omitted details.
+Reuse reviewed HarborDesk guidance for known lab checks, preserve actual native
+severity/tool provenance in excerpts and never infer unrecorded scanner coverage.
+Source catalog changes are not scoring changes; canonical schema, fixed command
+shape, storage and configuration interfaces are unchanged.
+
+Alternatives rejected: hiding the late transcript without abort/version checks
+would leave races and speech active; weakening response validation would conceal
+provider failures; changing native scores or inventing model/scanner output to
+make Helpy appear operational would violate the evidence boundary. No dependency
+is added, removed, installed or downloaded.
+
+MISSING at preflight: workbench listener 127.0.0.1:8765 and local model listener
+127.0.0.1:11434. The existing data/live/raw directory has no saved capture.
+Do not manufacture an assessment or start a model to conceal these prerequisites.
+The actual model-backed answer path remains unexercised.
+
+### HELPY-CHECK-01 verification - 2026-10-23
+
+TESTED WITH MOCKS: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+tests\test_helpy.py tests\synthetic\test_synthetic_helpy_regressions.py
+tests\test_assessment_report.py tests\test_report_composer.py
+tests\test_capture_history.py -q` returned `94 passed in 15.87s`:
+94 passed, zero failed, zero skipped (no skip reasons). The repository socket
+guard stayed enabled; all selector/model clients and browser transports were
+fakes. These related report/capture tests preserve the source and integrity
+boundaries, not real-model reliability.
+
+TESTED WITH MOCKS: browser checks loaded the actual helpy.js file into an
+isolated, explicitly SYNTHETIC about:blank DOM with a non-forwarding fetch fake.
+The initial result returned
+`{"mockRequests":1,"sourceHighlighted":true,"sourceExpanded":true,
+"literalText":true,"injectedImages":0}`. Additional checks returned
+`{"cloudConsentBlocks":true,"clearCancelsLateReply":true,
+"closeCancelsLateReply":true,"oldReplyCannotUnlockNewRequest":true,
+"invalidResponseWithheld":true,"escapeClosesAndRestoresFocus":true,
+"actualModelCalled":false}`. No microphone, speech provider, cloud model,
+scanner, real saved assessment or external endpoint was used. The synthetic
+browser harness was cleared afterward.
+
+VERIFIED: `node --check vulnassess\ui\static\helpy.js` and the task-scoped
+`git diff --check -- vulnassess\helpy.py vulnassess\ui\static\helpy.js
+tests\synthetic\helpy_check.mjs tests\synthetic\test_synthetic_helpy_regressions.py
+docs\ui.md docs\decisions.md` each exited 0. No global clean-worktree or full
+quality-gate result is claimed; concurrent edits were left alone.
+
+MISSING: Make and Python modules ruff, pyright, pytest_cov and coverage, confirmed
+by local tool/import discovery. Ruff lint, Ruff format, Pyright, source coverage
+and the required full `make check` gate cannot be certified; no tool is downloaded
+or installed to bypass this blocker.
+
+NOT RUN: a real Helpy provider round trip, dictation/speech integration, scanners,
+feeds and live assessments. The workbench listener and approved local provider
+were unavailable at preflight, and there was no saved capture under
+data/live/raw. A human must provide a real retained assessment and an available
+approved provider to verify that integration. Do not turn this missing runtime
+into a fabricated successful chat. Existing HarborDesk services were not changed
+or restarted by the Helpy check.

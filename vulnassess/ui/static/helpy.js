@@ -6,13 +6,23 @@
   const el = id => document.getElementById('helpy-' + id);
   const messages = [];
   let busy = false, recognition = null, listening = false;
+  let requestVersion = 0, pendingRequest = null;
   const status = text => { el('status').textContent = text; };
   function stopAudio() { recognition?.abort(); window.speechSynthesis?.cancel(); }
+  function cancelPending() {
+    requestVersion++;
+    if (pendingRequest) {
+      clearTimeout(pendingRequest.timer);
+      pendingRequest.controller.abort();
+      pendingRequest = null;
+    }
+    busy = false; el('send').disabled = false;
+  }
   function open(value) {
     panel.hidden = !value;
     document.body.classList.toggle('helpy-open', value);
     el('toggle').setAttribute('aria-expanded', String(value));
-    if (!value) { stopAudio(); el('toggle').focus(); }
+    if (!value) { cancelPending(); stopAudio(); status('Helpy closed. Any pending reply will not be shown.'); el('toggle').focus(); }
     else el('question').focus();
   }
   el('toggle').onclick = () => open(panel.hidden);
@@ -35,6 +45,19 @@
     }
     return match;
   }
+  function validateAnswer(answer) {
+    if (!answer || answer.capture_id !== panel.dataset.capture) throw new Error('Assessment mismatch; answer withheld.');
+    if (!['supported','not_established'].includes(answer.status)
+        || typeof answer.model !== 'string' || !answer.model.trim()
+        || typeof answer.message !== 'string' || !answer.message.trim()
+        || !Array.isArray(answer.excerpts) || answer.excerpts.length > 3
+        || (answer.status === 'supported' && !answer.excerpts.length)
+        || !answer.excerpts.every(item => item && ['reference','text','section'].every(key => typeof item[key] === 'string' && item[key].trim())
+          && (item.citations === undefined || (Array.isArray(item.citations) && item.citations.every(value => typeof value === 'string')))
+          && (!item.citations?.length || (Number.isInteger(item.batch) && item.batch > 0)))) {
+      throw new Error('Helpy returned an invalid response; answer withheld. Your report is unchanged.');
+    }
+  }
   async function ask(question) {
     if (busy) return;
     question = question.trim();
@@ -46,6 +69,8 @@
     message('You', question); status('Selecting relevant report evidence…');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 55000);
+    const version = ++requestVersion;
+    pendingRequest = {controller,timer};
     try {
       const response = await fetch('/api/helpy', {
         method:'POST', headers:{'Content-Type':'application/json','X-VulnAssess-Action':'helpy'},
@@ -53,8 +78,9 @@
         signal:controller.signal
       });
       const answer = await response.json();
+      if (version !== requestVersion) return;
       if (!response.ok) throw new Error(answer.error || 'The provider could not answer.');
-      if (answer.capture_id !== panel.dataset.capture) throw new Error('Assessment mismatch; answer withheld.');
+      validateAnswer(answer);
       const box = message('Helpy · ' + answer.model, answer.message);
       for (const item of answer.excerpts) {
         const quote = document.createElement('blockquote'); quote.textContent = item.text;
@@ -75,15 +101,19 @@
         window.speechSynthesis.speak(speech);
       }
     } catch (error) {
+      if (version !== requestVersion) return;
       const text = error.name === 'AbortError' ? 'Helpy timed out. Your report is unchanged; try again or choose another provider.' : error.message;
       message('Helpy · unavailable', text); status(text);
-    } finally { clearTimeout(timer); busy = false; el('send').disabled = false; }
+    } finally {
+      clearTimeout(timer);
+      if (version === requestVersion) { pendingRequest = null; busy = false; el('send').disabled = false; }
+    }
   }
   el('send').onclick = () => ask(el('question').value);
   panel.querySelectorAll('[data-helpy-question]').forEach(button => {
     button.onclick = () => { el('question').value = button.dataset.helpyQuestion; ask(button.dataset.helpyQuestion); };
   });
-  el('provider').onchange = () => { el('share').checked = false; status('Provider changed. Cloud sharing consent reset.'); };
+  el('provider').onchange = () => { cancelPending(); stopAudio(); el('share').checked = false; status('Provider changed. Cloud sharing consent reset; any pending reply will not be shown.'); };
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) { el('listen').disabled = true; el('listen').textContent = 'Dictation unavailable in this browser'; }
   el('listen').onclick = () => {
@@ -104,10 +134,10 @@
   el('voice-consent').onchange = () => { if (!el('voice-consent').checked) recognition?.abort(); };
   el('speak').onchange = () => { if (!el('speak').checked) window.speechSynthesis?.cancel(); };
   el('stop').onclick = () => { stopAudio(); status('Microphone and spoken reply stopped.'); };
-  el('clear').onclick = () => { stopAudio(); messages.length = 0; el('transcript').replaceChildren(); el('question').value = ''; document.querySelectorAll('.helpy-selected').forEach(node => node.classList.remove('helpy-selected')); status('Conversation cleared.'); };
+  el('clear').onclick = () => { cancelPending(); stopAudio(); messages.length = 0; el('transcript').replaceChildren(); el('question').value = ''; document.querySelectorAll('.helpy-selected').forEach(node => node.classList.remove('helpy-selected')); status('Conversation cleared. Any pending reply will not be shown.'); };
   el('download').onclick = () => {
     const url = URL.createObjectURL(new Blob(['Helpy transcript · ' + panel.dataset.capture + '\n\n' + messages.join('\n\n')],{type:'text/plain'}));
     const link = document.createElement('a'); link.href = url; link.download = 'Helpy-' + panel.dataset.capture + '.txt'; link.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
   };
-  window.addEventListener('pagehide',stopAudio);
+  window.addEventListener('pagehide',() => { cancelPending(); stopAudio(); });
 })();

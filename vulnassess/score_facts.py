@@ -5,6 +5,11 @@ from typing import Any, Mapping
 from vulnassess.errors import ConfigError
 from vulnassess.schema import ScoreBreakdown
 
+NO_CVE_INTELLIGENCE = (
+    "No CVE association is recorded; EPSS and KEV are not applicable to this finding. "
+    "CWE identifiers are classifications only; CWE definitions were not retrieved."
+)
+
 
 def threat_description(kev: bool, percentile: float | None) -> str:
     """Describe retained intelligence, not current compromise or absolute probability."""

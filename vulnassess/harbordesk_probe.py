@@ -81,6 +81,70 @@ CHECKS = {
         8443,
         "https",
     ),
+    "HD-17": (
+        "Unauthenticated bulk business-data export",
+        "/api/admin/export",
+        "CWE-306",
+        "High",
+        8787,
+        "http",
+    ),
+    "HD-18": (
+        "Mass assignment grants administrator privileges",
+        "/api/profile",
+        "CWE-915",
+        "High",
+        8787,
+        "http",
+    ),
+    "HD-19": (
+        "Cross-account order total tampering",
+        "/api/orders/2002",
+        "CWE-862",
+        "High",
+        8787,
+        "http",
+    ),
+    "HD-20": (
+        "Cleartext HTTP transport",
+        "/",
+        "CWE-319",
+        "Medium",
+        8787,
+        "http",
+    ),
+    "HD-21": (
+        "Unauthenticated service inventory disclosure",
+        "/__lab__/inventory",
+        "CWE-200",
+        "Low",
+        8787,
+        "http",
+    ),
+    "HD-22": (
+        "Verbose HTTP service version banner",
+        "/",
+        "CWE-200",
+        "Low",
+        8787,
+        "http",
+    ),
+    "HD-23": (
+        "Unauthenticated network backup disclosure",
+        "/backup",
+        "CWE-306",
+        "High",
+        8791,
+        "http",
+    ),
+    "HD-24": (
+        "Unauthenticated network management changes",
+        "/config",
+        "CWE-862",
+        "High",
+        8791,
+        "http",
+    ),
 }
 
 
@@ -221,8 +285,20 @@ def coverage(receipt: dict[str, Any]) -> str:
         detail += "; check errors=" + ",".join(errors)
     if "network_status" in receipt:
         detail += "; network_status=" + _bounded_json(receipt["network_status"])
+    if "management_status" in receipt:
+        detail += "; management_status=" + _bounded_json(receipt["management_status"])
     if not any(row["id"] in {"HD-13", "HD-14", "HD-15", "HD-16"} for row in rows):
-        detail += "; network checks not configured or not returned; no network coverage claimed"
+        detail += (
+            "; optional FTP/TLS network checks not configured or not returned;"
+            " no FTP/TLS coverage claimed"
+        )
+    http_network = sum(
+        row["observed_intentional_weakness"]
+        for row in rows
+        if row["id"] in {"HD-20", "HD-21", "HD-22"}
+    )
+    if any(row["id"] in {"HD-20", "HD-21", "HD-22"} for row in rows):
+        detail += f"; HTTP transport/inventory/banner observations={http_network}/3"
     for key in ("secure_controls", "secure_control_results", "secure_checks"):
         if key in receipt:
             controls = receipt[key]
@@ -255,6 +331,12 @@ def confirmed_services(receipt: dict[str, Any]) -> tuple[Service, ...]:
             "TLSv1.3",
         ):
             services[8443] = Service(8443, "tcp", name="https", tls=True)
+        if (
+            row["id"] in ("HD-23", "HD-24")
+            and evidence.get("service_id") == "harbordesk-management-v1"
+            and evidence.get("http_response_observed") is True
+        ):
+            services[8791] = Service(8791, "tcp", name="http")
     # These fixed control identities are emitted only after their corresponding
     # FTP response / TLS handshake and HTTP response have actually completed.
     controls = receipt.get("secure_controls", [])
@@ -270,4 +352,6 @@ def confirmed_services(receipt: dict[str, Any]) -> tuple[Service, ...]:
             services[2122] = Service(2122, "tcp", name="ftp")
         if passed & {"HC-12", "HC-13"}:
             services[8444] = Service(8444, "tcp", name="https", tls=True)
+        if passed & {"HC-19", "HC-20"}:
+            services[8792] = Service(8792, "tcp", name="http")
     return tuple(services[port] for port in sorted(services))

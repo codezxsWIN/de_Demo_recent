@@ -168,6 +168,27 @@ Reports retain the policy identity and, where the recorded inputs permit it, exp
 
 These are project prioritisation rules and research hypotheses. Their practical benefit must be evaluated against independent reference rankings.
 
+### Intelligence delivery and current limits
+
+Already-recorded intelligence is reused rather than replaced by a second scoring
+engine. The analyst receives at most two bounded HTTP(S) advisory references per
+included CVE, with citable evidence and an explicit omitted-reference count. A
+reference is not a verified fix, vendor identity or proof of local applicability.
+Existing prompt and per-finding intelligence budgets still apply.
+
+The findings view includes retained product/CPE-derived CVE associations as
+candidates with their match method/confidence, without rewriting the scanner's
+original CVE list. Reports show CWE identifiers as classifications. A finding with
+no retained CVE association has no applicable per-CVE EPSS/KEV lookup; that is not
+evidence that the system is safe. It does not imply a MITRE CWE definition or
+mitigation was retrieved.
+
+Comprehensive automatic CWE/CPE retrieval, expanded public-lookup coverage and
+new cache/interface schemas remain proposed pending the required human-approved
+ADR and source contracts. The existing targeted NVD/EPSS/KEV path is not a
+six-source comprehensive integration. Publisher transports are **not run by the
+agent**; no public API or feed retrieval was used to validate this delivery change.
+
 ## Understanding the report
 
 A report should help the reader answer:

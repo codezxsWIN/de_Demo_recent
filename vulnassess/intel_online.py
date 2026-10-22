@@ -253,3 +253,4 @@ def _save_meta(connection, feed: str, url: str, rows: list, date: str, now: date
         "file_date=excluded.file_date, rows=excluded.rows, loaded_at=excluded.loaded_at",
         (feed, url, _digest(rows), date, len(rows), now.isoformat()),
     )
+

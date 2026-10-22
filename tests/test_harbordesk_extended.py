@@ -2,9 +2,10 @@
 
 import io
 import json
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
-from labs.harbordesk import verify
+from labs.harbordesk import app, verify
 from tests.test_harbordesk_lab import request
 
 
@@ -51,6 +52,13 @@ def test_full_web_comparison_verifies_without_network_claims(monkeypatch):
         pass
 
     class Opener:
+        def __init__(self):
+            self.server = SimpleNamespace(
+                server_address=("127.0.0.1", 8787),
+                workspace=app.Workspace(),
+                secure_workspace=app.Workspace(),
+            )
+
         def open(self, req, timeout):
             parsed = urlsplit(req.full_url)
             status, headers, body = request(
@@ -58,6 +66,7 @@ def test_full_web_comparison_verifies_without_network_claims(monkeypatch):
                 method=req.get_method(),
                 body=req.data or b"",
                 headers=dict(req.header_items()),
+                server=self.server,
             )
             response = Response(body)
             response.status, response.headers = status, headers
@@ -65,8 +74,11 @@ def test_full_web_comparison_verifies_without_network_claims(monkeypatch):
 
     monkeypatch.setattr(verify, "build_opener", lambda *args: Opener())
     report = verify.verify("http://127.0.0.1:8787/", extended=True, include_network=True)
-    assert report["passed"] == report["total"] == 11
-    assert len(report["secure_controls"]) == 10
+    assert report["passed"] == report["total"] == 17
+    assert len(report["secure_controls"]) == 15
+    assert {row["id"] for row in report["checks"]} >= {
+        "HD-17", "HD-18", "HD-19", "HD-20", "HD-21", "HD-22"
+    }
     assert all(row["passed"] for row in report["secure_controls"])
     assert report["network_status"] == "not started"
     assert not any(row["id"] == "HD-13" for row in report["checks"])
