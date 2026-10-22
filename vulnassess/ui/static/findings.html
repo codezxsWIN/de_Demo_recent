@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Findings & Evidence | VulnAssess</title>
+  <link rel="stylesheet" href="/static/findings.css">
+  <script type="module" src="/static/findings.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#finding-table">Skip to findings</a>
+  <header class="topbar">
+    <a class="identity" href="/"><span class="logo">v/a</span><span>VulnAssess <small>FINDINGS & EVIDENCE</small></span></a>
+    <nav aria-label="Main navigation"><a href="/">Project</a><a href="/workflow">Assessment workspace</a><a href="/captures">Saved captures</a></nav>
+    <span class="read-only"><span class="status-dot"></span>READ-ONLY REVIEW</span>
+  </header>
+  <main class="shell">
+    <div class="eyebrow">ASSESSMENT INTELLIGENCE / RECORDED DATA</div>
+    <section class="intro">
+      <div><h1>Understand the evidence.<br><em>Then decide what matters.</em></h1><p>Scanner observations, CVE associations, deterministic priorities and original sources in one reviewable queue.</p></div>
+      <div class="intro-actions"><a class="action subtle" href="/workflow">Open workflow ↗</a><button class="action primary" type="button" id="download" disabled>Export visible CSV ↓</button></div>
+    </section>
+    <div class="assessment-bar">
+      <label for="run-select">RECORDED ASSESSMENT</label>
+      <select id="run-select" disabled><option>Loading assessments…</option></select>
+      <span class="assess-meta" id="run-meta">The dashboard does not start scans or execute AI.</span>
+    </div>
+    <div id="notice" class="notice" role="status" aria-live="polite">Reading stored assessment records…</div>
+    <section class="metrics" aria-label="Assessment summary">
+      <div class="metric"><span>Recorded findings</span><strong id="metric-total">—</strong><small>Observations, not proven exploits</small></div>
+      <div class="metric"><span>High / critical priority</span><strong id="metric-attention">—</strong><small>According to stored project scores</small></div>
+      <div class="metric"><span>CVE-linked findings</span><strong id="metric-cve">—</strong><small>Includes provisional associations</small></div>
+      <div class="metric"><span>Unscored / unsupported</span><strong id="metric-unscored">—</strong><small>Missing or insufficient score basis</small></div>
+    </section>
+    <section class="distribution" aria-label="CVE association breakdown">
+      <div class="distribution-heading"><div><h2>Evidence confidence, not inflated counts</h2><p>CVE association tells you how an ID was linked. It does not prove package applicability or exploitation.</p></div><span id="distribution-total">No records</span></div>
+      <div class="distribution-track" id="distribution-track" role="img" aria-label="Proportions of scanner-named, product-version-candidate and no-CVE findings"></div>
+      <div class="distribution-legend" id="distribution-legend"></div>
+    </section>
+    <section class="queue" aria-label="Recorded vulnerability findings">
+      <div class="queue-heading"><div><h2>Finding queue</h2><p id="result-count">Choose a saved assessment to inspect findings.</p></div><span class="queue-hint">Select a row to inspect the evidence</span></div>
+      <div class="filters">
+        <label class="search-wrap"><span>Search</span><input id="search" placeholder="Target, CVE, finding or scanner" type="search" autocomplete="off"></label>
+        <label><span>Priority</span><select id="risk-filter"><option value="all">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option><option value="unscored">Unscored</option></select></label>
+        <label><span>CVE association</span><select id="cve-filter"><option value="all">All evidence types</option><option value="explicit">Scanner-named</option><option value="candidate">Product/version candidate</option><option value="none">No CVE associated</option></select></label>
+        <label><span>Target</span><select id="host-filter"><option value="all">All targets</option></select></label>
+        <button class="reset" id="reset" type="button">Clear filters</button>
+      </div>
+      <div class="table-scroll">
+        <table id="finding-table"><thead><tr><th scope="col">Target / scanner</th><th scope="col">Finding</th><th scope="col">CVE association</th><th scope="col">Recorded priority</th><th scope="col">Evidence</th></tr></thead><tbody id="finding-rows"><tr><td colspan="5" class="empty">Waiting for assessment data.</td></tr></tbody></table>
+      </div>
+    </section>
+    <p class="footer-note">Source of truth: recorded assessment. A port is not automatically a vulnerability; a scanner-named CVE is not a verified installation; a priority score is not exploitation probability.</p>
+  </main>
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <div class="detail-head"><div><span class="eyebrow">FINDING / ORIGINAL RECORD</span><h2 id="detail-title">Finding details</h2></div><button id="close-detail" class="close" type="button" aria-label="Close finding details">✕</button></div>
+    <div class="detail-body" id="detail-body"></div>
+    <div class="detail-actions"><a id="trace-link" href="/workflow">Trace in workflow ↗</a><button id="dismiss" type="button">Close</button></div>
+  </dialog>
+</body>
+</html>
