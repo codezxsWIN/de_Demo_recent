@@ -108,11 +108,15 @@ class Selector:
         fields = schema["properties"]["next_decisions"]["items"]["properties"]
         card = derive(source_record())[0]
         assert card["id"] in fields["derivation_id"]["enum"]
-        return {"next_decisions": [{
-            "derivation_id": card["id"],
-            "action_id": card["actions"][0]["id"],
-            "premise_ids": card["actions"][0]["premise_ids"],
-        }]}
+        return {
+            "next_decisions": [
+                {
+                    "derivation_id": card["id"],
+                    "action_id": card["actions"][0]["id"],
+                    "premise_ids": card["actions"][0]["premise_ids"],
+                }
+            ]
+        }
 
 
 def test_bounded_selection_persists_without_mutating_source(tmp_path):

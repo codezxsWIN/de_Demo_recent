@@ -141,7 +141,9 @@ def verify_claims(
             if normalise_quote(text) not in normalise_quote(evidence_by_id[identity]):
                 raise LLMUnavailable("Needs review: fabricated citation quote")
         if {quote["evidence_id"] for quote in quotes} != set(cited):
-            raise LLMUnavailable("Needs review: every cited evidence ID needs a nonempty aligned quote")
+            raise LLMUnavailable(
+                "Needs review: every cited evidence ID needs a nonempty aligned quote"
+            )
         action = claim["verification_action"]
         if claim["label"] == "hypothesis" and (not isinstance(action, str) or not action.strip()):
             raise LLMUnavailable(

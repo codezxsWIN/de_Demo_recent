@@ -1,11 +1,55 @@
-// Presentation-only Manhattan routing. Nodes AND captions are obstacles.
-export const moduleBox = node => ({left: node.x - 95, right: node.x + 95, top: node.y - 48, bottom: node.y + 122});
+// Smooth connections first; obstacle-aware lanes remain the fallback for custom layouts.
+export const moduleBox = node => ({left: node.x - 95, right: node.x + 95, top: node.y - 48, bottom: node.y + 142});
 export const moduleObstacles = node => [
   {left: node.x - 52, right: node.x + 52, top: node.y - 52, bottom: node.y + 52},
-  {left: node.x - 95, right: node.x + 95, top: node.y + 56, bottom: node.y + 122},
+  {left: node.x - 95, right: node.x + 95, top: node.y + 56, bottom: node.y + 142},
 ];
 const key = edge => `${edge.from}:${edge.to}`;
 const distance = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+export function segmentHitsBox(a, b, box) {
+  let low = 0, high = 1;
+  for (const [axis, min, max] of [['x', box.left, box.right], ['y', box.top, box.bottom]]) {
+    const delta = b[axis] - a[axis];
+    if (delta === 0) { if (a[axis] <= min || a[axis] >= max) return false; continue; }
+    const values = [(min - a[axis]) / delta, (max - a[axis]) / delta].sort((x,y) => x-y);
+    low = Math.max(low, values[0]); high = Math.min(high, values[1]);
+    if (low >= high) return false;
+  }
+  return low < high;
+}
+
+function smoothConnection(from, to, nodes, nodePorts) {
+  // Include endpoint captions: a curve must not depart through its own title.
+  const boxes = nodes.flatMap(node => moduleObstacles(node).map((b,i) => {
+    const pad = i === 0 && [from.id,to.id].includes(node.id) ? 0 : 12;
+    return {left:b.left-pad,right:b.right+pad,top:b.top-pad,bottom:b.bottom+pad};
+  }));
+  let best = null;
+  for (const a of nodePorts.get(from.id)) for (const b of nodePorts.get(to.id)) {
+    const span = distance(a.point, b.point);
+    const gap = Math.abs(b.point.x-a.point.x);
+    const handles = [[.25,.75],[.75,.25],[.45,.45]].map(([a,b]) => [Math.max(24,gap*a),Math.max(24,gap*b)]);
+    handles.push([Math.max(64,Math.min(260,span*.4)),Math.max(64,Math.min(260,span*.4))]);
+    for (const [reachA,reachB] of handles) {
+      const vector = side => side === 'E' ? {x:1,y:0} : side === 'W' ? {x:-1,y:0} : {x:0,y:-1};
+      const av = vector(a.side), bv = vector(b.side);
+      const c1 = {x:a.point.x+av.x*reachA,y:a.point.y+av.y*reachA};
+      const c2 = {x:b.point.x+bv.x*reachB,y:b.point.y+bv.y*reachB};
+      const points = Array.from({length:161}, (_, i) => {
+        const t=i/160, u=1-t;
+        return {x:u*u*u*a.point.x+3*u*u*t*c1.x+3*u*t*t*c2.x+t*t*t*b.point.x,
+          y:u*u*u*a.point.y+3*u*u*t*c1.y+3*u*t*t*c2.y+t*t*t*b.point.y};
+      });
+      if (points.some((point,i) => i && boxes.some(box => segmentHitsBox(points[i-1],point,box)))) continue;
+      const length = points.slice(1).reduce((sum,p,i) => sum + distance(points[i],p),0);
+      const cost = length + (a.side !== 'E' ? 700 : 0) + (b.side !== 'W' ? 180 : 0);
+      if (!best || cost < best.cost) best = {points, cost, clear:true, kind:'curve',
+        path:`M${a.point.x},${a.point.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${b.point.x},${b.point.y}`};
+    }
+  }
+  return best;
+}
 
 function ports(node, size) {
   return [
@@ -51,12 +95,12 @@ function simplify(points) {
   return result;
 }
 
-export function routePath(points) {
+export function routePath(points, radius = 8) {
   if (!points.length) return '';
   let path = `M${points[0].x},${points[0].y}`;
   for (let i = 1; i < points.length - 1; i++) {
     const a = points[i - 1], b = points[i], c = points[i + 1];
-    const r = Math.min(8, distance(a, b) / 2, distance(b, c) / 2);
+    const r = Math.min(radius, distance(a, b) / 2, distance(b, c) / 2);
     const before = {x: b.x + Math.sign(a.x - b.x) * r, y: b.y + Math.sign(a.y - b.y) * r};
     const after = {x: b.x + Math.sign(c.x - b.x) * r, y: b.y + Math.sign(c.y - b.y) * r};
     path += ` L${before.x},${before.y} Q${b.x},${b.y} ${after.x},${after.y}`;
@@ -129,6 +173,17 @@ export function routeConnections(nodes, edges, size) {
   const ordered = [...edges].sort((a, b) => distance(byId.get(a.from), byId.get(a.to)) - distance(byId.get(b.from), byId.get(b.to)) || key(a).localeCompare(key(b)));
   for (const edge of ordered) {
     const from = byId.get(edge.from), to = byId.get(edge.to);
+    if (edge.from === 'canonical' && edge.to === 'report' && !overlapping.has(edge.from) && !overlapping.has(edge.to)) {
+      const points = [{x:from.x,y:from.y-52},{x:from.x,y:64},{x:to.x,y:64},{x:to.x,y:to.y-52}];
+      const obstacles = nodes.filter(node => ![from.id,to.id].includes(node.id)).flatMap(moduleObstacles);
+      if (!points.some((p,i) => i && obstacles.some(box => segmentHitsBox(points[i-1],p,box)))) {
+        result.set(key(edge),{points,path:routePath(points,64),clear:true,kind:'lane'}); continue;
+      }
+    }
+    if (!overlapping.has(edge.from) && !overlapping.has(edge.to)) {
+      const smooth = smoothConnection(from, to, nodes, nodePorts);
+      if (smooth) { result.set(key(edge), smooth); continue; }
+    }
     const east = to.x >= from.x;
     const aPorts = [...nodePorts.get(edge.from)].sort((a, b) => Number(b.side === (east ? 'E' : 'W')) - Number(a.side === (east ? 'E' : 'W')));
     const targetSide = Math.abs(to.x - from.x) < 160 ? to.y > from.y ? 'N' : 'E' : east ? 'W' : 'E';

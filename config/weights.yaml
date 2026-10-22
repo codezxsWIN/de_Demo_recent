@@ -31,6 +31,7 @@ threat:
 native_fallback:                           # findings with no CVE rank on the tool's own severity
   nessus: {Critical: 80, High: 60, Medium: 40, Low: 20}
   zap: {High: 60, Medium: 40, Low: 20, Informational: 5}
+  harbordesk: {High: 60, Medium: 40, Low: 20, Informational: 5}
   nikto: 30
   nmap: 25
 

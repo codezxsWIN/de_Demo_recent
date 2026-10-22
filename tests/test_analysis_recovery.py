@@ -67,9 +67,9 @@ def test_bounded_grounding_rejection_can_use_fresh_validated_provider_when_opted
     def analyze(*_, provider, on_progress):
         if provider == "groq":
             on_progress("validation", "running", "Checking claims")
-            raise NeedsReview("Needs review: analyst output contains unsupported numbers") from LLMUnavailable(
-                "analyst output contains unsupported numbers"
-            )
+            raise NeedsReview(
+                "Needs review: analyst output contains unsupported numbers"
+            ) from LLMUnavailable("analyst output contains unsupported numbers")
         return {"model": "test", "analysis": {"summary": "validated"}}
 
     with (
@@ -88,9 +88,9 @@ def test_unknown_service_can_fallback_only_when_explicitly_enabled():
     def analyze(*_, provider, on_progress):
         if provider == "groq":
             on_progress("validation", "running", "Checking claims")
-            raise NeedsReview("Needs review: analyst output contains an unknown service") from LLMUnavailable(
-                "analyst output contains an unknown service"
-            )
+            raise NeedsReview(
+                "Needs review: analyst output contains an unknown service"
+            ) from LLMUnavailable("analyst output contains an unknown service")
         return {"model": "test", "analysis": {"summary": "validated"}}
 
     with (
@@ -132,8 +132,12 @@ def test_local_fallback_requires_explicit_cloud_sharing_and_caps_local_wait():
         patch.object(analyst, "analyze_findings", side_effect=analyze),
     ):
         result = analyst.analyze_optional(
-            {}, "127.0.0.1", "ollama", lambda *_: None,
-            allow_fallback=True, cloud_sharing_authorized=True,
+            {},
+            "127.0.0.1",
+            "ollama",
+            lambda *_: None,
+            allow_fallback=True,
+            cloud_sharing_authorized=True,
         )
     assert [provider for provider, _ in seen] == ["ollama", "google"]
     assert seen[0][1].timeout == 45
@@ -146,11 +150,17 @@ def test_local_invalid_claim_does_not_fallback_even_with_cloud_consent():
     with (
         patch.object(analyst, "fallback_providers", return_value=["google"]),
         patch.object(analyst, "provider_client", return_value=local),
-        patch.object(analyst, "analyze_findings", side_effect=NeedsReview("fabricated citation")) as calls,
+        patch.object(
+            analyst, "analyze_findings", side_effect=NeedsReview("fabricated citation")
+        ) as calls,
     ):
         result = analyst.analyze_optional(
-            {}, "127.0.0.1", "ollama", lambda *_: None,
-            allow_fallback=True, cloud_sharing_authorized=True,
+            {},
+            "127.0.0.1",
+            "ollama",
+            lambda *_: None,
+            allow_fallback=True,
+            cloud_sharing_authorized=True,
         )
     assert calls.call_count == 1
     assert result["ai_status"] == "needs_review"

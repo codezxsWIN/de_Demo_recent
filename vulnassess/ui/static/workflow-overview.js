@@ -93,8 +93,17 @@ export function renderAssessmentOverview(holder, brief, inspect) {
     main.append(unscored);
   }
 
-  const ai = section('Analyst interpretation', 'overview-analyst');
+  const ai = section('AI network assessment', 'overview-analyst');
   ai.append(el('span', 'overview-status', brief.ai.status));
+  if (brief.networkServices?.length) {
+    ai.append(el('h4', '', 'Observed network services'));
+    const endpoints = el('ul', 'overview-network-services');
+    for (const service of brief.networkServices.slice(0, 8)) {
+      endpoints.append(el('li', '', `${service.port ?? 'Unknown port'}/${service.protocol || 'unknown'} · ${service.product || service.name || 'Unknown service'}`));
+    }
+    ai.append(endpoints, el('p', 'overview-muted', 'Scanner observations. Open context evidence for endpoint controls and coverage.'));
+    if (brief.networkServices.length > 8) ai.append(el('p', 'overview-muted', `Showing 8 of ${brief.networkServices.length} services.`));
+  }
   if (brief.ai.model) ai.append(el('p', 'overview-muted', `${brief.ai.model}${brief.ai.confidence ? ` · ${brief.ai.confidence} confidence` : ''}`));
   ai.append(el('p', 'overview-ai-summary', brief.ai.summary || (brief.ai.error ? 'The model response did not pass validation. Its conclusions are withheld; collected evidence remains available.' : 'No validated AI assessment for this selection. The findings and context shown here come from recorded evidence.')));
   if (brief.ai.effect) ai.append(el('h4', '', 'Why context matters here'), el('p', '', brief.ai.effect), el('p', 'overview-muted', `Evidence: ${brief.ai.citations.join(', ')}`));

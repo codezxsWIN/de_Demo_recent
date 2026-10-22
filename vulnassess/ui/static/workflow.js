@@ -40,7 +40,7 @@ const runSearch = document.getElementById('run-target-search');
 const providerSelect = document.getElementById('analyst-provider');
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const narrowViewport = matchMedia('(max-width: 960px)');
-const layoutKey = 'vulnassess.workflow.layout.v4';
+const layoutKey = 'vulnassess.workflow.layout.v5';
 function loadLayout() {
   try { return readLayout(JSON.parse(localStorage.getItem(layoutKey)), NODE_SPECS, SIZE); }
   catch { return {}; }
@@ -1046,6 +1046,9 @@ function renderGraph() {
       report.type = 'button';
       report.addEventListener('click', openAssessmentReport);
       document.getElementById('workflow-activity').querySelector('.activity-heading')?.after(report);
+      const findings = element('a', 'assessment-report-action', 'Ranked findings & remediation ↗');
+      findings.href = '/vulnerabilities';
+      report.after(findings);
     }
     activitySignature = activityKey;
   }
@@ -1059,6 +1062,9 @@ function renderGraph() {
       report.type = 'button';
       report.addEventListener('click', openAssessmentReport);
       document.querySelector('#assessment-overview .overview-verdict')?.after(report);
+      const findings = element('a', 'overview-action overview-report-action', 'Ranked findings & remediation ↗');
+      findings.href = '/vulnerabilities';
+      report.after(findings);
     }
     renderInsightHighlights(document.getElementById('assessment-highlights'), brief, selectNode);
     briefSignature = signature;
@@ -1103,6 +1109,7 @@ function renderGraph() {
     const missing = edge.optional || ['missing', 'optional'].includes(from.state) || ['missing', 'optional'].includes(to.state);
     const identity = `${edge.from}:${edge.to}`;
     const active = view.node === edge.from || view.node === edge.to;
+    paths.append(svgElement('path', {d: edgePath(from,to), class:'connection-separator'}));
     paths.append(svgElement('path', {d: edgePath(from, to), class: `connection${missing ? ' optional' : ''}${active ? ' highlighted' : ''}${view.node && !active && !liveState.active ? ' faded' : ''}${previewEdges && !previewEdges.has(identity) ? ' out-of-preview' : ''}`, 'marker-end': 'url(#flow-arrow)', 'data-edge': identity}));
     if (completedEdges.has(identity)) paths.append(svgElement('path', {d: edgePath(from, to), class: 'connection-flow-done', 'data-flow-complete': identity}));
     if (flowEdges.has(identity)) paths.append(svgElement('path', {d: edgePath(from, to), class: 'connection-flow', pathLength: 100, 'data-live-edge': identity}));
@@ -1142,6 +1149,8 @@ function renderGraph() {
     stateMark.textContent = node.state === 'error' ? '!' : node.state === 'complete' ? '✓' : '';
     disc.append(stateMark);
     button.append(disc, element('strong', 'node-title', node.title), element('span', 'node-subtitle', node.subtitle), element('span', 'node-status', node.status), element('span', 'node-inspect-hint', '↗'));
+    const stateLabel = {complete:'Executed',stored:'Recorded',live:'Live evidence',running:'Running',error:'Failed',skipped:'Not applicable',not_in_mode:'Not in this run',missing:'No recorded output',optional:'Optional',pending:'Waiting'}[node.state] || 'Inspect evidence';
+    button.append(element('span', 'node-summary', stateLabel));
     button.addEventListener('keydown', event => {
       const offsets = {ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20]};
       if (view.mode !== 'canvas' || !event.altKey || !offsets[event.key]) return;
@@ -1159,10 +1168,10 @@ function renderGraph() {
   const lanes = document.getElementById('lanes');
   if (!lanes.children.length) {
     const labels = [
-      {text: '01 / EVIDENCE', x: 80, y: 20},
-      {text: '02 / INTELLIGENCE', x: 650, y: 0},
-      {text: '03 / RISK & PRIORITY', x: 1080, y: 280},
-      {text: '04 / OUTPUTS', x: 1490, y: 20},
+      {text: '01 / EVIDENCE', x: 80, y: 80},
+      {text: '02 / INTELLIGENCE', x: 740, y: 20},
+      {text: '03 / RISK & PRIORITY', x: 1180, y: 330},
+      {text: '04 / OUTPUTS', x: 1650, y: 80},
     ];
     for (const label of labels) {
       const item = element('span', 'lane-label', label.text);

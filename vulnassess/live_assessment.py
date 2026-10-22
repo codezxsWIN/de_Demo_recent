@@ -24,6 +24,7 @@ from vulnassess import (
     analyst,
     capture_history,
     context,
+    harbordesk_probe,
     intel,
     intel_online,
     orchestrator,
@@ -809,6 +810,35 @@ def run(
         emit,
         plan_execution,
     )
+    harbordesk_coverage = None
+    harbordesk_failed = False
+    if harbordesk_probe.eligible(target_ip, endpoint):
+        emit("canonical", "running", "Verifying the identified loopback HarborDesk fixture")
+        try:
+            verified, receipt = harbordesk_probe.run(settings.scope, target_ip, endpoint, directory)
+            harbordesk_coverage = harbordesk_probe.coverage(receipt)
+            harbordesk_failed = harbordesk_coverage.startswith("partial:")
+            findings.extend(verified)
+            services = {(item.port, item.protocol): item for item in host.services}
+            for service in harbordesk_probe.confirmed_services(receipt):
+                key = (service.port, service.protocol)
+                existing = services.get(key)
+                services[key] = (
+                    replace(
+                        existing,
+                        name=service.name,
+                        tls=service.tls,
+                        banner=service.banner or existing.banner,
+                    )
+                    if existing
+                    else service
+                )
+            host = replace(host, services=tuple(services.values()))
+        except (OSError, ValueError, TypeError, KeyError, ImportError) as error:
+            harbordesk_failed = True
+            harbordesk_coverage = (
+                f"failed: HarborDesk verification ({type(error).__name__}): {str(error)[:300]}"
+            )
     emit(
         "scanner",
         "complete",
@@ -827,8 +857,9 @@ def run(
         device_check["comparison"] = compare(previous_capture(raw_root), device_check)
     emit(
         "canonical",
-        "complete",
+        "error" if harbordesk_failed else "complete",
         f"Parsed {len(host.services)} services and {len(findings)} findings; raw scanner files retained locally"
+        + (f"; {harbordesk_coverage}" if harbordesk_failed else "")
         + ("; local protection observations collected" if self_defence else ""),
     )
     captured_at = datetime.now(UTC).isoformat()
@@ -955,7 +986,7 @@ def run(
     collection_failures = [
         {"stage": stage, "detail": detail}
         for stage, state, detail in stage_events
-        if state == "error" and stage in {"scanner", "endpoint_scan", "nikto"}
+        if state == "error" and stage in {"scanner", "endpoint_scan", "nikto", "canonical"}
     ]
     scan_status = "partial" if collection_failures else "complete"
     payload = {
@@ -997,6 +1028,8 @@ def run(
         },
     }
     scan_profile = payload["scanner_coverage"]["nmap"]
+    if harbordesk_coverage is not None:
+        payload["scanner_coverage"]["harbordesk-check"] = harbordesk_coverage
     if device_check is not None:
         payload["self_defence"] = device_check
         payload["scanner_coverage"]["device-check"] = device_check["limitations"]

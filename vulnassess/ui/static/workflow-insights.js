@@ -104,6 +104,7 @@ export function buildInsightBrief({assessment, host = '', finding = '', live = {
     capturedAt: summary?.captured_at || '', captureDetails: captureProvenanceLines(summary), serviceCount, findingCount,
     scanStatus: active ? summary?.scan_status || live.result?.scan_status || live.scan?.scan_status || 'unknown' : 'not_requested',
     selfDefence: summary?.self_defence || null,
+    networkServices: preview ? [] : active ? live.result?.services || live.scan?.services || [] : hosts.flatMap(item => (item.services || []).map(service => ({...service, host_ip: item.ip}))),
     conclusion: preview ? 'Preview shows the execution path, not assessment results.' : summary?.conclusion || (findingCount === null ? 'Collection has not produced a completed evidence case. No assessment conclusion is available.' : findingCount ? 'Review the supported findings and recorded deterministic priorities.' : 'No vulnerability findings recorded. This is not proof that the target is safe.'),
     role: feature(context.role), exposure: feature(context.exposure), controls,
     priorities: [...priorities].sort((a, b) => (b.risk ?? -1) - (a.risk ?? -1)),

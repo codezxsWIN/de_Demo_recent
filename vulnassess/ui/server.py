@@ -20,6 +20,7 @@ import vulnassess.analyst as analyst
 import vulnassess.capture_history as capture_history
 import vulnassess.decision_focus as decision_focus
 import vulnassess.evidence_requests as evidence_requests
+import vulnassess.helpy as helpy
 import vulnassess.live_assessment as live_assessment
 import vulnassess.orchestrator as orchestrator
 import vulnassess.protocols as protocols
@@ -41,7 +42,7 @@ from vulnassess.saved_cve_case import (
 from vulnassess.schema import ContextProfile, Finding, Host, Service
 from vulnassess.settings import CONFIG_FILES, Settings
 from vulnassess.target_intake import resolve_addresses
-from vulnassess.ui import assessment_report, capture_review
+from vulnassess.ui import assessment_report, capture_review, vulnerability_findings
 from vulnassess.ui.entry import render_entry
 from vulnassess.ui.reader import local_path, open_read_store
 
@@ -251,6 +252,7 @@ class UiApplication:
         self.analyst_model = analyst_model
         self.ollama_host = ollama_host
         self._live_lock = Lock()
+        self._helpy_lock = Lock()
         self._last_public_check = 0.0
         self._last_live_scan: dict[str, float] = {}
         self._recent_live_cases: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -901,7 +903,7 @@ class UiApplication:
                 on_case=remember_case,
                 allow_fallback=allow_fallback,
                 **({"cloud_sharing_authorized": True} if cloud_sharing_authorized else {}),
-                **({"plan_execution": execution} if execution else {}),
+                **(cast(dict[str, Any], {"plan_execution": execution}) if execution else {}),
                 self_defence=self_defence,
             )
         except Exception:
@@ -921,6 +923,32 @@ class UiApplication:
         return import_nessus_report(
             self.database, self.config_dir, run_id, target_ip, content, new_run=new_run
         )
+
+    def helpy_answer(self, body):
+        if (
+            not isinstance(body, dict)
+            or set(body) != {"capture_id", "question", "provider", "share_evidence"}
+            or not isinstance(body["capture_id"], str)
+            or not isinstance(body["question"], str)
+            or not 1 <= len(body["question"].strip()) <= 600
+            or body["provider"] not in ("ollama", "google", "groq")
+            or body["share_evidence"] is not (body["provider"] != "ollama")
+        ):
+            raise ConfigError(
+                "Select a provider and explicitly approve bounded report sharing for cloud AI"
+            )
+        if not self._helpy_lock.acquire(blocking=False):
+            raise ConfigError("Helpy is answering another question; try again shortly")
+        try:
+            record = capture_history.load(
+                self.config_dir.parent / "data/live/raw", body["capture_id"]
+            )
+            client = analyst.provider_client(body["provider"], self.analyst_model, self.ollama_host)
+            if hasattr(client, "timeout"):
+                cast(Any, client).timeout = min(cast(Any, client).timeout, 45.0)
+            return helpy.answer(record, body["question"], client)
+        finally:
+            self._helpy_lock.release()
 
     def _repository(self) -> AssessmentRepository:
         value = self.database if isinstance(self.database, str) else str(self.database)
@@ -992,6 +1020,17 @@ class UiApplication:
             return self._static(["workflow.html"])
         if decoded == "/website-check" and not parsed.query:
             return self._static(["website-check.html"])
+        if decoded == "/vulnerabilities" and not parsed.query:
+            return self._static(["vulnerabilities.html"])
+        if decoded == "/api/vulnerability-findings" and not parsed.query:
+            try:
+                dashboard = vulnerability_findings.latest(self.config_dir.parent / "data/live/raw")
+                return json_response(200, dashboard)
+            except (ConfigError, OSError, ValueError, TypeError, KeyError):
+                return error_response(
+                    409,
+                    "The latest completed assessment could not be verified. No evidence was changed.",
+                )
         if decoded == "/":
             parameters = parse_qs(parsed.query, keep_blank_values=True)
             if parameters:
@@ -1362,6 +1401,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             and self.path != "/api/device-recheck"
             and self.path != "/api/nessus-import"
             and self.path != "/api/public-website/check"
+            and self.path != "/api/helpy"
             and not self.path.startswith("/api/analyst/")
             and self.path
             not in (
@@ -1379,7 +1419,9 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             return
         authority = f"127.0.0.1:{server.server_address[1]}"
         action = (
-            "public-website"
+            "helpy"
+            if self.path == "/api/helpy"
+            else "public-website"
             if self.path == "/api/public-website/check"
             else "device-recheck"
             if self.path == "/api/device-recheck"
@@ -1398,6 +1440,27 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             or self.headers.get("X-VulnAssess-Action") != action
         ):
             self._reply(error_response(403, "Explicit same-origin action required"))
+            return
+        if self.path == "/api/helpy":
+            try:
+                size = int(self.headers.get("Content-Length", "-1"))
+                if (
+                    self.headers.get("Content-Type") != "application/json"
+                    or len(self.headers.get_all("Content-Length", [])) != 1
+                    or self.headers.get("Transfer-Encoding") is not None
+                    or not 0 < size <= 4096
+                ):
+                    raise ConfigError("Invalid Helpy request size or type")
+                response = server.application.helpy_answer(json.loads(self.rfile.read(size)))
+            except (ValueError, UnicodeError, ConfigError, LLMUnavailable, OSError):
+                self._reply(
+                    error_response(
+                        409,
+                        "Helpy could not answer. Check provider configuration, sharing consent and saved assessment integrity; no scan was launched.",
+                    )
+                )
+                return
+            self._reply(json_response(200, response))
             return
         if self.path == "/api/public-website/check":
             try:

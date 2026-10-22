@@ -8,7 +8,12 @@ __all__ = ["endpoint_context", "service_evidence_text"]
 _FINGERPRINT_KEYS = ("name", "product", "version", "cpe", "fingerprint", "banner")
 _HTTP_CHECKS = ("auth_required", "waf", "rate_limiting", "tls")
 _DATABASE_CHECKS = (
-    "network_acl", "auth_required", "bind_configuration", "service_privileges", "tls", "command_acl"
+    "network_acl",
+    "auth_required",
+    "bind_configuration",
+    "service_privileges",
+    "tls",
+    "command_acl",
 )
 _HTTP = re.compile(r"\bhttps?\b|\bweb[ -]server\b", re.IGNORECASE)
 _DATABASE = re.compile(
@@ -138,16 +143,15 @@ def _protocol_controls(service: dict, fingerprint: str) -> tuple[dict, dict, lis
         if family == "database" and key in ("waf", "rate_limiting"):
             reason = "HTTP control does not apply to a native database protocol."
             controls[key] = {**_fact(scope="not_applicable"), "reason": reason}
-            relevance[key] = {
-                "value": False, "scope": "not_applicable", "reason": reason
-            }
+            relevance[key] = {"value": False, "scope": "not_applicable", "reason": reason}
         else:
             relevance[key] = {
                 "value": True if key in checks else None,
                 "scope": "endpoint",
                 "reason": (
                     "Relevant to the identified application protocol."
-                    if key in checks else "Application protocol is unknown."
+                    if key in checks
+                    else "Application protocol is unknown."
                 ),
             }
     return controls, relevance, list(checks)

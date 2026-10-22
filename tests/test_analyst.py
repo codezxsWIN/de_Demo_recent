@@ -1255,6 +1255,32 @@ def test_request_schema_constrains_ids_and_requires_action_finding_citation():
     assert "minItems" not in empty_action["finding_ids"]
 
 
+@pytest.mark.parametrize("bind_scores", [True, False])
+def test_generation_labels_match_procedural_semantic_rules_even_after_compaction(bind_scores):
+    original = copy.deepcopy(analyst.ANALYSIS_SCHEMA)
+    schema = analyst.compact_analysis_schema(
+        analyst.analysis_schema({"F1"}, {"E1"}, {"F1": 30.0}, bind_scores=bind_scores)
+    )
+
+    def labels(node):
+        if "$ref" in node:
+            return labels(schema["$defs"][node["$ref"].rsplit("/", 1)[1]])
+        if "anyOf" in node:
+            return set().union(*(labels(branch) for branch in node["anyOf"]))
+        return set(node["properties"]["label"]["enum"])
+
+    fields = schema["properties"]
+    action = fields["recommended_actions"]["items"]["properties"]
+    investigation = fields["investigations"]["items"]["properties"]
+    assert labels(action["action"]) == {"inferred"}
+    assert labels(investigation["verification"]) == {"inferred"}
+    assert labels(investigation["alternative"]) == {"inferred"}
+    assert labels(investigation["hypothesis"]) == {"hypothesis"}
+    assert labels(fields["uncertainties"]["items"]) == {"unknown"}
+    assert "observed" in labels(fields["summary"])
+    assert analyst.ANALYSIS_SCHEMA == original
+
+
 def test_request_schema_requires_actionable_investigation_verification():
     import re
 

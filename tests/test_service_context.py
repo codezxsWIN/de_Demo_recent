@@ -127,14 +127,24 @@ def test_long_banner_keeps_tls_marker_within_first_200_characters(tls, marker):
 
 
 @pytest.mark.parametrize(
-    "key", ["auth_required", "waf", "rate_limiting", "network_acl", "bind_configuration",
-            "service_privileges", "command_acl"]
+    "key",
+    [
+        "auth_required",
+        "waf",
+        "rate_limiting",
+        "network_acl",
+        "bind_configuration",
+        "service_privileges",
+        "command_acl",
+    ],
 )
 @pytest.mark.parametrize("value", [True, False])
 def test_explicit_endpoint_control_requires_evidence_and_binding(key, value):
     name = "http" if key in ("waf", "rate_limiting") else "redis"
     service = {
-        "port": 8080, "protocol": "tcp", "name": name,
+        "port": 8080,
+        "protocol": "tcp",
+        "name": name,
         "controls": {key: scoped_control(value=value)},
     }
     fact = endpoint_context(service)["controls"][key]
@@ -145,8 +155,16 @@ def test_explicit_endpoint_control_requires_evidence_and_binding(key, value):
 
 
 @pytest.mark.parametrize(
-    "key", ["auth_required", "waf", "rate_limiting", "network_acl", "bind_configuration",
-            "service_privileges", "command_acl"]
+    "key",
+    [
+        "auth_required",
+        "waf",
+        "rate_limiting",
+        "network_acl",
+        "bind_configuration",
+        "service_privileges",
+        "command_acl",
+    ],
 )
 @pytest.mark.parametrize(
     "overrides",
@@ -170,7 +188,9 @@ def test_explicit_endpoint_control_requires_evidence_and_binding(key, value):
 def test_unscoped_mismatched_or_missing_control_evidence_is_unknown(key, overrides):
     name = "http" if key in ("waf", "rate_limiting") else "redis"
     service = {
-        "port": 8080, "protocol": "tcp", "name": name,
+        "port": 8080,
+        "protocol": "tcp",
+        "name": name,
         "controls": {key: scoped_control(**overrides)},
     }
     assert endpoint_context(service)["controls"][key]["value"] is None
@@ -273,14 +293,18 @@ def test_helpers_do_not_mutate_inputs_or_share_returned_state():
 
 def test_redis_with_http_siblings_and_host_waf_has_only_endpoint_checks():
     siblings = [
-        {"port": 8080, "protocol": "tcp", "name": "http",
-         "controls": {"waf": scoped_control()}},
+        {"port": 8080, "protocol": "tcp", "name": "http", "controls": {"waf": scoped_control()}},
         {"port": 8443, "protocol": "tcp", "name": "https", "tls": True},
     ]
     host = {
         "role": {"value": "web_frontend"},
-        "controls": {"waf": True, "auth_required": True, "tls": True,
-                     "network_acl": True, "command_acl": True},
+        "controls": {
+            "waf": True,
+            "auth_required": True,
+            "tls": True,
+            "network_acl": True,
+            "command_acl": True,
+        },
         "services": siblings,
     }
     service = {"port": 6379, "protocol": "tcp", "name": "redis"}
@@ -289,7 +313,11 @@ def test_redis_with_http_siblings_and_host_waf_has_only_endpoint_checks():
     assert result["role_candidate"] == "database"
     assert result["host_role"] == "web_frontend"
     assert result["relevant_checks"] == [
-        "network_acl", "auth_required", "bind_configuration", "service_privileges", "tls",
+        "network_acl",
+        "auth_required",
+        "bind_configuration",
+        "service_privileges",
+        "tls",
         "command_acl",
     ]
     for key in result["relevant_checks"]:
@@ -313,15 +341,23 @@ def test_redis_with_http_siblings_and_host_waf_has_only_endpoint_checks():
 @pytest.mark.parametrize("name", ["http", "https"])
 def test_http_known_controls_keep_values_and_relevance(name):
     service = {
-        "port": 8080, "protocol": "tcp", "name": name, "tls": True,
-        "controls": {"auth_required": scoped_control(value=False),
-                     "waf": scoped_control(value="Example WAF"),
-                     "rate_limiting": scoped_control()},
+        "port": 8080,
+        "protocol": "tcp",
+        "name": name,
+        "tls": True,
+        "controls": {
+            "auth_required": scoped_control(value=False),
+            "waf": scoped_control(value="Example WAF"),
+            "rate_limiting": scoped_control(),
+        },
     }
     result = endpoint_context(service)
     assert result["relevant_checks"] == ["auth_required", "waf", "rate_limiting", "tls"]
     assert {key: fact["value"] for key, fact in result["controls"].items()} == {
-        "auth_required": False, "waf": "Example WAF", "rate_limiting": True, "tls": True,
+        "auth_required": False,
+        "waf": "Example WAF",
+        "rate_limiting": True,
+        "tls": True,
     }
     assert all(fact["value"] is True for fact in result["control_relevance"].values())
     assert all(fact["scope"] == "endpoint" for fact in result["controls"].values())
@@ -330,7 +366,10 @@ def test_http_known_controls_keep_values_and_relevance(name):
 @pytest.mark.parametrize("name", ["redis", "mysql", "postgresql", "mongodb", "mssql"])
 def test_native_database_controls_ignore_explicit_http_control_observations(name):
     service = {
-        "port": 8080, "protocol": "tcp", "name": name, "tls": True,
+        "port": 8080,
+        "protocol": "tcp",
+        "name": name,
+        "tls": True,
         "controls": {"waf": scoped_control(), "rate_limiting": scoped_control()},
     }
     result = endpoint_context(service)

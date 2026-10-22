@@ -17,14 +17,28 @@ for (const edge of workflow.EDGES) {
   assert.doesNotMatch(route.path, /NaN|undefined/);
   for (let i = 1; i < route.points.length; i++) {
     const a = route.points[i - 1], b = route.points[i];
-    assert.ok(a.x === b.x || a.y === b.y, 'Routes use orthogonal lanes');
+    if (route.kind !== 'curve') assert.ok(a.x === b.x || a.y === b.y, 'Fallback routes use orthogonal lanes');
     for (const node of workflow.NODE_SPECS.filter(node => ![edge.from, edge.to].includes(node.id))) {
       for (const box of routing.moduleObstacles(node)) {
-        const hits = a.x === b.x
-          ? a.x > box.left && a.x < box.right && Math.max(a.y, b.y) > box.top && Math.min(a.y, b.y) < box.bottom
-          : a.y > box.top && a.y < box.bottom && Math.max(a.x, b.x) > box.left && Math.min(a.x, b.x) < box.right;
+        const hits = routing.segmentHitsBox(a,b,box);
         assert.equal(hits, false, `${edge.from}:${edge.to} crosses ${node.id} or its caption`);
       }
+    }
+  }
+}
+assert.ok([...routes.values()].filter(route => route.kind === 'curve').length >= workflow.EDGES.length * .7, 'Most default connections remain direct smooth curves, not lane detours');
+for (const id of ['nmap','nessus','nikto']) {
+  const branch = routes.get(`scope:${id}`);
+  assert.equal(branch.kind,'curve','Scanner branches use the familiar smooth fan-out');
+  assert.ok(branch.points[1].x >= branch.points[0].x,'Scanner branches leave scope towards the right, without backwards loops');
+}
+for (const edge of workflow.EDGES) {
+  const route = routes.get(`${edge.from}:${edge.to}`);
+  if (route.kind !== 'curve') continue;
+  for (const id of [edge.from,edge.to]) {
+    const node = workflow.NODE_SPECS.find(node => node.id === id);
+    for (const box of routing.moduleObstacles(node)) {
+      for (let i=1;i<route.points.length;i++) assert.equal(routing.segmentHitsBox(route.points[i-1],route.points[i],box),false,'Curves must also clear their own endpoint discs and captions');
     }
   }
 }
@@ -39,7 +53,7 @@ assert.equal(obstructed.size, workflow.EDGES.length, 'Even obstructed custom lin
 assert.ok([...obstructed.values()].some(route => !route.clear), 'Impossible custom routing is flagged, never silently hidden');
 const saved = layout.readLayout({nmap: {x: 410, y: 240}, scope: {x: -1000, y: 9999}, unknown: {x: 25, y: 25}, nikto: {x: 'wrong', y: 50}}, workflow.NODE_SPECS, workflow.SIZE);
 assert.deepEqual(saved.nmap, {x: 410, y: 240});
-assert.deepEqual(saved.scope, {x: 95, y: workflow.SIZE.height - 122});
+assert.deepEqual(saved.scope, {x: 95, y: workflow.SIZE.height - 142});
 assert.equal(saved.unknown, undefined);
 assert.equal(saved.nikto, undefined);
 const moved = layout.moveNode(saved, 'nmap', 640, 330, workflow.SIZE);
@@ -298,3 +312,32 @@ assert.equal(deniedAnalysis.status, 'error');
 assert.match(deniedAnalysis.error, /Confirm evidence sharing/);
 assert.equal(noConsentPanel.hidden, false);
 console.log('ANALYST: sequential requests, duplicate prevention, stop, failure, identity and citation checks; analyst queue safety passed');
+
+const networkInsightsSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-insights.js', import.meta.url), 'utf8');
+const networkInsights = await import(`data:text/javascript;base64,${Buffer.from(networkInsightsSource).toString('base64')}`);
+const networkStored = {hosts: [{ip: '192.0.2.1', services: [{port: 22, name: 'ssh'}]}], findings: [], scores: [], context: []};
+const liveNetworkCase = {active: true, scan: {services: [{port: 7001, protocol: 'tcp', product: 'Oracle WebLogic admin httpd'}]}};
+assert.deepEqual(networkInsights.buildInsightBrief({assessment: networkStored, live: liveNetworkCase}).networkServices,
+  liveNetworkCase.scan.services, 'Live network highlights belong only to the live target');
+assert.equal(networkInsights.buildInsightBrief({assessment: networkStored, live: {active: true}}).networkServices.length, 0,
+  'Missing live evidence must not borrow a stored target service');
+assert.equal(networkInsights.buildInsightBrief({assessment: networkStored, live: {active: true, previewState: 'running'}}).networkServices.length, 0,
+  'Preview cannot present stored services as actual live evidence');
+assert.equal(networkInsights.buildInsightBrief({assessment: networkStored}).networkServices[0].host_ip, '192.0.2.1');
+const overviewNetworkSource = readFileSync(new URL('../../vulnassess/ui/static/workflow-overview.js', import.meta.url), 'utf8');
+const networkOverview = await import(`data:text/javascript;base64,${Buffer.from(overviewNetworkSource).toString('base64')}`);
+const networkDoc = globalThis.document;
+try {
+  globalThis.document = {createElement: syntheticElement};
+  const networkHolder = syntheticElement('div');
+  networkHolder.replaceChildren = function(...items) {this.children = items;};
+  const networkBrief = networkInsights.buildInsightBrief({assessment: networkStored, live: {...liveNetworkCase, error: 'SYNTHETIC rejected'}});
+  networkOverview.renderAssessmentOverview(networkHolder, networkBrief, () => {});
+  const allText = item => [item.textContent || '', ...item.children.flatMap(allText)];
+  assert.ok(allText(networkHolder).includes('AI network assessment'));
+  assert.ok(allText(networkHolder).includes('7001/tcp · Oracle WebLogic admin httpd'));
+  assert.equal(networkBrief.ai.summary, '', 'Rejected AI prose stays unavailable beside scanner observations');
+} finally {
+  globalThis.document = networkDoc;
+}
+console.log('NETWORK HIGHLIGHTS: target binding, preview isolation and rejected AI separation passed');

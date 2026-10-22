@@ -1,0 +1,111 @@
+/* A results-first view. Details remain available without dominating the page. */
+main {
+  padding-top: 22px;
+}
+.hero {
+  padding: 0 0 16px;
+  gap: 24px;
+}
+h1 {
+  font-size: 30px;
+  letter-spacing: -.8px;
+  margin-bottom: 7px;
+}
+.intro {
+  font-size: 13px;
+}
+.snapshot {
+  background: var(--assessment-palette-fff);
+  border-color: var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 9px;
+  min-width: 280px;
+}
+.snapshot strong {
+  margin: 5px 0;
+  font-size: 14px;
+}
+#status {
+  margin: 0 0 12px;
+  font-size: 10px;
+}
+.metrics {
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.metric {
+  padding: 13px 18px;
+  border-radius: 8px;
+}
+.metric strong {
+  font-size: 26px;
+}
+.metric small {
+  display: inline;
+  margin-left: 8px;
+}
+.summary-grid {
+  margin-bottom: 16px;
+  gap: 16px;
+}
+.panel {
+  border-radius: 8px;
+  padding: 18px;
+}
+h2 {
+  font-size: 17px;
+}
+.section-title {
+  margin-bottom: 12px;
+}
+.fix-card {
+  background: var(--assessment-palette-fff);
+  min-height: 125px;
+  border-radius: 7px;
+  padding: 12px;
+  gap: 6px;
+}
+.fix-card b {
+  -webkit-line-clamp: 2;
+}
+.fix-score {
+  font-size: 18px;
+}
+.ranking-details {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.ranking-details summary {
+  cursor: pointer;
+}
+.ranking-details .footnote {
+  margin-top: 8px;
+}
+.distribution-row {
+  margin: 9px 0;
+}
+.filters {
+  margin-bottom: 15px;
+}
+.findings-panel td {
+  padding-block: 14px;
+}
+@media (min-width: 1450px) {
+  body.detail-open .hero {
+    display: flex;
+  }
+  body.detail-open .snapshot {
+    min-width: 220px;
+    margin-top: 0;
+  }
+}
+@media (max-width: 900px) {
+  h1 {
+    font-size: 27px;
+  }
+  .hero .snapshot {
+    margin-top: 15px;
+  }
+}

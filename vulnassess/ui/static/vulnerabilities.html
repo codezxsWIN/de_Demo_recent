@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Findings & Remediation · VulnAssess</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/vulnerabilities.css">
+  <link rel="stylesheet" href="/static/findings-compact.css">
+  <script type="module" src="/static/vulnerabilities.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-icon">v/a</span> VulnAssess</a>
+    <span class="breadcrumb">/ Findings &amp; remediation</span>
+    <nav aria-label="Assessment navigation"><a href="/workflow?run=scanme-2026-09-24">Workflow</a><a id="report-link" href="/captures">Report ↗</a><button id="refresh" type="button">↻ Refresh results</button></nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div><h1>Findings &amp; remediation</h1><p class="intro">Ranked findings, potential impact and the steps to fix them.</p></div>
+      <div class="snapshot"><span class="live-dot"></span> LATEST COMPLETED ASSESSMENT<strong id="target">Retrieving saved evidence…</strong><span id="snapshot-meta">Read-only · no new scan or model request</span><span id="ai-status"></span></div>
+    </section>
+    <p id="status" role="status" aria-live="polite">Loading integrity-checked assessment…</p>
+    <section id="dashboard" hidden>
+      <section id="metrics" class="metrics" aria-label="Assessment metrics"></section>
+      <div class="summary-grid">
+        <section class="panel fix-first"><div class="section-title"><h2>Fix first</h2><span class="subtle">Highest recorded priorities</span></div><div id="fix-first" class="fix-cards"></div><details class="ranking-details"><summary>How ranking works</summary><p id="rank-note" class="footnote"></p></details></section>
+        <section class="panel distribution"><h2>Priority breakdown</h2><div id="distribution"></div></section>
+      </div>
+      <section class="panel findings-panel"><div class="section-title"><h2>All findings</h2><span id="result-count" class="subtle"></span></div>
+        <div class="filters"><label class="search"><span>Search findings</span><input id="search" type="search" placeholder="Name, CVE, host, port or scanner…" autocomplete="off"></label><label><span>Priority band</span><select id="severity"><option value="all">All bands</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Info</option><option>Unknown</option><option>Unscored</option></select></label><label class="check"><input id="kev-only" type="checkbox"> KEV-listed only</label></div>
+        <div class="table-scroll"><table><thead><tr><th>Rank</th><th>Finding / affected endpoint</th><th>CVE association</th><th>CVSS</th><th>EPSS</th><th>KEV</th><th>Priority</th><th><span class="sr-only">Details</span></th></tr></thead><tbody id="findings"></tbody></table></div>
+        <p id="no-matches" hidden>No findings match these filters. Try another search or priority band.</p>
+      </section>
+      <details class="panel coverage"><summary>Assessment coverage &amp; limitations</summary><div id="coverage"></div></details>
+    </section>
+    <section id="empty" class="panel empty" hidden><span class="empty-icon">◇</span><h2 id="empty-title">No completed live assessment yet</h2><p id="empty-message"></p><a class="primary" href="/workflow?run=scanme-2026-09-24">Open assessment workspace →</a></section>
+  </main>
+  <aside id="detail" aria-label="Finding details" hidden><div class="detail-header"><span class="eyebrow">FINDING INTELLIGENCE</span><button id="close-detail" type="button" aria-label="Close finding details">✕</button></div><div id="detail-heading"></div><div id="detail-tabs" role="tablist" aria-label="Finding detail sections"></div><div id="detail-content" role="tabpanel" tabindex="0"></div></aside>
+  <footer>VulnAssess · Latest completed assessment · Evidence and coverage available in Report</footer>
+</body>
+</html>

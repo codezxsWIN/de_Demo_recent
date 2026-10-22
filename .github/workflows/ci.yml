@@ -30,6 +30,8 @@ jobs:
             pyyaml==6.0.3 \
             packaging==24.2 \
             'psycopg[binary]>=3.2,<4' \
+            pyftpdlib==2.2.0 \
+            cryptography==46.0.7 \
             pytest==9.1.1 \
             pytest-cov==7.1.0 \
             ruff==0.16.6 \

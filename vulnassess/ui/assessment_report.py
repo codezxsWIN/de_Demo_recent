@@ -117,6 +117,17 @@ def _device(data):
 
 def _finding_guidance(finding):
     """Explain only recognized scanner observations; never promote them to proven exploits."""
+    if finding.get("tool") == "harbordesk":
+        from vulnassess.harbordesk_guidance import guidance
+
+        fixture = guidance(finding)
+        if fixture:
+            return (
+                fixture["category"],
+                fixture["meaning"],
+                " ".join(fixture["verify"]),
+                " ".join(fixture["patch"]),
+            )
     title = str(finding.get("title") or "").casefold()
     if finding.get("tool") == "redis-check" and "CVE-2022-0543" in finding.get("cve_ids", []):
         return (
@@ -196,6 +207,7 @@ def _finding_guidance(finding):
 
 def _practical_assessment(result, payload):
     findings = payload.get("findings", [])
+    scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
     groups = {}
     for index, finding in enumerate(findings, 1):
         theme = _finding_guidance(finding)[0]
@@ -215,11 +227,60 @@ def _practical_assessment(result, payload):
         content += f"<div><strong>{text(value)}</strong><span>{text(label)}</span></div>"
     content += "</div>"
     if findings:
-        content += paragraph(
-            "The items below are scanner observations requiring verification, not confirmed exploitation. "
-            "A deterministic priority orders follow-up; it is not a probability of compromise.",
-            "notice",
+        generic_fallbacks = [
+            scores.get(finding.get("id"), {}).get("native_fallback") for finding in findings
+        ]
+        all_generic_tie = (
+            generic_fallbacks
+            and all(generic_fallbacks)
+            and len(set(generic_fallbacks)) == 1
+            and len({scores.get(finding.get("id"), {}).get("risk") for finding in findings}) == 1
         )
+        if all_generic_tie:
+            fallback = generic_fallbacks[0]
+            content += paragraph(
+                f"No CVE match or CVSS severity was recorded. All {len(findings)} observations share "
+                f"the same configured scanner fallback ({fallback}); they are tied for follow-up, "
+                "not ranked by vulnerability severity. These scanner leads are not confirmed exploits.",
+                "notice",
+            )
+        else:
+            content += paragraph(
+                "The items below are scanner observations requiring verification, not confirmed exploitation. "
+                "A deterministic priority orders follow-up; it is not a probability of compromise.",
+                "notice",
+            )
+        indexed = list(enumerate(findings, 1))
+        indexed.sort(
+            key=lambda pair: (
+                scores.get(pair[1].get("id"), {}).get("risk") is None,
+                -float(scores.get(pair[1].get("id"), {}).get("risk") or 0),
+                pair[0],
+            )
+        )
+        content += '<h3>Follow-up order · recorded engine priority</h3><ol class="triage-queue">'
+        for position, (original_index, finding) in enumerate(indexed, 1):
+            score = scores.get(finding.get("id"))
+            if score is None or score.get("risk") is None:
+                rank = f"{position}. Unscored · review required"
+            elif score.get("native_fallback"):
+                tied = sum(
+                    candidate.get("risk") == score.get("risk")
+                    and candidate.get("native_fallback") == score.get("native_fallback")
+                    for candidate in scores.values()
+                )
+                rank = (
+                    f"Tied · {score.get('risk')}/100 · {score.get('native_fallback')} "
+                    f"(not CVSS; {tied} observation(s) share this score)"
+                )
+            else:
+                rank = f"{position}. {score.get('risk')}/100 · {score.get('band', 'Unclassified')}"
+            content += (
+                f"<li><strong>{text(rank)}</strong> · "
+                f'<a href="#finding-{original_index}">{text(finding.get("title") or finding.get("id"))}</a>'
+                "</li>"
+            )
+        content += "</ol>"
         content += '<h3>Evidence grouped by what to check</h3><div class="report-groups">'
         for theme, items in groups.items():
             content += f"<article><h4>{text(theme)} · {len(items)}</h4><ul>"
@@ -417,13 +478,26 @@ def _findings(payload, proofs=(), policy=None):
                 + "</details>"
             )
         score = scores.get(finding["id"])
+        if score is None:
+            priority_label = " · unscored"
+        elif score.get("native_fallback"):
+            tied = sum(
+                1
+                for candidate in payload.get("scores", [])
+                if candidate.get("native_fallback") == score.get("native_fallback")
+                and candidate.get("risk") == score.get("risk")
+            )
+            priority_label = (
+                f" · triage {score.get('risk')} / 100 · {score.get('native_fallback')}"
+                f" · tied with {max(tied - 1, 0)} other observation(s), not CVSS severity"
+            )
+        else:
+            priority_label = (
+                f" · priority {score.get('risk')} / 100 ({score.get('band', 'Unknown')})"
+            )
         content += paragraph(
             f"{finding.get('tool', 'Scanner')} · {finding.get('port', 'Unknown')}/{finding.get('protocol', 'unknown')}"
-            + (
-                f" · priority {score.get('risk')} / 100 ({score.get('band', 'Unknown')})"
-                if score is not None
-                else " · unscored"
-            ),
+            + priority_label,
             "finding-strip",
         )
         if score is not None:
@@ -738,17 +812,35 @@ def _reading_view(batches, plan):
                 for identity in claim["evidence_ids"]
             }
         )
-        return (
+        content = (
             '<p class="report-citation"><a href="#ai-audit">'
             + text(f"Source: batch {item['batch']} · {', '.join(refs)}")
             + "</a></p>"
         )
+        quotes = list(
+            dict.fromkeys(
+                (quote["evidence_id"], quote["text"])
+                for claim in analysis["claims"]
+                if claim["path"] in paths
+                for quote in claim["quotes"]
+            )
+        )
+        if quotes:
+            content += '<details class="ai-inline-proof"><summary>Supporting evidence for this interpretation</summary>'
+            for identity, quote in quotes:
+                content += (
+                    f"<blockquote><strong>{text(identity)}</strong> {text(quote)}</blockquote>"
+                )
+            content += "</details>"
+        return content
 
     content = f'<div class="ai-reading-view ai-layout-{plan["layout"]}">'
     for ref in plan["executive"]:
         item, analysis = source(ref)
+        content += f'<div data-claim-ref="{text(ref)}">'
         content += paragraph(analysis["summary"], "ai-executive")
         content += citations(item, analysis, {"summary"})
+        content += "</div>"
     headings = {
         "actions": "Recommended actions",
         "context": "Why this context matters",
@@ -761,6 +853,7 @@ def _reading_view(batches, plan):
         content += f'<div class="ai-reading-section"><h3>{headings[kind]}</h3>'
         for number, ref in enumerate(plan[kind], 1):
             item, analysis = source(ref)
+            content += f'<div data-claim-ref="{text(ref)}">'
             offset = item.get("offset")
             if kind == "actions":
                 action = analysis["recommended_actions"][offset]
@@ -804,17 +897,131 @@ def _reading_view(batches, plan):
             else:
                 content += paragraph(analysis["uncertainties"][offset])
                 content += citations(item, analysis, {f"uncertainties.{offset}"})
+            content += "</div>"
         content += "</div>"
     return content + "</div>"
+
+
+def _network_observations(payload):
+    endpoints = [
+        (host, service) for host in payload.get("hosts", []) for service in host.get("services", [])
+    ]
+    if not endpoints:
+        return ""
+    content = '<div class="ai-network-evidence"><h3>Observed network evidence</h3>'
+    content += paragraph(
+        "Scanner observations supporting this assessment. Service fingerprints identify verification candidates; they do not establish vulnerability or authentication status.",
+        "meta",
+    )
+    content += '<ul class="network-endpoints">'
+    for host, service in endpoints[:8]:
+        role = endpoint_context(service)["role_candidate"].replace("_", " ")
+        content += (
+            "<li><strong>"
+            + text(
+                f"{host['ip']} · {service.get('port', 'unknown')}/{service.get('protocol') or 'unknown'}"
+            )
+            + "</strong> "
+            + text(service.get("product") or service.get("name") or "Unknown service")
+        )
+        content += paragraph("Endpoint role candidate: " + role, "meta") + "</li>"
+    content += (
+        '</ul><p><a href="#context">Inspect endpoint controls and source observations</a></p></div>'
+    )
+    if len(endpoints) > 8:
+        content += paragraph(
+            f"Showing 8 of {len(endpoints)} service observations. The context section retains the complete inventory.",
+            "meta",
+        )
+    return content
+
+
+def _ai_highlights(batches, plan, payload):
+    """A skim-first view of validated claims, not a second generated assessment."""
+    sources = catalog(batches)
+
+    def selected(kind, limit=1):
+        items = [sources[ref] for ref in plan.get(kind, [])[:limit]]
+        if kind == "actions":
+            return [
+                batches[item["batch"] - 1][0]["analysis"]["recommended_actions"][item["offset"]][
+                    "action"
+                ]
+                for item in items
+            ]
+        return [item["text"] for item in items]
+
+    summary = selected("executive")
+    context = selected("context")
+    actions = selected("actions", 2)
+    uncertainties = selected("uncertainties")
+    findings = payload.get("findings", [])
+    scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
+    generic_native_only = bool(findings) and all(
+        not finding.get("cve_ids")
+        and scores.get(finding.get("id"), {}).get("native_fallback")
+        and scores.get(finding.get("id"), {}).get("base_score") is None
+        for finding in findings
+    )
+    if generic_native_only:
+        header_count = sum(
+            str(finding.get("title") or "")
+            .casefold()
+            .startswith("suggested security header missing:")
+            for finding in findings
+        )
+        method_lead_count = sum(
+            "junk http methods" in str(finding.get("title") or "").casefold()
+            for finding in findings
+        )
+        details = []
+        if header_count:
+            details.append(f"{header_count} response-header hardening suggestion(s)")
+        if method_lead_count:
+            details.append(
+                f"{method_lead_count} HTTP-method lead(s), with a scanner false-positive warning"
+            )
+        summary = [
+            f"{len(findings)} scanner observations recorded: {', '.join(details) or 'verification leads'}. "
+            "No CVE match, CVSS severity or verified exploit was established by this assessment."
+        ]
+    content = '<div class="assessment-highlights" aria-label="Assessment essentials"><p class="eyebrow">READ THIS FIRST · ASSESSMENT ESSENTIALS</p>'
+    content += (
+        '<h3 class="highlight-verdict">'
+        + text(
+            summary[0] if summary else "Read the retained observations before deciding what to fix."
+        )
+        + "</h3>"
+    )
+    content += (
+        '<p class="highlight-counts">'
+        + text(
+            f"{len(payload.get('findings', []))} recorded findings · "
+            f"{sum(len(host.get('services', [])) for host in payload.get('hosts', []))} observed services · "
+            "AI claims passed current evidence checks — not a safety certificate"
+        )
+        + '</p><div class="highlight-grid">'
+    )
+    for label, values, fallback in (
+        ("WHY IT MATTERS", context, "Context has not been established by this analysis."),
+        ("DO NEXT", actions, "No AI action was retained. Review the findings and coverage gaps."),
+        (
+            "STILL UNKNOWN",
+            uncertainties,
+            "These bounded checks do not establish that the target is safe or that unknown controls are absent.",
+        ),
+    ):
+        content += '<div class="highlight-card"><h4>' + label + "</h4>"
+        for value in values or [fallback]:
+            content += paragraph(value)
+        content += "</div>"
+    return content + '</div><a href="#context">Inspect endpoint evidence →</a></div>'
 
 
 def _ai(result, payload, composition=None):
     content = '<section id="ai"><h2>AI explanation and verification plan</h2>'
     status = result.get("ai_status", "not_attempted")
     content += paragraph("Recorded AI status: " + status.replace("_", " "), "meta")
-    content += paragraph(
-        "Assessment highlights and recommended next steps, with supporting evidence available in the appendix."
-    )
     analyst = result.get("analyst")
     if status != "validated" or not isinstance(analyst, dict):
         return (
@@ -823,6 +1030,7 @@ def _ai(result, payload, composition=None):
                 "Evidence-only report. No validated, retained AI analysis is available. No rejected output is included.",
                 "notice",
             )
+            + _network_observations(payload)
             + "</section>"
         )
     try:
@@ -838,9 +1046,15 @@ def _ai(result, payload, composition=None):
                 "Needs review: retained AI claim metadata, labels or supporting citations do not pass the current evidence checks. All AI prose is withheld; scan evidence remains available.",
                 "notice",
             )
+            + _network_observations(payload)
             + "</section>"
         )
+    validation_status = paragraph(
+        f"Current report validation: passed · model {analyst.get('model', 'not recorded')}",
+        "ai-validation-passed",
+    )
     document = composition or analyst.get("report_document")
+    plan = {}
     if document:
         try:
             plan = validate_document(document, batches)
@@ -875,12 +1089,16 @@ def _ai(result, payload, composition=None):
             f"Report composed by {document['model']} · {plan['layout']} layout · selections checked against validated source claims.",
             "report-composed",
         )
-    content += paragraph(
-        f"{len(payload.get('findings', []))} recorded observations · {len(batches)} validated analysis batch(es). "
-        "Selected assessment highlights follow; the findings section and appendix retain the full record.",
-        "meta",
-    )
-    content += _reading_view(batches, plan)
+    if result.get("scan_status") == "partial":
+        content += paragraph(
+            "Partial scan — requested checks failed. Coverage is incomplete even if AI validated.",
+            "notice",
+        )
+    content += _ai_highlights(batches, plan, payload)
+    content += validation_status
+    content += '<details id="ai-details" class="report-audit"><summary>Detailed AI explanation, actions and supporting evidence</summary>'
+    content += _network_observations(payload)
+    content += _reading_view(batches, plan) + "</details>"
     content += '<details id="ai-audit" class="report-audit"><summary>Evidence and validation appendix · all source batches</summary>'
     content += paragraph(
         "AI explains retained evidence; it neither authorizes scans nor edits priorities. Model confidence is self-reported, not a measured probability of correctness.",
@@ -930,7 +1148,7 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     content = '<!doctype html><html lang="en" class="report-theme"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">'
     content += "<title>VulnAssess · Assessment report</title>" + stylesheet + "</head><body>"
     if not standalone:
-        content += f'<nav class="toolbar" aria-label="Report actions"><a href="/captures/{identity}">Evidence &amp; provenance</a><a href="/captures/{identity}/report/download" download="VulnAssess-{identity}.html">Download report · HTML</a><span>Print / save PDF: Ctrl+P or your browser’s Print menu</span></nav>'
+        content += f'<nav class="toolbar" aria-label="Report actions"><a href="/captures/{identity}">Evidence &amp; provenance</a><a href="/captures/{identity}/report/download" download="VulnAssess-{identity}.html">Download report · HTML</a><a href="/vulnerabilities">Findings &amp; remediation ↗</a><span>Print / save PDF: Ctrl+P or your browser’s Print menu</span></nav>'
     content += (
         '<main><header><p class="eyebrow">VULNASSESS / EVIDENCE-LED ASSESSMENT</p><h1>'
         + (
@@ -947,7 +1165,8 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
             "notice",
         )
     content += (
-        facts(
+        '<details class="report-record"><summary>Collection details · timestamps, address and saved record</summary>'
+        + facts(
             [
                 ("Collection", result.get("scan_status")),
                 ("Captured at", record.get("captured_at")),
@@ -956,12 +1175,13 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
                 ("Capture ID", record["capture_id"]),
             ]
         )
-        + "</header>"
+        + "</details></header>"
     )
-    content += '<nav class="contents" aria-label="Report sections"><a href="#brief">Brief</a><a href="#practical">What it means</a>'
+    content += '<nav class="contents" aria-label="Report sections"><a href="#ai">Read this first</a><a href="#brief">Brief</a><a href="#practical">What it means</a>'
     if payload.get("self_defence"):
         content += '<a href="#device">Your device</a>'
     content += '<a href="#decisions">Conclusions &amp; decisions</a><a href="#findings">Findings</a><a href="#context">Context &amp; coverage</a><a href="#ai">AI &amp; next steps</a><a href="#provenance">Provenance</a></nav>'
+    content += _ai(result, payload, composition)
     content += '<section id="brief"><h2>Assessment brief</h2>'
     content += paragraph(
         "Historical, read-only report. Opening or downloading it does not scan, refresh intelligence, contact AI or restore permission to scan.",
@@ -999,7 +1219,6 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     content += (
         _device(payload.get("self_defence"))
         + _derivations(record, decision_focus)
-        + _ai(result, payload, composition)
         + _practical_assessment(result, payload)
         + _findings(payload, record.get("bounded_protocol_proofs", []), policy)
         + _context(payload)
@@ -1058,7 +1277,26 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
         "Hashes check consistency with local receipts, not independent authenticity. Someone able to replace both evidence and hashes can replace the record. Raw scanner files remain unchanged. This report is derived; the saved checkpoint is the source of record.",
         "muted",
     )
-    content += "</section><footer>VulnAssess · Observations, deterministic priorities and AI interpretation remain separate.</footer></main></body></html>"
+    content += "</section><footer>VulnAssess · Observations, deterministic priorities and AI interpretation remain separate.</footer></main>"
+    if not standalone:
+        content += (
+            f'<button id="helpy-toggle" aria-expanded="false" aria-controls="helpy-panel">✦ Ask Helpy</button>'
+            f'<aside id="helpy-panel" data-capture="{identity}" aria-label="Helpy assessment assistant" hidden>'
+            '<header><h2>✦ Helpy</h2><p>Your evidence-linked assessment guide</p><button id="helpy-close" aria-label="Close Helpy">Close</button></header>'
+            '<p class="meta">This saved assessment only. No scanning or system changes. AI selects report excerpts; it does not independently verify them.</p>'
+            '<label>AI provider <select id="helpy-provider"><option value="google">Google Gemini</option><option value="groq">Groq</option><option value="ollama">Local Ollama</option></select></label>'
+            '<label><input type="checkbox" id="helpy-share"> Allow my question and bounded report excerpts to be sent to the selected cloud provider.</label>'
+            '<div class="helpy-prompts"><button data-helpy-question="Highlight the most important conclusion, next action and uncertainty in this report.">Highlight key parts</button><button data-helpy-question="Could this finding actually be exploited? What evidence supports that, and what is not established?">Could this be exploited?</button><button data-helpy-question="Give me safe, non-destructive steps to validate the highest-priority finding in this authorized lab.">Show lab validation steps</button><button data-helpy-question="What application-layer testing is missing from this assessment?">What testing is missing?</button></div>'
+            '<div id="helpy-transcript" role="log" aria-label="Conversation transcript" aria-live="polite"></div>'
+            '<label for="helpy-question">Your question / editable voice transcript</label><textarea id="helpy-question" maxlength="600" rows="3" placeholder="Ask about this assessment…"></textarea>'
+            '<label><input type="checkbox" id="helpy-voice-consent"> Enable dictation. My browser may send audio to its speech service; this is separate from the AI provider.</label>'
+            '<div class="helpy-actions"><button id="helpy-listen">Start dictation</button><button id="helpy-send">Ask Helpy</button><button id="helpy-stop">Stop speaking</button></div>'
+            '<label><input type="checkbox" id="helpy-speak"> Speak replies using my browser’s available voices (voice services may be online).</label>'
+            '<p id="helpy-status" role="status">Ready. Microphone off.</p><button id="helpy-download">Download transcript</button><button id="helpy-clear">Clear conversation</button>'
+            '<p class="meta">Conversation stays in this tab unless sent to AI or downloaded. Dictation never sends a question automatically.</p></aside>'
+            '<script src="/static/helpy.js" defer></script>'
+        )
+    content += "</body></html>"
     return content
 
 

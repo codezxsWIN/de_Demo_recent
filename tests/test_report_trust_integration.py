@@ -13,6 +13,61 @@ from vulnassess.errors import LLMUnavailable
 from vulnassess.ui import assessment_report
 
 
+def test_evidence_reference_digits_are_not_factual_numbers_or_numeric_permission():
+    case = {"services": [], "findings": []}
+    evidence = [{"id": "E617", "text": "A retained observation"}]
+    analyst.validate_prose_identifiers(["Review the observation in E617."], case, evidence)
+    for prose in (
+        "There are 617 vulnerabilities.",
+        "E617 describes 617 vulnerabilities.",
+        "Review E618.",
+        "Review E617.52.",
+    ):
+        with pytest.raises(LLMUnavailable, match="unsupported numbers"):
+            analyst.validate_prose_identifiers([prose], case, evidence)
+
+
+def test_report_accepts_valid_inline_reference_and_still_withholds_invented_numbers(tmp_path):
+    _, directory = setup_report(tmp_path)
+    record = capture_history.load(directory.parent, directory.name)
+    batch = record["result"]["analyst"]
+    batch["evidence"][0]["id"] = "E617"
+    for claim in batch["analysis"]["claims"]:
+        claim["evidence_ids"] = ["E617"]
+        for quote in claim["quotes"]:
+            quote["evidence_id"] = "E617"
+    batch["analysis"]["summary"] = "SYNTHETIC observation described in E617."
+    document = assessment_report.render(record)
+    assert "Current report validation: passed" in document
+    assert "SYNTHETIC observation described in E617." in document
+    assert "Supporting evidence for this interpretation" in document
+    assert document.index('id="ai"') < document.index('id="decisions"')
+    batch["analysis"]["summary"] = "SYNTHETIC observation described in E617 with 617 findings."
+    document = assessment_report.render(record)
+    assert "Current report validation: needs review" in document
+    assert "with 617 findings" not in document
+
+
+def test_network_highlights_are_scanner_records_with_escaped_product_text(tmp_path):
+    _, directory = setup_report(tmp_path, ai=False)
+    record = capture_history.load(directory.parent, directory.name)
+    record["payload"]["hosts"][0]["services"] = [
+        {
+            "port": 7001,
+            "protocol": "tcp",
+            "name": "http",
+            "product": "Oracle WebLogic admin httpd <script>unsafe</script>",
+        }
+    ]
+    document = assessment_report.render(record)
+    assert "Observed network evidence" in document
+    assert "7001/tcp" in document
+    assert "Endpoint role candidate: management interface" in document
+    assert "&lt;script&gt;unsafe&lt;/script&gt;" in document
+    assert "<script>unsafe</script>" not in document
+    assert "Current report validation: passed" not in document
+
+
 def test_model_case_separates_endpoint_controls_and_preserves_source():
     payload = demo_payload()
     host = payload["hosts"][0]

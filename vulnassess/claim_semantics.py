@@ -99,7 +99,7 @@ def _port_groups(text: str) -> list[tuple[int, int, set[int]]]:
         (
             match.start(),
             match.end(),
-            {int(n) for n in re.findall(r"\d+", match.group(match.lastgroup))},
+            {int(n) for n in re.findall(r"\d+", match.group(match.lastgroup or 0))},
         )
         for match in _PORT.finditer(text)
     ]

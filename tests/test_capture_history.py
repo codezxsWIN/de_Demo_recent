@@ -211,7 +211,8 @@ def test_saved_assessments_are_ordered_by_recorded_time_not_random_id(tmp_path):
     capture_history.save(new, result, config_hash="config")
     for listing in (capture_history.listing, capture_history._listing_for_review):
         assert [row["capture_id"] for row in listing(tmp_path)["captures"]] == [
-            "assessment-aa-new", "assessment-zz-old"
+            "assessment-aa-new",
+            "assessment-zz-old",
         ]
 
 

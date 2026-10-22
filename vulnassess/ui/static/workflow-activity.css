@@ -170,3 +170,9 @@ body[data-workspace="workflow"] .workspace-filters { padding-block: 10px; }
   .workflow-sidebar { width: 100%; flex: none; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
   body[data-workspace="workflow"] .flow-workspace > .node-inspector { width: 100%; flex: none; height: auto; max-height: 65dvh; border-left: 0; border-top: 1px solid var(--flow-line); }
 }
+.viewport[data-view="canvas"] .node-title { font-size: 22px; line-height: 1.15; }
+.node-summary { display: none; }
+.viewport[data-view="canvas"] .node-summary { display: block; margin-top: 6px; max-width: 180px; padding: 2px 8px; border: 1px solid var(--flow-line); border-radius: 10px; background: var(--flow-bg); font: 12px/1.25 var(--flow-font); color: var(--flow-muted); white-space: nowrap; }
+.viewport[data-view="canvas"] .connection { stroke-linecap: round; stroke-linejoin: round; }
+.connection-separator { fill: none; stroke: var(--flow-bg); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+.viewport[data-view="canvas"] .connection.optional { stroke-dasharray: 5 8; }

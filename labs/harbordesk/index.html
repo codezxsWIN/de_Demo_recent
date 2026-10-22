@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HarborDesk · Local operations &amp; network lab</title>
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <div class="lab-banner"><strong>LOCAL SECURITY TRAINING LAB</strong> · Intentionally vulnerable · Fictional data only · Never publish or use real credentials</div>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+  <div class="shell">
+    <aside>
+      <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">H</span><span>HarborDesk<small>LOCAL OPERATIONS LAB</small></span></a>
+      <p class="nav-label">WORKSPACE</p>
+      <nav aria-label="Workspace">
+        <a href="#overview" data-tab="overview">Overview</a>
+        <a href="#network" data-tab="network">Network services</a>
+        <a href="#customers" data-tab="customers">Customers</a>
+        <a href="#orders" data-tab="orders">Orders</a>
+        <a href="#support" data-tab="support">Support</a>
+        <a href="#documents" data-tab="documents">Documents</a>
+        <a href="#settings" data-tab="settings">Settings</a>
+        <a href="#admin" data-tab="admin">Admin</a>
+        <a href="#lab-guide" data-tab="lab-guide">Lab comparison</a>
+      </nav>
+      <div class="sidebar-footer"><span class="dot"></span> Local test boundary<p>Fictional records. Loopback services.<br>Use only on this computer.</p></div>
+    </aside>
+    <main id="main" tabindex="-1">
+      <header><span>Workspace / <strong id="breadcrumb">Overview</strong></span><div class="session"><span id="session-label">Guest session</span><a href="#settings">Sign in</a></div></header>
+      <section id="overview" class="panel" aria-labelledby="overview-title">
+        <div class="page-heading"><div><p class="eyebrow">HARBOR OPERATIONS</p><h1 id="overview-title">Workspace overview</h1><p class="muted">Operations records and local network services for repeatable security assessment.</p></div><span class="tag">FICTIONAL ORGANISATION</span></div>
+        <div class="overview-grid">
+          <a class="card shortcut" href="#network"><p class="eyebrow">NETWORK</p><h2>Network services →</h2><p>Inspect local FTP and TLS service inventory.</p></a>
+          <a class="card shortcut" href="#customers"><p class="eyebrow">DIRECTORY</p><h2>Customers →</h2><p>Search names and inspect account records.</p></a>
+          <a class="card shortcut" href="#orders"><p class="eyebrow">OPERATIONS</p><h2>Orders →</h2><p>Review parcels and account ownership.</p></a>
+          <a class="card shortcut" href="#support"><p class="eyebrow">SERVICE DESK</p><h2>Support →</h2><p>Browse tickets and read case details.</p></a>
+        </div>
+        <div class="columns"><section class="card"><h2>Search the workspace</h2><form action="/search" method="get"><label for="site-query">Search phrase</label><div class="input-row"><input id="site-query" name="q" value="shipments" maxlength="500"><button>Search workspace</button></div></form></section><section class="card"><h2>Your session</h2><p id="overview-session">Browsing as a guest. Sign in with a fictional account to inspect session behavior.</p><a class="button secondary" href="#settings">Account &amp; sign in</a></section></div>
+        <div class="notice"><strong>Local training environment.</strong> This lab includes intentionally insecure application and network service configurations. All records are fictional. Inventory describes declared configuration; assessment findings must come from actual checks.</div>
+      </section>
+      <section id="network" class="panel" aria-labelledby="network-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">NETWORK SECURITY</p><h1 id="network-title">Network services</h1><p class="muted">Real service protocols within the local loopback test boundary.</p></div><button id="network-refresh" class="secondary">Refresh inventory</button></div>
+        <section class="card"><h2>Declared service inventory</h2><p class="muted">Loaded from <code>/__lab__/inventory</code>. A declared mode is configuration, not a scanner result or proof that a listener is reachable.</p><div id="network-result" class="result" aria-live="polite"></div><div id="network-detail" class="detail" hidden></div></section>
+        <div class="columns spaced"><section class="card"><h2>FTP comparison</h2><p>Loopback port <code>2121</code> permits anonymous FTP in the vulnerable configuration. Port <code>2122</code> provides the authentication comparison. Both use plaintext transport.</p><p class="muted">Use an FTP client or a protocol-aware assessment. Browser HTTP navigation does not test FTP authentication.</p></section><section class="card"><h2>TLS management comparison</h2><p>Loopback port <code>8443</code> uses an expired certificate and unauthenticated management. Port <code>8444</code> provides a certificate within its validity period and an authenticated comparison.</p><p class="muted">The comparison certificate is self-signed; validity dates do not establish browser trust. Inventory alone does not validate TLS or access controls.</p></section></div>
+        <div class="notice"><strong>Scope: this computer only.</strong> These are local test services, not internet targets. Start the backend with <code>--network</code> to enable the listeners. Disabled inventory does not indicate a scan failure.</div>
+        <div class="quick-links"><a href="http://127.0.0.1:8765/workflow?run=scanme-2026-09-24" target="_blank" rel="noopener">Open VulnAssess assessment ↗</a><a href="http://127.0.0.1:8765/vulnerabilities" target="_blank" rel="noopener">Open findings dashboard ↗</a></div><p class="muted spaced">These links open the separate local VulnAssess service; no assessment request is made automatically.</p>
+      </section>
+      <section id="customers" class="panel" aria-labelledby="customers-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">DIRECTORY</p><h1 id="customers-title">Customers</h1><p class="muted">Search the fictional directory by name.</p></div></div>
+        <section class="card"><form id="customer-form" action="/api/customers" method="get"><label for="customer-query">Customer name</label><div class="input-row"><input id="customer-query" name="q" value="Avery" maxlength="250"><button>Search</button><button id="customer-all" type="button" class="secondary">Show all</button></div></form><div id="customer-result" class="result" aria-live="polite"></div><div id="customer-detail" class="detail" hidden></div></section>
+      </section>
+      <section id="orders" class="panel" aria-labelledby="orders-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">OPERATIONS</p><h1 id="orders-title">Orders</h1><p class="muted">Order 2001 belongs to demo; 2002 belongs to another fictional account.</p></div><button id="orders-refresh" class="secondary">Refresh orders</button></div>
+        <section class="card"><h2>Fixture orders</h2><div id="orders-list" class="result" aria-live="polite"></div></section>
+        <section class="card spaced"><h2>Order details</h2><form id="order-form"><label for="order-id">Order number</label><div class="input-row"><input id="order-id" type="number" min="1" step="1" required value="2001"><button>View order</button></div></form><div id="order-result" class="result" aria-live="polite"></div></section>
+      </section>
+      <section id="support" class="panel" aria-labelledby="support-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">SERVICE DESK</p><h1 id="support-title">Support tickets</h1><p class="muted">Review status, account ownership, and case details.</p></div><button id="tickets-refresh" class="secondary">Refresh tickets</button></div>
+        <section class="card"><label for="ticket-filter">Filter loaded tickets</label><input id="ticket-filter" type="search" placeholder="Filter subject, account, or status"><div id="tickets-list" class="result" aria-live="polite"></div></section>
+        <section class="card spaced"><h2>Ticket details</h2><form id="ticket-form"><label for="ticket-id">Ticket number</label><div class="input-row"><input id="ticket-id" type="number" min="1" step="1" required value="3001"><button>View ticket</button></div></form><div class="quick-links"><button type="button" class="text-button" data-record="ticket" data-id="3001">Ticket 3001</button><button type="button" class="text-button" data-record="ticket" data-id="3002">Ticket 3002</button></div><div id="ticket-result" class="result" aria-live="polite"></div></section>
+      </section>
+      <section id="documents" class="panel" aria-labelledby="documents-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">RECORDS</p><h1 id="documents-title">Documents</h1><p class="muted">Inspect metadata and fictional document contents.</p></div><button id="documents-refresh" class="secondary">Refresh documents</button></div>
+        <section class="card"><h2>Fixture documents</h2><div id="documents-list" class="result" aria-live="polite"></div></section>
+        <section class="card spaced"><h2>Document details</h2><form id="document-form"><label for="document-id">Document number</label><div class="input-row"><input id="document-id" type="number" min="1" step="1" required value="4001"><button>Open document</button></div></form><div id="document-result" class="result" aria-live="polite"></div></section>
+      </section>
+      <section id="settings" class="panel" aria-labelledby="settings-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">ACCOUNT</p><h1 id="settings-title">Settings &amp; sign in</h1><p class="muted">Use only the supplied training credentials.</p></div></div>
+        <div class="columns"><section class="card"><h2>Sign in to HarborDesk</h2><p class="muted">Demo account: <code>demo</code> / <code>training-demo</code></p><form id="login-form" action="/api/login" method="post"><label for="username">Username</label><input id="username" name="username" required maxlength="100" value="demo" autocomplete="off" autocapitalize="none"><label for="password">Password</label><input id="password" name="password" type="password" required maxlength="100" value="training-demo" autocomplete="off"><button class="spaced">Sign in</button></form><div id="login-result" class="result" role="status"></div></section><section class="card"><div class="section-heading"><h2>Current profile</h2><button id="profile-refresh" class="secondary">Refresh</button></div><p class="muted">Profile from the current local server session.</p><div id="profile-result" class="result" aria-live="polite"></div></section></div>
+      </section>
+      <section id="admin" class="panel" aria-labelledby="admin-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">ADMINISTRATION</p><h1 id="admin-title">Admin tools</h1><p class="muted">Local views for the fictional organisation.</p></div></div>
+        <div class="columns"><section class="card"><h2>Operations administration</h2><p>Inspect the server-rendered administration page and its access behavior.</p><a class="button" href="/admin">Open admin console →</a></section><section class="card"><h2>Environment configuration</h2><p>Inspect the intentionally exposed fixture configuration.</p><a class="button secondary" href="/debug/config">Open debug configuration →</a></section></div><a href="#lab-guide">Compare secure routes →</a>
+      </section>
+      <section id="lab-guide" class="panel" aria-labelledby="guide-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">LOCAL LAB REFERENCE</p><h1 id="guide-title">Compare application behavior</h1><p class="muted">Compare routes using the same input. A route link is not proof of a finding.</p></div></div>
+        <section class="card"><h2>Search comparison</h2><form id="comparison-form"><label for="comparison-query">Shared search input</label><div class="input-row"><input id="comparison-query" value="Avery" maxlength="250"><button>Update comparison links</button></div></form><div id="comparison-links" class="comparison-grid"></div></section>
+        <section class="card spaced"><h2>Access &amp; configuration</h2><div class="comparison-grid"><article><h3>Other account's order</h3><a href="/api/orders/2002">Vulnerable order 2002</a><a href="/secure/api/orders/2002">Secure order 2002</a></article><article><h3>Administration</h3><a href="/admin">Vulnerable admin</a><a href="/secure/admin">Secure admin</a></article><article><h3>Debug configuration</h3><a href="/debug/config">Vulnerable configuration</a><a href="/secure/debug/config">Secure configuration</a></article></div><p class="muted">Access checks may return 401 or 403 for the current account. Missing routes may require the expanded lab backend.</p><a href="#network">Compare network service configurations →</a></section>
+        <section class="card spaced"><h2>Owner's answer key</h2><p class="muted">Expected behavior supplied by the author, separate from scanner evidence.</p><button id="guide-refresh" class="secondary">Load answer key</button><div id="case-list" class="result" aria-live="polite"></div><a href="/__lab__/ground-truth">Machine-readable answer key →</a></section>
+      </section>
+      <footer>HarborDesk · Fictional local training lab · No real customers or secrets. Stop the local service with Ctrl+C in its terminal.</footer>
+    </main>
+  </div>
+</body>
+</html>

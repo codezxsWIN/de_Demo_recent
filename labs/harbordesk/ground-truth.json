@@ -1,0 +1,131 @@
+{
+  "lab_id": "harbordesk-local-v1",
+  "classification": "Intentionally vulnerable custom application, fictional fixtures only",
+  "real_cves": [],
+  "required_boundary": "127.0.0.1 only; no tunnels, port forwarding or public hosting",
+  "cases": [
+    {
+      "id": "HD-01",
+      "name": "Missing browser security headers",
+      "endpoint": "/",
+      "expected": "CSP, nosniff, frame, referrer and permissions protections missing",
+      "current_scanner_coverage": "Bounded Nikto header checks; confirm retained results"
+    },
+    {
+      "id": "HD-02",
+      "name": "SQL injection in customer search",
+      "endpoint": "/api/customers?q=",
+      "expected": "A read-only predicate injection broadens results from one fixture customer to all three",
+      "current_scanner_coverage": "Lab verifier; current bounded production scan does not claim SQLi testing"
+    },
+    {
+      "id": "HD-03",
+      "name": "SQL authentication bypass",
+      "endpoint": "/api/login",
+      "expected": "Invalid password fails normally; crafted training username bypasses its password predicate",
+      "current_scanner_coverage": "Lab verifier; not claimed by the current bounded scanner"
+    },
+    {
+      "id": "HD-04",
+      "name": "Cross-account order access / IDOR",
+      "endpoint": "/api/orders/2002",
+      "expected": "The demo account can read other-demo's fictional order",
+      "current_scanner_coverage": "Lab verifier; requires account-aware testing beyond service discovery"
+    },
+    {
+      "id": "HD-05",
+      "name": "Reflected HTML / XSS sink",
+      "endpoint": "/search?q=",
+      "expected": "Input is reflected unescaped into an HTML document",
+      "current_scanner_coverage": "Lab verifier confirms raw reflection, not browser script execution"
+    },
+    {
+      "id": "HD-06",
+      "name": "Unauthenticated administration",
+      "endpoint": "/admin",
+      "expected": "Admin page returned without a session",
+      "current_scanner_coverage": "Lab verifier; not automatically a CVE"
+    },
+    {
+      "id": "HD-07",
+      "name": "Exposed debug configuration",
+      "endpoint": "/debug/config",
+      "expected": "Dummy debug configuration available without login",
+      "current_scanner_coverage": "Lab verifier; contains no real credentials"
+    },
+    {
+      "id": "HD-08",
+      "name": "Unprotected session cookie",
+      "endpoint": "/api/login",
+      "expected": "Fixture session cookie has no HttpOnly, Secure or SameSite flags",
+      "current_scanner_coverage": "Lab verifier; Secure requires HTTPS for a production deployment"
+    },
+    {
+      "id": "HD-09",
+      "name": "Cross-account support ticket access",
+      "endpoint": "/api/tickets/3002",
+      "expected": "Demo client reads another fixture account's ticket",
+      "current_scanner_coverage": "HarborDesk bounded differential verifier"
+    },
+    {
+      "id": "HD-10",
+      "name": "Cross-account document access",
+      "endpoint": "/api/documents/4002",
+      "expected": "Demo client reads another fixture account's document",
+      "current_scanner_coverage": "HarborDesk bounded differential verifier"
+    },
+    {
+      "id": "HD-11",
+      "name": "Unauthenticated profile disclosure",
+      "endpoint": "/api/profile",
+      "expected": "Fictional profile returned without a session",
+      "current_scanner_coverage": "HarborDesk bounded verifier"
+    },
+    {
+      "id": "HD-13",
+      "name": "Anonymous FTP fixture disclosure",
+      "endpoint": "ftp://127.0.0.1:2121/operations.csv",
+      "expected": "Actual FTP login and RETR of the isolated fictional operations fixture without a named account",
+      "current_scanner_coverage": "Actual FTP protocol check; not a banner-only assumption"
+    },
+    {
+      "id": "HD-14",
+      "name": "Unencrypted FTP session and transfer",
+      "endpoint": "ftp://127.0.0.1:2121",
+      "expected": "Successful plaintext FTP login/transfer; no TLS negotiated",
+      "current_scanner_coverage": "Actual FTP protocol check"
+    },
+    {
+      "id": "HD-15",
+      "name": "Expired management TLS certificate",
+      "endpoint": "https://127.0.0.1:8443",
+      "expected": "Actual TLS handshake certificate has notAfter in the past",
+      "current_scanner_coverage": "TLS certificate parsing; inspection-only verification exception confined to these fixed loopback endpoints"
+    },
+    {
+      "id": "HD-16",
+      "name": "Unauthenticated TLS management endpoint",
+      "endpoint": "https://127.0.0.1:8443/admin",
+      "expected": "Known fixture management response returned over TLS without credentials",
+      "current_scanner_coverage": "Actual TLS/HTTP request against the identified local management fixture"
+    }
+  ],
+  "module_expectations": {
+    "nmap": "Real service detection on TCP/8787",
+    "nikto": "Real bounded HTTP checks against localhost:8787",
+    "context": "Local/test web service; never pretend internet-facing exposure",
+    "risk": "Native scanner priorities for retained findings; no invented CVSS",
+    "ai": "Explain observed findings, controls and coverage limits with evidence",
+    "nvd_epss_kev": "Not applicable without a justified CVE; use a separate verified real-CVE service",
+    "nessus": "Import a real completed report if this coverage is required",
+    "expert_evaluation": "Independent reviewed labels and rankings required",
+    "rescan": "Needs two comparable actual assessments, not one run",
+    "harbordesk-check": "Bounded, identity-gated local checks become genuine canonical findings with explicit source, severity and evidence; no assigned CVEs",
+    "network": "python -m labs.harbordesk --network starts actual loopback FTP/TLS services; no impersonated Redis or forged banners"
+  },
+  "secure_comparisons": {
+    "web": "/secure/ endpoints enforce bound SQL values, object ownership, escaped HTML, fixture authorization and cookie flags",
+    "ftp": "2122 rejects anonymous login. It still uses plaintext FTP and is not claimed to solve transport encryption.",
+    "tls": "8444 uses a currently valid self-signed training certificate and requires fixture authorization. A self-signed lab certificate is not public PKI trust."
+  }
+}

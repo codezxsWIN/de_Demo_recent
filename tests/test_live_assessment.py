@@ -217,15 +217,32 @@ def test_live_web_run_scans_requested_port_and_runs_bounded_nikto():
 
 def test_finalized_nikto_report_retains_evidence_but_excludes_ip_pinning_artifact(tmp_path):
     report = tmp_path / "nikto.json"
-    report.write_text(json.dumps([{
-        "ip": "192.0.2.10", "host": "192.0.2.10", "port": 4280,
-        "end_time": "2026-10-21 12:00:00 +0000",
-        "ssl_info": {"altnames": "lab.example.test"},
-        "vulnerabilities": [
-            {"id": "013587", "url": "/", "msg": "Suggested security header missing: referrer-policy."},
-            {"id": "999993", "url": "/", "msg": "Hostname '192.0.2.10' does not match certificate names (SAN: lab.example.test)."},
-        ],
-    }]), encoding="utf-8")
+    report.write_text(
+        json.dumps(
+            [
+                {
+                    "ip": "192.0.2.10",
+                    "host": "192.0.2.10",
+                    "port": 4280,
+                    "end_time": "2026-10-21 12:00:00 +0000",
+                    "ssl_info": {"altnames": "lab.example.test"},
+                    "vulnerabilities": [
+                        {
+                            "id": "013587",
+                            "url": "/",
+                            "msg": "Suggested security header missing: referrer-policy.",
+                        },
+                        {
+                            "id": "999993",
+                            "url": "/",
+                            "msg": "Hostname '192.0.2.10' does not match certificate names (SAN: lab.example.test).",
+                        },
+                    ],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
     endpoint = {"scheme": "https", "host": "lab.example.test", "port": 4280}
     findings, excluded = live_assessment._parse_pinned_nikto(
         report, "192.0.2.10", endpoint, require_finalized=True

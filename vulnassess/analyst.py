@@ -43,7 +43,7 @@ MAX_TEXT = 200
 MAX_INTEL_PER_FINDING = 3
 MAX_SERVICES = 16
 MAX_PROMPT_CHARS = 14_000
-MAX_ANALYSIS_BATCHES = 8
+MAX_ANALYSIS_BATCHES = 16
 AUDIT_PATH = Path("data/ai_audit.jsonl")
 ANALYST_CONTEXT_TOKENS = 16_384
 CVE_IDENTIFIER = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
@@ -116,6 +116,17 @@ CLAIM_SCHEMA: dict[str, object] = {
     },
 }
 
+PROCEDURAL_SCHEMA = copy.deepcopy(CLAIM_SCHEMA)
+cast(dict[str, Any], PROCEDURAL_SCHEMA["properties"])["label"] = {
+    "type": "string",
+    "enum": ["inferred"],
+}
+UNCERTAINTY_SCHEMA = copy.deepcopy(CLAIM_SCHEMA)
+cast(dict[str, Any], UNCERTAINTY_SCHEMA["properties"])["label"] = {
+    "type": "string",
+    "enum": ["unknown"],
+}
+
 HYPOTHESIS_SCHEMA = copy.deepcopy(CLAIM_SCHEMA)
 cast(dict[str, Any], HYPOTHESIS_SCHEMA["properties"])["label"] = {
     "type": "string",
@@ -163,7 +174,7 @@ ANALYSIS_SCHEMA: dict[str, object] = {
                 "required": ["order", "action", "reason", "finding_ids", "evidence_ids"],
                 "properties": {
                     "order": {"type": "integer", "minimum": 1, "maximum": 2},
-                    "action": CLAIM_SCHEMA,
+                    "action": PROCEDURAL_SCHEMA,
                     "reason": CLAIM_SCHEMA,
                     "finding_ids": {"type": "array", "items": {"type": "string"}},
                     "evidence_ids": {"type": "array", "items": {"type": "string"}},
@@ -200,14 +211,14 @@ ANALYSIS_SCHEMA: dict[str, object] = {
                 ],
                 "properties": {
                     "hypothesis": HYPOTHESIS_SCHEMA,
-                    "verification": CLAIM_SCHEMA,
-                    "alternative": CLAIM_SCHEMA,
+                    "verification": PROCEDURAL_SCHEMA,
+                    "alternative": PROCEDURAL_SCHEMA,
                     "finding_ids": {"type": "array", "items": {"type": "string"}},
                     "evidence_ids": {"type": "array", "items": {"type": "string"}},
                 },
             },
         },
-        "uncertainties": {"type": "array", "maxItems": 2, "items": CLAIM_SCHEMA},
+        "uncertainties": {"type": "array", "maxItems": 2, "items": UNCERTAINTY_SCHEMA},
     },
 }
 
@@ -302,7 +313,13 @@ def _assemble_case(
         ),
     )
     services = []
-    for service in observed_services[:MAX_SERVICES] if for_model else observed_services:
+    # Finding analysis needs the affected endpoints, not repeated inventories of
+    # unrelated listeners in every bounded request. The complete evidence frame
+    # still contains all services; coverage explicitly counts model omissions.
+    model_services = [item for item in observed_services if item.get("port") in finding_ports]
+    if not model_services or len(observed_services) <= 4:
+        model_services = observed_services
+    for service in model_services[:MAX_SERVICES] if for_model else observed_services:
         quote = service_evidence_text(service)
         services.append(
             {
@@ -836,6 +853,36 @@ def compact_analysis_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
     intern(compact)
     compact["$defs"] = definitions
+    # Field-specific label contracts create distinct claims. Share repeated
+    # field schemas too, without merging those semantically different claims.
+    repeated: dict[str, list[dict[str, Any]]] = {}
+    inspected: set[int] = set()
+
+    def collect_fields(node: Any) -> None:
+        if isinstance(node, dict):
+            if id(node) in inspected:
+                return
+            inspected.add(id(node))
+            for field in node.get("properties", {}).values():
+                if isinstance(field, dict) and field.get("type") not in (None, "object"):
+                    signature = json.dumps(field, sort_keys=True)
+                    if len(signature) > 80:
+                        repeated.setdefault(signature, []).append(field)
+            for child in node.values():
+                collect_fields(child)
+        elif isinstance(node, list):
+            for child in node:
+                collect_fields(child)
+
+    collect_fields(compact)
+    for fields in repeated.values():
+        if len(fields) < 2:
+            continue
+        name = f"field{len(definitions) + 1}"
+        definitions[name] = copy.deepcopy(fields[0])
+        for field in fields:
+            field.clear()
+            field["$ref"] = f"#/$defs/{name}"
     return compact
 
 
@@ -1248,6 +1295,15 @@ def validate_prose_identifiers(prose, case, evidence):
         for item in [*case["services"], *case["findings"]]
         if item.get("port") is not None
     }
+    reference_pattern = (
+        re.compile(
+            r"(?<![\w.])(?:"
+            + "|".join(re.escape(item["id"]) for item in evidence)
+            + r")(?!\w|\.\d)"
+        )
+        if evidence
+        else None
+    )
     for text in prose:
         if {identifier.upper() for identifier in CVE_IDENTIFIER.findall(text)} - known_cves:
             raise LLMUnavailable("analyst output contains unsupported CVE identifiers")
@@ -1269,7 +1325,11 @@ def validate_prose_identifiers(prose, case, evidence):
             for match in SERVICE_ASSERTION.findall(text)
         ):
             raise LLMUnavailable("analyst output contains an unknown service")
-        if set(NUMBER.findall(text)) - numbers:
+        # Citation labels are identifiers. Their digits are not measured facts.
+        # Do not add their digits to the numeric allowlist: 'E6' must never
+        # permit an unrelated claim about six findings or TCP port 6.
+        numeric_text = reference_pattern.sub(" ", text) if reference_pattern else text
+        if set(NUMBER.findall(numeric_text)) - numbers:
             raise LLMUnavailable("analyst output contains unsupported numbers")
 
 
@@ -1578,7 +1638,7 @@ def analyze_optional(
                 # CPU-only Ollama must not hold an explicitly authorized cloud fallback
                 # for the full local-only deadline.
                 local_client = provider_client("ollama")
-                local_client.timeout = min(local_client.timeout, 45.0)
+                cast(Any, local_client).timeout = min(cast(Any, local_client).timeout, 45.0)
                 kwargs["client"] = local_client
             result = analyze_findings(payload, host_ip, **kwargs)
         except (LLMUnavailable, ConfigError) as error:

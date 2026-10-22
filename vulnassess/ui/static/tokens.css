@@ -1,3 +1,55 @@
+:root {
+  --assessment-palette-0001: #0001;
+  --assessment-palette-0003: #0003;
+  --assessment-palette-172033: #172033;
+  --assessment-palette-17243b: #17243b;
+  --assessment-palette-17243b30: #17243b30;
+  --assessment-palette-19233a: #19233a;
+  --assessment-palette-24200d: #24200d;
+  --assessment-palette-2856bd: #2856bd;
+  --assessment-palette-332575: #332575;
+  --assessment-palette-3969b2: #3969b2;
+  --assessment-palette-48329b: #48329b;
+  --assessment-palette-5141c8: #5141c8;
+  --assessment-palette-6254df: #6254df;
+  --assessment-palette-6757cb: #6757cb;
+  --assessment-palette-69758d: #69758d;
+  --assessment-palette-6b758a: #6b758a;
+  --assessment-palette-986511: #986511;
+  --assessment-palette-a27a14: #a27a14;
+  --assessment-palette-a6b0c5: #a6b0c5;
+  --assessment-palette-b58009: #b58009;
+  --assessment-palette-b6bfd3: #b6bfd3;
+  --assessment-palette-bdb5f1: #bdb5f1;
+  --assessment-palette-c53050: #c53050;
+  --assessment-palette-c9c3fa: #c9c3fa;
+  --assessment-palette-d26721: #d26721;
+  --assessment-palette-d7dcea: #d7dcea;
+  --assessment-palette-dedcf5: #dedcf5;
+  --assessment-palette-e4e0fb: #e4e0fb;
+  --assessment-palette-e6e9f2: #e6e9f2;
+  --assessment-palette-e7e3ff: #e7e3ff;
+  --assessment-palette-e9f0ff: #e9f0ff;
+  --assessment-palette-eaf0fc: #eaf0fc;
+  --assessment-palette-edf0f6: #edf0f6;
+  --assessment-palette-f0effd: #f0effd;
+  --assessment-palette-f1effd: #f1effd;
+  --assessment-palette-f1efff: #f1efff;
+  --assessment-palette-f5f6fa: #f5f6fa;
+  --assessment-palette-f5f6fb: #f5f6fb;
+  --assessment-palette-f6f5ff: #f6f5ff;
+  --assessment-palette-f7f8fc: #f7f8fc;
+  --assessment-palette-f9f8ff: #f9f8ff;
+  --assessment-palette-f9f9fe: #f9f9fe;
+  --assessment-palette-fafbfe: #fafbfe;
+  --assessment-palette-fce7ed: #fce7ed;
+  --assessment-palette-fcf3d9: #fcf3d9;
+  --assessment-palette-fff: #fff;
+  --assessment-palette-fff0a6: #fff0a6;
+  --assessment-palette-fff0e6: #fff0e6;
+  --assessment-palette-fff3df: #fff3df;
+}
+
 :root.report-theme {
   --report-ink: #172033;
   --report-bg: #eef1f6;

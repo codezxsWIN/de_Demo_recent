@@ -186,7 +186,9 @@ assert.equal(preflight.get('report').state, 'skipped');
         document = (static / "workflow.html").read_text(encoding="utf-8")
         css = (static / "workflow-activity.css").read_text(encoding="utf-8")
         self.assertIn("if (target !== 'self') showAssessmentRail();", javascript)
-        self.assertIn("renderWorkflowActivity(document.getElementById('workflow-activity')", javascript)
+        self.assertIn(
+            "renderWorkflowActivity(document.getElementById('workflow-activity')", javascript
+        )
         self.assertIn("View full report · print / save PDF", javascript)
         self.assertIn("Open full assessment report · print / save PDF", javascript)
         self.assertIn("appendLiveSummary(body, summary)", javascript)
@@ -889,17 +891,23 @@ class TestUiModel(unittest.TestCase):
             400,
         )
         with patch.object(
-            analyst, "analyze_optional",
+            analyst,
+            "analyze_optional",
             return_value={
                 "analyst": {"source": "google_gemini_grounded_analysis"},
-                "ai_attempts": [{"provider": "ollama", "status": "unavailable"}, {"provider": "google", "status": "validated"}],
+                "ai_attempts": [
+                    {"provider": "ollama", "status": "unavailable"},
+                    {"provider": "google", "status": "validated"},
+                ],
             },
         ) as analyze:
             status, _, data = request(
                 self.application, path, "POST", extra_headers=headers(consented), body=consented
             )
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(data.splitlines()[-1])["result"]["source"], "google_gemini_grounded_analysis")
+        self.assertEqual(
+            json.loads(data.splitlines()[-1])["result"]["source"], "google_gemini_grounded_analysis"
+        )
         self.assertTrue(analyze.call_args.kwargs["cloud_sharing_authorized"])
 
     def test_live_target_request_requires_origin_and_consent_without_recorded_selection(

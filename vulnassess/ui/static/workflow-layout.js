@@ -1,7 +1,7 @@
 // Icon modules include the readable label below their 96px connection centre.
 const NODE_HALF_WIDTH = 95;
 const NODE_TOP = 48;
-const NODE_BOTTOM = 122;
+const NODE_BOTTOM = 142;
 
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));

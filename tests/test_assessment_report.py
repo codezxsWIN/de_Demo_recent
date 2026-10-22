@@ -103,6 +103,22 @@ def setup_report(tmp_path, *, device=False, ai=True):
     return UiApplication(database, config), directory
 
 
+def test_validated_essentials_precede_detail_and_keep_audit_expandable(tmp_path):
+    app, directory = setup_report(tmp_path)
+    document = app.get(f"/captures/{directory.name}/report").body.decode()
+    assert 'aria-label="Assessment essentials"' in document
+    assert "READ THIS FIRST" in document
+    assert "WHY IT MATTERS" in document
+    assert "DO NEXT" in document
+    assert "STILL UNKNOWN" in document
+    assert document.index("assessment-highlights") < document.index('id="brief"')
+    assert document.index("assessment-highlights") < document.index('id="ai-details"')
+    assert '<details id="ai-details" class="report-audit">' in document
+    assert '<details id="ai-details" class="report-audit" open' not in document
+    assert "SYNTHETIC observed loopback service." in document
+    assert "not a safety certificate" in document
+
+
 def test_decisions_are_visible_without_ai_and_premises_are_traceable(tmp_path):
     app, directory = setup_report(tmp_path, ai=False)
     original = {p.name: p.read_bytes() for p in directory.iterdir()}
@@ -133,10 +149,15 @@ def test_valid_optional_focus_is_shown_but_tampered_focus_cannot_hide_report(tmp
         "source_snapshot_hash": record["snapshot_hash"],
         "input_hash": digest(cards),
         "model": "synthetic-focus",
-        "plan": {"next_decisions": [{
-            "derivation_id": card["id"], "action_id": action["id"],
-            "premise_ids": action["premise_ids"],
-        }]},
+        "plan": {
+            "next_decisions": [
+                {
+                    "derivation_id": card["id"],
+                    "action_id": action["id"],
+                    "premise_ids": action["premise_ids"],
+                }
+            ]
+        },
     }
     focus["document_hash"] = digest(focus)
     save_saved(directory, record, focus)
@@ -206,16 +227,26 @@ def test_web_report_turns_scanner_observations_into_bounded_verification_plan(tm
     record["result"]["scan_status"] = "complete"
     record["payload"]["findings"] = [
         {
-            "id": "synthetic-header", "tool": "nikto", "host_ip": "127.0.0.1",
-            "port": 4280, "protocol": "tcp", "cve_ids": [],
+            "id": "synthetic-header",
+            "tool": "nikto",
+            "host_ip": "127.0.0.1",
+            "port": 4280,
+            "protocol": "tcp",
+            "cve_ids": [],
             "title": "Suggested security header missing: content-security-policy.",
-            "evidence": "SYNTHETIC header observation", "provenance": {},
+            "evidence": "SYNTHETIC header observation",
+            "provenance": {},
         },
         {
-            "id": "synthetic-method", "tool": "nikto", "host_ip": "127.0.0.1",
-            "port": 4280, "protocol": "tcp", "cve_ids": [],
+            "id": "synthetic-method",
+            "tool": "nikto",
+            "host_ip": "127.0.0.1",
+            "port": 4280,
+            "protocol": "tcp",
+            "cve_ids": [],
             "title": "Web Server returns a valid response with junk HTTP methods which may cause false positives.",
-            "evidence": "SYNTHETIC method observation", "provenance": {},
+            "evidence": "SYNTHETIC method observation",
+            "provenance": {},
         },
     ]
     document = assessment_report.render(record)
@@ -291,6 +322,7 @@ def test_invalid_ai_cannot_leak_partial_prose_into_report(tmp_path, mutation):
     assert "Needs review: retained AI claim metadata" in document
     assert "SYNTHETIC observed loopback service." not in document
     assert "HIDDEN UNSUPPORTED" not in document
+    assert 'aria-label="Assessment essentials"' not in document
     assert "No vulnerability findings were recorded" in document
 
 
