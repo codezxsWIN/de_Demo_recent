@@ -9,11 +9,22 @@ from typing import Any
 from vulnassess.ai_boundary import envelope
 from vulnassess.errors import ConfigError, LLMUnavailable
 from vulnassess.finding_assurance import assurance
+from vulnassess.harbordesk_guidance import guidance
 from vulnassess.report_composer import catalog
 
 
 def _verification_note(finding):
     """Curated, non-destructive next steps for the scanner lead actually retained."""
+    if finding.get("tool") == "harbordesk":
+        reviewed = guidance(finding)
+        if reviewed is not None:
+            return (
+                f"Retained intentional HarborDesk lab condition: {reviewed['meaning']} "
+                f"Bounded impact: {reviewed['impact']} "
+                "Fix-verification guidance: " + " ".join(reviewed["verify"]) + " "
+                "Use the recorded verifier receipt for observations; the case catalog alone "
+                "is not a detection, a vendor CVE, or evidence of production compromise."
+            )
     title = str(finding.get("title") or "").casefold()
     endpoint = (
         f"the recorded {finding.get('port', 'unknown')}/{finding.get('protocol', 'unknown')} endpoint"
@@ -76,11 +87,25 @@ def sources(record):
     }
     for number, finding in enumerate(payload.get("findings", [])[:12]):
         items[f"R:finding:{number}"] = {
-            "text": "Retained scanner finding: "
+            "text": (
+                "Retained HarborDesk verifier finding: "
+                if finding.get("tool") == "harbordesk"
+                else "Retained scanner finding: "
+            )
             + json.dumps(
                 {
                     key: finding.get(key)
-                    for key in ("id", "title", "port", "protocol", "cve_ids", "severity")
+                    for key in (
+                        "id",
+                        "title",
+                        "tool",
+                        "tool_native_id",
+                        "port",
+                        "protocol",
+                        "cve_ids",
+                        "native_severity",
+                        "severity",
+                    )
                 }
             )
             + ". Applicability limits: "
@@ -96,8 +121,19 @@ def sources(record):
             "section": "findings",
             "kind": "verification",
         }
-    findings = payload.get("findings", [])[:12]
+    findings = payload.get("findings", [])
     scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
+    if len(findings) > 12:
+        items["R:selection"] = {
+            "text": (
+                f"This capture retains {len(findings)} findings. Helpy's bounded source catalog "
+                "includes details for only the first 12 findings and at most 12 priorities. "
+                "Do not infer that an omitted finding is absent; inspect the full findings "
+                "section for evidence outside these excerpts."
+            ),
+            "section": "findings",
+            "kind": "coverage",
+        }
     if findings:
         fallback_labels = {
             scores.get(item.get("id"), {}).get("native_fallback")
@@ -110,17 +146,26 @@ def sources(record):
         )
         if all_unscored_by_cve:
             content = (
-                f"This capture records {len(findings)} scanner observations and zero scanner-named "
-                "CVEs or CVSS scores. They are not confirmed exploitable vulnerabilities. "
+                f"This capture records {len(findings)} retained findings and zero scanner-named "
+                "CVEs or CVSS scores. "
                 f"Configured native score basis: {', '.join(sorted(fallback_labels)) or 'none recorded'}; "
                 "that fallback is a triage value, not CVSS severity or a measured exploitability score. "
             )
+            if any(item.get("tool") == "harbordesk" for item in findings):
+                content += (
+                    "Retained HarborDesk verifier findings establish only their specific "
+                    "intentional fictional lab conditions, not vendor CVEs or production compromise. "
+                    "Other scanner observations still require impact verification. "
+                )
+            else:
+                content += "They are not confirmed exploitable vulnerabilities. "
             if result.get("scan_status") == "complete":
                 content += "Collection completed only for the recorded coverage. "
             else:
                 content += "Collection was partial; inspect failed stages and coverage. "
             content += (
-                "Exploitability is not established. Explain what evidence is missing and offer safe, "
+                "Do not generalize exploitability beyond the retained evidence. "
+                "Explain what evidence is missing and offer safe, "
                 "non-destructive validation of the recorded observation; do not invent payloads or "
                 "claim a successful attack."
             )
@@ -131,14 +176,22 @@ def sources(record):
             }
         coverage = payload.get("scanner_coverage", {})
         if not any(key.lower() in {"zap", "web_app", "dast"} for key in coverage):
+            lab_coverage = (
+                "Retained HarborDesk verifier findings cover only their specific intentional "
+                "lab checks. These are separate from Nmap/Nikto and do not establish full "
+                "application-crawler/DAST coverage. "
+                if any(item.get("tool") == "harbordesk" for item in findings)
+                else (
+                    "No retained full application-crawler/DAST coverage is recorded here. "
+                    "The current observations alone do not establish SQL injection, XSS, "
+                    "login bypass or application access-control flaws. "
+                )
+            )
             items["R:web-coverage"] = {
-                "text": (
-                    "This saved run has Nmap port/service coverage and bounded Nikto checks, "
-                    "but no retained web-application crawler/DAST results. It therefore does not "
-                    "establish whether application routes, login forms, search parameters, SQL "
-                    "injection, XSS, or access-control flaws are present. A full application test "
-                    "requires explicit in-scope DAST evidence and a result review; do not infer "
-                    "those flaws from the current header observations."
+                "text": lab_coverage + (
+                    "Consult the recorded scanner coverage rather than assume a tool ran. "
+                    "A complete application assessment needs explicit in-scope evidence and "
+                    "review beyond the specific retained checks."
                 ),
                 "section": "brief",
                 "kind": "coverage",

@@ -232,3 +232,40 @@ None of these may be used to declare completion:
 - Inventing tool/feed evidence; claiming verification without quoted command output.
 
 The required gate is Ruff lint, Ruff format, Pyright (package/scripts, strict on scoring and schema), pytest, and at least 95% statement coverage of the whole `vulnassess` package per decision QA-95-01 (2026-10-10), superseding APPLY-02's prototype floor. Missing prerequisites must be reported and never downloaded to force a green result. Coverage is not model accuracy or proof of live integration.
+
+## 10. ADR-INTEL-01 - Approved supporting public-intelligence evidence
+
+Approved by the human on 2026-10-23 through the explicit policy-approval form:
+`policy_approval=true`, `official_docs_access=true`. The approval confirmation
+included the required project-review condition; no individual reviewer identity
+or independent review result is asserted here.
+
+An explicitly requested assessment or intelligence refresh may obtain relevant
+public records from official NVD CVE/CPE, FIRST EPSS, CISA KEV and MITRE CWE
+sources. Retain offline processing and cached operation. Publisher requests may
+contain public CVE/CWE/CPE identifiers only, never target addresses, raw scanner
+evidence, credentials or private application findings. No cloud-model, scanner,
+scope, provisioning or agent-executed feed-retrieval permission is granted.
+Publisher transports remain **not run by the agent**; tests inject transports.
+
+Keep canonical finding identity, the existing Enrichment/ScoreBreakdown fields,
+the numerical formula, CLI shapes and assessment tables unchanged. Additive
+supporting evidence may use `intelligence_evidence` in assessment payloads,
+with a versioned evidence record, source URL, content hash, source date,
+retrieval time, availability/freshness, bounded relevant data and explicit limits.
+This information is reference evidence, not an additional scoring authority.
+CWE-only findings must not acquire invented CVEs, EPSS or KEV facts.
+
+The isolated `intel-cache.db` may add an `intel_documents` table with
+`source`, `identity`, `json`, `sha256`, `retrieved_at` and `source_date`, keyed
+by `(source, identity)`. This is an additive publisher-document cache, not a
+replacement assessment store or alteration of historical reports. Old saved
+payloads remain readable; new evidence is included in receipt integrity checks.
+
+Source operations must be bounded, allowlisted HTTPS requests without redirects,
+with explicit failed/not-found/not-applicable/stale states. Taxonomy or product
+information cannot independently establish target applicability, exploitation,
+a fixed release or an effective mitigation. Model evidence remains delimited,
+sanitised and length-capped. Network imports for the existing flat-package
+implementation remain confined to its existing publisher transport module,
+`vulnassess/intel_online.py`; scoring must not import it.

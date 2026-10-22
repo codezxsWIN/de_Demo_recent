@@ -35,12 +35,16 @@ from vulnassess.finding_assurance import assurance
 from vulnassess.google import GeminiClient
 from vulnassess.groq import GroqClient, GroqQwenClient
 from vulnassess.openrouter import OpenRouterClient
+from vulnassess.score_facts import NO_CVE_INTELLIGENCE
 from vulnassess.service_context import endpoint_context, service_evidence_text
 from vulnassess.website_metadata import observation_parts
 
 MAX_EVIDENCE = 128
 MAX_TEXT = 200
 MAX_INTEL_PER_FINDING = 3
+MAX_ADVISORY_REFERENCES = 2
+MAX_ADVISORY_URL_CHARS = 200
+MAX_INTELLIGENCE_TEXT = 800
 MAX_SERVICES = 16
 MAX_PROMPT_CHARS = 14_000
 MAX_ANALYSIS_BATCHES = 16
@@ -255,6 +259,26 @@ def _clean_record(value: Any) -> Any:
     return value
 
 
+def _advisory_references(enrichment: dict[str, Any]) -> tuple[list[str], int]:
+    references = enrichment.get("patch_references", [])
+    if not isinstance(references, (list, tuple)) or any(
+        not isinstance(reference, str) for reference in references
+    ):
+        raise ConfigError("analyst enrichment.patch_references must be an array of URL strings")
+    included: list[str] = []
+    for reference in references:
+        if (
+            len(included) < MAX_ADVISORY_REFERENCES
+            and len(reference) <= MAX_ADVISORY_URL_CHARS
+            and reference.isprintable()
+            and re.fullmatch(r"https?://[^/?#@\\\s]+(?:[/?#][^\s\\]*)?", reference)
+            and not CONTROL_TOKENS.search(reference)
+            and reference not in included
+        ):
+            included.append(reference)
+    return included, len(references) - len(included)
+
+
 def build_case(
     payload: dict[str, Any], host_ip: str
 ) -> tuple[dict[str, Any], list[dict[str, str]], dict[str, str]]:
@@ -291,11 +315,11 @@ def _assemble_case(
 
     evidence: list[dict[str, str]] = []
 
-    def cite(kind: str, text: Any) -> str:
+    def cite(kind: str, text: Any, limit: int = MAX_TEXT) -> str:
         if for_model and len(evidence) >= MAX_EVIDENCE:
             raise ConfigError(f"analyst evidence budget of {MAX_EVIDENCE} items exceeded")
         identifier = f"E{len(evidence) + 1}"
-        evidence.append({"id": identifier, "kind": kind, "text": _clean(text)})
+        evidence.append({"id": identifier, "kind": kind, "text": _clean(text, limit)})
         return identifier
 
     scores = {item["finding_id"]: item for item in payload["scores"]}
@@ -458,6 +482,7 @@ def _assemble_case(
             ),
         )
         for enrichment in ranked[:MAX_INTEL_PER_FINDING] if for_model else ranked:
+            references, references_omitted = _advisory_references(enrichment)
             intel_text = _clean(
                 (
                     f"{enrichment['cve_id']} CVSS {enrichment.get('cvss31_base')} "
@@ -466,8 +491,7 @@ def _assemble_case(
                 ),
                 230,
             )
-            # Decision-relevant fields only; vectors, patch URLs and feed bookkeeping are
-            # stored in the database and do not need to spend the model's context.
+            # Keep authoritative numbers compact; referenced advice remains untrusted.
             brief = {
                 key: enrichment[key]
                 for key in (
@@ -484,11 +508,21 @@ def _assemble_case(
                 )
                 if key in enrichment
             }
+            if references or references_omitted:
+                brief["patch_references"] = references
+                brief["patch_references_omitted"] = references_omitted
+                intel_text += (
+                    "\nRetained advisory references (not a verified fix): "
+                    + ("; ".join(references) or "none included")
+                    + f"; {references_omitted} omitted."
+                )
             intel.append(
                 {
                     **brief,
                     "alias": alias,
-                    "evidence_id": cite("vulnerability_intelligence", intel_text),
+                    "evidence_id": cite(
+                        "vulnerability_intelligence", intel_text, MAX_INTELLIGENCE_TEXT
+                    ),
                 }
             )
         score_record = None
@@ -549,6 +583,8 @@ def _assemble_case(
         )
         if assurance(finding):
             findings[-1]["cve_status"] = "package-dependent candidate; exploitability untested"
+        elif not finding.get("cve_ids") and not available:
+            findings[-1]["cve_status"] = NO_CVE_INTELLIGENCE
         if for_model:
             update_coverage()
             if len(build_prompt(_clean_record(case), evidence, len(alias_map))) > MAX_PROMPT_CHARS:

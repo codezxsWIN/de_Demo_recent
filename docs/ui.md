@@ -2,6 +2,39 @@
 
 Privacy redaction (2026-10-19): personal usernames in historical local paths below are replaced with [redacted-user]. This does not claim those commands were rerun or change the original capture evidence.
 
+## Helpy: evidence-linked report assistance - 2026-10-23
+
+PROJECT.md stage 7 (Report), supporting evidence traceability rather than new
+scoring, scans or model-authored report facts.
+
+Helpy is opened with **Ask Helpy on a saved assessment report**, not on the
+HarborDesk target site. It selects up to three existing source excerpts from the
+saved capture. It cannot run scans, change a device or compute priorities.
+Opening an HTML download does not enable the live assistant.
+
+Select an available provider before asking. Cloud providers require explicit
+sharing consent for the question and bounded report excerpts; changing provider
+resets that consent. Dictation has separate consent because a browser speech
+service may send audio externally. Text input works without microphone access.
+No microphone or provider is contacted by the offline tests.
+
+**Clear conversation**, **Close**, switching provider and leaving the page stop
+waiting for the current reply. Late responses cannot refill a cleared transcript,
+overwrite a newer request or speak after closing. A provider may still finish
+work already accepted server-side; client cancellation is not proof that model
+computation stopped. Invalid or mismatched responses are withheld as errors.
+
+The source catalog keeps details for at most the first 12 findings and 12
+priorities, and explicitly discloses this limit for larger captures. Whole-capture
+counts and CVE availability are checked against every retained finding, not
+just those first 12. Known HarborDesk verifier cases retain their reviewed
+verification guidance and are not described as comprehensive DAST or generic
+Nmap/Nikto detections. No unrecorded tool coverage is assumed.
+
+The current checkout's runtime prerequisites and executed checks are recorded
+under HELPY-CHECK-01 in [decisions.md](decisions.md). Offline unit/browser mocks
+do not establish that a configured provider or microphone works in a real session.
+
 ## Publication checkpoint - 2026-09-22
 
 PROJECT.md Stage 7. The user requested publication of the current work as-is

@@ -24,7 +24,7 @@ class Connection:
         self.output.extend(raw)
 
 
-def request(path, *, method="GET", body=b"", host="127.0.0.1:8787", headers=None):
+def request(path, *, method="GET", body=b"", host="127.0.0.1:8787", headers=None, server=None):
     fields = {"Host": host, "Content-Length": str(len(body)), **(headers or {})}
     raw = (
         f"{method} {path} HTTP/1.1\r\n"
@@ -32,7 +32,13 @@ def request(path, *, method="GET", body=b"", host="127.0.0.1:8787", headers=None
         + "\r\n"
     ).encode() + body
     connection = Connection(raw)
-    app.Handler(connection, ("127.0.0.1", 1), SimpleNamespace(server_address=("127.0.0.1", 8787)))
+    if server is None:
+        server = SimpleNamespace(
+            server_address=("127.0.0.1", 8787),
+            workspace=app.Workspace(),
+            secure_workspace=app.Workspace(),
+        )
+    app.Handler(connection, ("127.0.0.1", 1), server)
     header, content = bytes(connection.output).split(b"\r\n\r\n", 1)
     status, rest = header.decode().split("\r\n", 1)
     return int(status.split()[1]), Parser().parsestr(rest), content

@@ -83,6 +83,7 @@
     },
     {
       "id": "HD-13",
+      "category": "network",
       "name": "Anonymous FTP fixture disclosure",
       "endpoint": "ftp://127.0.0.1:2121/operations.csv",
       "expected": "Actual FTP login and RETR of the isolated fictional operations fixture without a named account",
@@ -90,6 +91,7 @@
     },
     {
       "id": "HD-14",
+      "category": "network",
       "name": "Unencrypted FTP session and transfer",
       "endpoint": "ftp://127.0.0.1:2121",
       "expected": "Successful plaintext FTP login/transfer; no TLS negotiated",
@@ -97,6 +99,7 @@
     },
     {
       "id": "HD-15",
+      "category": "network",
       "name": "Expired management TLS certificate",
       "endpoint": "https://127.0.0.1:8443",
       "expected": "Actual TLS handshake certificate has notAfter in the past",
@@ -104,28 +107,91 @@
     },
     {
       "id": "HD-16",
+      "category": "network",
       "name": "Unauthenticated TLS management endpoint",
       "endpoint": "https://127.0.0.1:8443/admin",
       "expected": "Known fixture management response returned over TLS without credentials",
       "current_scanner_coverage": "Actual TLS/HTTP request against the identified local management fixture"
+    },
+    {
+      "id": "HD-17",
+      "name": "Unauthenticated bulk business-data export",
+      "endpoint": "/api/admin/export",
+      "expected": "A guest retrieves all 3 fictional customers, 2 orders, 2 tickets and 2 documents without authentication",
+      "current_scanner_coverage": "Extended identity-gated HarborDesk verifier; no scanner or CVE claim"
+    },
+    {
+      "id": "HD-18",
+      "name": "Mass assignment grants administrator privileges",
+      "endpoint": "POST /api/profile",
+      "expected": "The demo customer assigns role=admin, reads the persisted role, and passes a separately requested administrator check that previously returned 403",
+      "current_scanner_coverage": "Extended verifier with baseline, role assignment, independent read-back, authorization check and original-role restoration"
+    },
+    {
+      "id": "HD-19",
+      "name": "Cross-account order total tampering",
+      "endpoint": "POST /api/orders/2002",
+      "expected": "The demo customer changes other-demo's fictional order total; an independent GET returns the changed value before the verifier restores the original",
+      "current_scanner_coverage": "Extended differential verifier; process-local fictional records only, never real payments"
+    },
+    {
+      "id": "HD-20",
+      "category": "network",
+      "name": "Cleartext HTTP transport",
+      "endpoint": "http://127.0.0.1:8787/",
+      "expected": "The identified portal responds over HTTP without TLS; no traffic interception is performed",
+      "current_scanner_coverage": "Extended verifier observes the actual HTTP response; /secure/ paths do not fix transport encryption"
+    },
+    {
+      "id": "HD-21",
+      "category": "network",
+      "name": "Unauthenticated service inventory disclosure",
+      "endpoint": "/__lab__/inventory",
+      "expected": "The declared fictional service ports are readable without a session; their reachability is not inferred from inventory",
+      "current_scanner_coverage": "Extended verifier records the actual response and compares administrator-only access"
+    },
+    {
+      "id": "HD-22",
+      "category": "network",
+      "name": "Verbose HTTP service version banner",
+      "endpoint": "http://127.0.0.1:8787/",
+      "expected": "The actual Server response header includes Python and BaseHTTP versions",
+      "current_scanner_coverage": "Extended verifier retains the actual header, without inventing a vulnerable version or CVE"
+    },
+    {
+      "id": "HD-23",
+      "category": "network",
+      "name": "Unauthenticated network backup disclosure",
+      "endpoint": "http://127.0.0.1:8791/backup",
+      "expected": "A direct unauthenticated request to the dedicated management listener retrieves all fictional customer, order, ticket and document backup records",
+      "current_scanner_coverage": "Identity-gated network verifier retains actual response counts; native High, no assigned CVE"
+    },
+    {
+      "id": "HD-24",
+      "category": "network",
+      "name": "Unauthenticated network management changes",
+      "endpoint": "http://127.0.0.1:8791/config",
+      "expected": "An unauthenticated configuration write pauses the fictional in-memory queue, changing an independent /dispatch response from 200 to 503; the verifier restores its original state",
+      "current_scanner_coverage": "Identity-gated network verifier proves the functional change and protected comparison; native High, no host command or real service disruption"
     }
   ],
   "module_expectations": {
     "nmap": "Real service detection on TCP/8787",
     "nikto": "Real bounded HTTP checks against localhost:8787",
     "context": "Local/test web service; never pretend internet-facing exposure",
-    "risk": "Native scanner priorities for retained findings; no invented CVSS",
+    "risk": "Configured native priorities for retained findings; HarborDesk High maps to 60/100, not invented CVSS, EPSS, KEV or a forced 100/100",
     "ai": "Explain observed findings, controls and coverage limits with evidence",
     "nvd_epss_kev": "Not applicable without a justified CVE; use a separate verified real-CVE service",
     "nessus": "Import a real completed report if this coverage is required",
     "expert_evaluation": "Independent reviewed labels and rankings required",
     "rescan": "Needs two comparable actual assessments, not one run",
     "harbordesk-check": "Bounded, identity-gated local checks become genuine canonical findings with explicit source, severity and evidence; no assigned CVEs",
-    "network": "python -m labs.harbordesk --network starts actual loopback FTP/TLS services; no impersonated Redis or forged banners"
+    "network": "The standard web lab also starts real loopback management services on 8791/8792 for High-impact backup/configuration checks. HTTP transport/inventory/banner observations run with --extended. --network additionally starts the unchanged original FTP/TLS services; no impersonated Redis or forged banners"
   },
   "secure_comparisons": {
-    "web": "/secure/ endpoints enforce bound SQL values, object ownership, escaped HTML, fixture authorization and cookie flags",
+    "web": "/secure/ endpoints enforce bound SQL values, object ownership, escaped HTML, fixture authorization and cookie flags. Export and service inventory require an administrator, profile updates reject protected roles, and order writes enforce ownership. Mutable secure and vulnerable workspaces are separate. HTTP Server version details are minimized, but /secure/ paths still use HTTP, not TLS.",
     "ftp": "2122 rejects anonymous login. It still uses plaintext FTP and is not claimed to solve transport encryption.",
-    "tls": "8444 uses a currently valid self-signed training certificate and requires fixture authorization. A self-signed lab certificate is not public PKI trust."
+    "tls": "8444 uses a currently valid self-signed training certificate and requires fixture authorization. A self-signed lab certificate is not public PKI trust.",
+    "management": "8792 requires the fixed training administrator header. Unauthorized backup/configuration requests are refused; this fictional header is not production authentication and HTTP is not encrypted."
   }
 }
