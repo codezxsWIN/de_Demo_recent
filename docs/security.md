@@ -52,6 +52,18 @@ automatic server-side persistence is part of this mode. A user can save the
 minimal JSON report locally. Transport is not run by the agent; tests are offline.
 This exception does not widen config/scope.yaml or the deep assessment scope fence.
 
+### Approved publisher-evidence exception (ADR-INTEL-01, 2026-10-23)
+
+The human explicitly approved official-source intelligence lookup and supporting
+cache/evidence interfaces. A requested assessment/refresh may send public
+CVE/CWE/CPE identifiers to NVD, FIRST, CISA and MITRE. No target addresses,
+raw scans, credentials, cloud-model processing, expanded scan scope or package
+installation are authorised. Retain offline/cached processing, bounded responses,
+HTTPS endpoint allowlisting and redirect refusal. Historical reports do not
+refresh themselves. Publisher transports are **not run by the agent**.
+Official API/schema documentation may be read for implementation; that is not
+permission for agent-executed live publisher integration tests.
+
 ## Evidence limits
 
 Passing unit tests demonstrate their tested behavior, not supply-chain trust, parser correctness against real captures, sandbox enforcement, or end-to-end security. A direct test of the refusal script does not prove that GNU Make executed the target. Report each separately under `VERIFIED`, `TESTED WITH MOCKS`, `NOT RUN`, or `MISSING`, following the project evidence rules.

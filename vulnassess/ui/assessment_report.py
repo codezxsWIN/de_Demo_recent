@@ -15,7 +15,7 @@ from vulnassess.errors import ConfigError, LLMUnavailable
 from vulnassess.finding_assurance import assurance
 from vulnassess.priority_trace import priority_trace
 from vulnassess.report_composer import catalog, validate_document
-from vulnassess.score_facts import missing_severity_basis
+from vulnassess.score_facts import NO_CVE_INTELLIGENCE, missing_severity_basis
 from vulnassess.service_context import endpoint_context, service_evidence_text
 
 CSS_PATH = Path(__file__).with_name("static") / "assessment-report.css"
@@ -410,6 +410,9 @@ def _findings(payload, proofs=(), policy=None):
         "These are retained engine values, not AI-generated scores. A native scanner fallback is not CVSS. Missing severity is not Low risk by default."
     )
     scores = {row["finding_id"]: row for row in payload.get("scores", [])}
+    enriched_findings = {
+        row["finding_id"] for row in payload.get("enrichments", []) if row.get("cve_id")
+    }
     for index, finding in enumerate(payload.get("findings", []), 1):
         theme, meaning, verify, improve = _finding_guidance(finding)
         content += (
@@ -555,9 +558,12 @@ def _findings(payload, proofs=(), policy=None):
                 ),
                 ("Scanner", finding.get("tool")),
                 ("Recorded CVEs", ", ".join(finding.get("cve_ids", [])) or "None recorded"),
+                ("CWE identifiers", ", ".join(finding.get("cwe_ids", [])) or "None recorded"),
                 ("Source record", finding.get("provenance", {}).get("record_index")),
             ]
         )
+        if not finding.get("cve_ids") and finding["id"] not in enriched_findings:
+            content += paragraph(NO_CVE_INTELLIGENCE, "notice")
         content += (
             "<h4>Scanner evidence</h4><blockquote>"
             + text(finding.get("evidence"))

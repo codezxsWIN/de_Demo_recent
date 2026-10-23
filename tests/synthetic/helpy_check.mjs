@@ -19,6 +19,9 @@ const get = id => { if (!nodes.has(id)) nodes.set(id,new Element()); return node
 get('helpy-panel').dataset.capture = 'SYNTHETIC-capture';
 get('helpy-provider').value = 'google';
 let recognitions = 0, requests = 0, cancelled = 0, spoken = 0, recognizer;
+const supportedReply = (changes = {}) => ({ok:true,json:async()=>({status:'supported',capture_id:'SYNTHETIC-capture',model:'SYNTHETIC AI',message:'Source selection',excerpts:[{reference:'B1:executive',text:'<script>literal scanner text</script>',section:'ai',citations:['E1'],batch:1}],...changes})});
+let fetchImpl = async () => supportedReply();
+const windowEvents = new Map();
 class Recognition {
   constructor() { recognitions++; recognizer = this; }
   start() { this.onstart(); }
@@ -35,10 +38,10 @@ const context = {
     getElementById: get, createElement: () => new Element(), querySelectorAll: () => [],
     body: new Element()
   },
-  window: { SpeechRecognition: Recognition, speechSynthesis: {cancel(){cancelled++;},speak(){spoken++;}},addEventListener(){} },
+  window: { SpeechRecognition: Recognition, speechSynthesis: {cancel(){cancelled++;},speak(){spoken++;}},addEventListener(name,listener){windowEvents.set(name,listener);} },
   CSS:{escape: value => value}, SpeechSynthesisUtterance: class {constructor(text){this.text = text;}},
   AbortController, setTimeout, clearTimeout,
-  fetch: async () => { requests++; return {ok:true,json:async()=>({capture_id:'SYNTHETIC-capture',model:'SYNTHETIC AI',message:'Source selection',excerpts:[{reference:'B1:executive',text:'<script>literal scanner text</script>',section:'ai',citations:['E1'],batch:1}]})}; }
+  fetch: async (...args) => { requests++; return fetchImpl(...args); }
 };
 vm.runInNewContext(readFileSync('vulnassess/ui/static/helpy.js','utf8'),context);
 get('helpy-listen').onclick();
@@ -66,4 +69,103 @@ get('helpy-provider').onchange();
 assert.equal(get('helpy-share').checked,false,'Changing providers resets sharing consent');
 get('helpy-stop').onclick();
 assert.ok(cancelled > 0);
-console.log('Helpy offline voice/transcript, consent and highlight contracts passed');
+get('helpy-provider').value = 'ollama';
+function beginPending() {
+  let finish, signal;
+  fetchImpl = (_url, options) => {
+    signal = options.signal;
+    return new Promise(resolve => { finish = resolve; });
+  };
+  get('helpy-question').value = 'SYNTHETIC pending question';
+  const promise = get('helpy-send').onclick();
+  return {promise,signal,finish:reply => finish(reply)};
+}
+const spokenBeforeClear = spoken;
+const pending = beginPending();
+get('helpy-clear').onclick();
+assert.equal(pending.signal.aborted,true,'Clear aborts the pending transport');
+pending.finish(supportedReply());
+await pending.promise;
+assert.equal(get('helpy-transcript').children.length,0,'Clear must not be undone by an in-flight answer');
+assert.equal(spoken,spokenBeforeClear,'A cleared reply must not be spoken');
+assert.equal(get('helpy-send').disabled,false);
+
+get('helpy-toggle').onclick();
+const beforeClose = beginPending();
+const transcriptBeforeClose = get('helpy-transcript').children.length;
+get('helpy-close').onclick();
+assert.equal(get('helpy-panel').hidden,true);
+assert.equal(beforeClose.signal.aborted,true,'Close aborts the pending transport');
+beforeClose.finish(supportedReply());
+await beforeClose.promise;
+assert.equal(get('helpy-transcript').children.length,transcriptBeforeClose,'Close suppresses late replies');
+assert.equal(spoken,spokenBeforeClear,'A hidden panel must not speak a cancelled reply');
+
+const beforeProviderChange = beginPending();
+get('helpy-provider').value = 'google';
+get('helpy-share').checked = true;
+get('helpy-provider').onchange();
+const transcriptBeforeProviderChange = get('helpy-transcript').children.length;
+beforeProviderChange.finish(supportedReply());
+await beforeProviderChange.promise;
+assert.equal(beforeProviderChange.signal.aborted,true);
+assert.equal(get('helpy-share').checked,false);
+assert.equal(get('helpy-transcript').children.length,transcriptBeforeProviderChange);
+
+get('helpy-provider').value = 'ollama';
+get('helpy-clear').onclick();
+const oldRequest = beginPending();
+get('helpy-clear').onclick();
+const newRequest = beginPending();
+oldRequest.finish(supportedReply());
+await oldRequest.promise;
+assert.equal(get('helpy-send').disabled,true,'An obsolete request cannot unlock a newer request');
+assert.equal(get('helpy-transcript').children.length,1);
+newRequest.finish(supportedReply());
+await newRequest.promise;
+assert.equal(get('helpy-send').disabled,false);
+assert.equal(get('helpy-transcript').children.length,2);
+
+get('helpy-clear').onclick();
+get('helpy-question').value = 'SYNTHETIC malformed reply';
+fetchImpl = async () => supportedReply({excerpts:[{reference:'R:limits',section:'brief'}]});
+await get('helpy-send').onclick();
+assert.equal(get('helpy-transcript').children.length,2);
+assert.equal(get('helpy-transcript').children[1].children[0].textContent,'Helpy · unavailable');
+assert.ok(get('helpy-status').textContent.includes('invalid response'));
+
+get('helpy-clear').onclick();
+get('helpy-question').value = 'SYNTHETIC wrong assessment';
+fetchImpl = async () => supportedReply({capture_id:'SYNTHETIC-other-capture'});
+await get('helpy-send').onclick();
+assert.ok(get('helpy-status').textContent.includes('Assessment mismatch'));
+assert.equal(get('helpy-transcript').children[1].children[0].textContent,'Helpy · unavailable');
+
+get('helpy-clear').onclick();
+get('helpy-question').value = 'SYNTHETIC provider failure';
+fetchImpl = async () => ({ok:false,json:async()=>({error:'SYNTHETIC provider unavailable'})});
+await get('helpy-send').onclick();
+assert.equal(get('helpy-status').textContent,'SYNTHETIC provider unavailable');
+assert.equal(get('helpy-send').disabled,false);
+
+get('helpy-clear').onclick();
+get('helpy-question').value = 'SYNTHETIC transport timeout';
+fetchImpl = async () => { const error = new Error('SYNTHETIC timeout'); error.name = 'AbortError'; throw error; };
+await get('helpy-send').onclick();
+assert.ok(get('helpy-status').textContent.includes('timed out'));
+assert.equal(get('helpy-send').disabled,false);
+
+get('helpy-clear').onclick();
+get('helpy-question').value = 'SYNTHETIC unsupported question';
+fetchImpl = async () => supportedReply({status:'not_established',message:'SYNTHETIC not established',excerpts:[]});
+await get('helpy-send').onclick();
+assert.equal(get('helpy-transcript').children[1].children[1].textContent,'SYNTHETIC not established');
+
+const beforePageHide = beginPending();
+windowEvents.get('pagehide')();
+const transcriptBeforePageHide = get('helpy-transcript').children.length;
+beforePageHide.finish(supportedReply());
+await beforePageHide.promise;
+assert.equal(beforePageHide.signal.aborted,true);
+assert.equal(get('helpy-transcript').children.length,transcriptBeforePageHide);
+console.log('Helpy offline voice/transcript, consent, highlight, cancellation, race and response-validation contracts passed');
