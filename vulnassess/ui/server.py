@@ -1018,6 +1018,8 @@ class UiApplication:
             return error_response(404, "UI path not found")
         if decoded == "/workflow":
             return self._static(["workflow.html"])
+        if decoded == "/findings":
+            return self._static(["findings.html"])
         if decoded == "/website-check" and not parsed.query:
             return self._static(["website-check.html"])
         if decoded == "/vulnerabilities" and not parsed.query:
