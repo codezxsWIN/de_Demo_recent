@@ -42,7 +42,7 @@ from vulnassess.saved_cve_case import (
 from vulnassess.schema import ContextProfile, Finding, Host, Service
 from vulnassess.settings import CONFIG_FILES, Settings
 from vulnassess.target_intake import resolve_addresses
-from vulnassess.ui import assessment_report, capture_review, vulnerability_findings
+from vulnassess.ui import assessment_report, capture_review, environment, vulnerability_findings
 from vulnassess.ui.entry import render_entry
 from vulnassess.ui.reader import local_path, open_read_store
 
@@ -1020,6 +1020,27 @@ class UiApplication:
             return self._static(["workflow.html"])
         if decoded == "/findings":
             return self._static(["findings.html"])
+        if decoded == "/environment":
+            parameters = parse_qs(parsed.query, keep_blank_values=True)
+            if set(parameters) - {"capture"} or (
+                "capture" in parameters
+                and (len(parameters["capture"]) != 1 or not parameters["capture"][0])
+            ):
+                return error_response(400, "Environment accepts one non-empty capture parameter")
+            root = self.config_dir.parent / "data/live/raw"
+            try:
+                identity = parameters.get("capture", [None])[0]
+                if identity is None:
+                    latest = vulnerability_findings.latest(root)
+                    if latest["state"] != "ready":
+                        return error_response(409, "No completed assessment is available")
+                    identity = latest["capture_id"]
+                record = capture_history.load(root, identity)
+                return Response(
+                    200, environment.render(record).encode("utf-8"), "text/html; charset=utf-8"
+                )
+            except (ConfigError, OSError):
+                return error_response(409, "Environment evidence is unavailable or unverified")
         if decoded == "/website-check" and not parsed.query:
             return self._static(["website-check.html"])
         if decoded == "/vulnerabilities" and not parsed.query:
@@ -1112,6 +1133,22 @@ class UiApplication:
             except ValueError:
                 return error_response(400, "History page must be an integer")
             except (ConfigError, OSError) as error:
+                if parts[0] != "api" and history_parts[2:] == ["report"]:
+                    # A broken bookmark must not silently become another run's
+                    # evidence, nor leave a browser staring at an API error.
+                    document = (
+                        '<!doctype html><html lang="en"><meta charset="utf-8">'
+                        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+                        "<title>Assessment unavailable · VulnAssess</title>"
+                        '<link rel="stylesheet" href="/static/assessment-report.css">'
+                        "<main><h1>This saved assessment is unavailable</h1>"
+                        "<p>The requested record is missing or could not pass evidence validation. "
+                        "No different assessment has been substituted.</p>"
+                        '<p><a href="/vulnerabilities">View latest completed assessment</a> · '
+                        '<a href="/captures">Browse saved assessments</a> · '
+                        '<a href="/workflow">Open workflow</a></p></main></html>'
+                    )
+                    return Response(409, document.encode("utf-8"), "text/html; charset=utf-8")
                 return error_response(
                     409,
                     str(error)

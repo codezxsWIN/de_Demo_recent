@@ -104,9 +104,7 @@ def test_mass_assignment_changes_a_separate_administrator_authorization_decision
     assert client.api("/api/profile", {"role": "admin"}, cookie=DEMO)[0] == 200
     assert client.api("/api/profile", cookie=DEMO)[1]["profile"]["role"] == "admin"
     assert client.api("/api/admin/summary", cookie=DEMO)[0] == 200
-    status, data = client.api(
-        "/api/login", {"username": "demo", "password": "training-demo"}
-    )
+    status, data = client.api("/api/login", {"username": "demo", "password": "training-demo"})
     assert status == 200 and data["user"]["role"] == "admin"
     assert client.api("/secure/api/admin/summary", cookie=SECURE_DEMO)[0] == 403
     assert client.api("/secure/api/profile", cookie=SECURE_DEMO)[1]["profile"]["role"] == "customer"
@@ -118,13 +116,16 @@ def test_secure_profile_rejects_role_without_partial_updates_and_allows_names(
     client: Client,
 ) -> None:
     before = client.api("/secure/api/profile", cookie=SECURE_DEMO)[1]
-    assert client.api(
-        "/secure/api/profile", {"name": "Changed", "role": "admin"}, cookie=SECURE_DEMO
-    )[0] == 400
+    assert (
+        client.api("/secure/api/profile", {"name": "Changed", "role": "admin"}, cookie=SECURE_DEMO)[
+            0
+        ]
+        == 400
+    )
     assert client.api("/secure/api/profile", cookie=SECURE_DEMO)[1] == before
-    assert client.api(
-        "/secure/api/profile", {"name": "Updated Fixture"}, cookie=SECURE_DEMO
-    )[0] == 200
+    assert (
+        client.api("/secure/api/profile", {"name": "Updated Fixture"}, cookie=SECURE_DEMO)[0] == 200
+    )
     profile = client.api("/secure/api/profile", cookie=SECURE_DEMO)[1]["profile"]
     assert profile["name"] == "Updated Fixture" and profile["role"] == "customer"
     assert client.api("/api/profile")[1]["profile"]["name"] == "Avery Demo"
@@ -140,10 +141,10 @@ def test_cross_account_write_is_retained_but_secure_workspace_is_unchanged(
     order = client.api("/api/orders/2002")[1]["order"]
     assert order["owner"] == "other-demo" and order["total"] == 0
     assert client.api("/secure/api/orders/2002", {"total": 0})[0] == 401
-    assert client.api(
-        "/secure/api/orders/2002", {"total": 0}, cookie=SECURE_DEMO
-    )[0] == 404
-    secure_orders = client.api("/secure/api/admin/export", cookie=SECURE_ADMIN)[1]["export"]["orders"]
+    assert client.api("/secure/api/orders/2002", {"total": 0}, cookie=SECURE_DEMO)[0] == 404
+    secure_orders = client.api("/secure/api/admin/export", cookie=SECURE_ADMIN)[1]["export"][
+        "orders"
+    ]
     assert next(row for row in secure_orders if row["id"] == 2002)["total"] == 280
 
 
@@ -244,7 +245,9 @@ def test_extended_verification_is_repeatable_and_restores_preexisting_state(
         assert len(receipt["secure_controls"]) == 15
         assert all(row["passed"] for row in receipt["secure_controls"])
         assert client.server.workspace.profile("demo") == {
-            "username": "demo", "name": "Original Fixture", "role": "admin"
+            "username": "demo",
+            "name": "Original Fixture",
+            "role": "admin",
         }
         assert client.server.workspace.order(2002)["total"] == 999
         assert client.server.secure_workspace.profile("demo")["role"] == "customer"
@@ -271,7 +274,8 @@ def test_verifier_does_not_claim_weaknesses_when_their_operations_are_denied(
     assert receipt["total"] == 17 and receipt["passed"] == 14
     assert all(
         row["observed_intentional_weakness"] is False
-        for row in receipt["checks"] if row["id"] in NEW_IDS
+        for row in receipt["checks"]
+        if row["id"] in NEW_IDS
     )
     assert all(row["passed"] for row in receipt["secure_controls"])
     assert client.server.workspace.profile("demo")["role"] == "customer"
@@ -300,8 +304,18 @@ def test_interrupted_verification_restores_the_original_fixture_value(
         return opener.open(req, timeout)
 
     monkeypatch.setattr(verify, "build_opener", lambda *args: SimpleNamespace(open=failing_open))
-    with pytest.raises(OSError, match="Synthetic interrupted"):
-        verify.verify(harbordesk_probe.BASE, extended=True)
+    receipt = verify.verify(harbordesk_probe.BASE, extended=True)
+    checks = {row["id"]: row for row in receipt["checks"]}
+    failed_id = "HD-18" if failure == "role" else "HD-19"
+    assert checks[failed_id]["observed_intentional_weakness"] is False
+    assert checks[failed_id]["evidence"]["check_error"] == "OSError"
+    assert checks["HD-02"]["observed_intentional_weakness"] is True
+    assert checks["HD-17"]["observed_intentional_weakness"] is True
+    assert checks["HD-22"]["observed_intentional_weakness"] is True
+    assert receipt["passed"] == 16 and receipt["total"] == 17
+    assert set(checks) == set(receipt["requested_checks"])
+    assert all(row["passed"] for row in receipt["secure_controls"])
+    assert harbordesk_probe.coverage(receipt).startswith("partial:")
     assert client.server.workspace.profile("demo")["role"] == "customer"
     assert client.server.workspace.order(2002)["total"] == 280
 
@@ -322,7 +336,7 @@ def test_failed_restoration_is_explicit_not_a_successful_receipt(
         return opener.open(req, timeout)
 
     monkeypatch.setattr(verify, "build_opener", lambda *args: SimpleNamespace(open=refusing_open))
-    with pytest.raises(ValueError, match="could not restore /api/profile role"):
+    with pytest.raises(verify.RestorationError, match="could not restore /api/profile role"):
         verify.verify(harbordesk_probe.BASE, extended=True)
 
 
@@ -341,7 +355,11 @@ def test_lost_write_response_still_restores_original_state(
         path = urlsplit(req.full_url).path
         form = parse_qs((req.data or b"").decode())
         if not interrupted and (
-            (failure == "normalization" and path == "/api/profile" and form.get("role") == ["customer"])
+            (
+                failure == "normalization"
+                and path == "/api/profile"
+                and form.get("role") == ["customer"]
+            )
             or (failure == "role" and path == "/api/profile" and form.get("role") == ["admin"])
             or (failure == "order" and path == "/api/orders/2002" and form.get("total") == ["0"])
         ):
@@ -351,8 +369,18 @@ def test_lost_write_response_still_restores_original_state(
         return response
 
     monkeypatch.setattr(verify, "build_opener", lambda *args: SimpleNamespace(open=losing_open))
-    with pytest.raises(OSError, match="Synthetic lost write response"):
-        verify.verify(harbordesk_probe.BASE, extended=True)
+    receipt = verify.verify(harbordesk_probe.BASE, extended=True)
+    checks = {row["id"]: row for row in receipt["checks"]}
+    failed_id = "HD-19" if failure == "order" else "HD-18"
+    assert checks[failed_id]["observed_intentional_weakness"] is False
+    assert checks[failed_id]["evidence"]["check_error"] == "OSError"
+    assert checks["HD-02"]["observed_intentional_weakness"] is True
+    assert checks["HD-17"]["observed_intentional_weakness"] is True
+    assert checks["HD-22"]["observed_intentional_weakness"] is True
+    assert receipt["passed"] == 16 and receipt["total"] == 17
+    assert set(checks) == set(receipt["requested_checks"])
+    assert all(row["passed"] for row in receipt["secure_controls"])
+    assert harbordesk_probe.coverage(receipt).startswith("partial:")
     assert interrupted
     assert client.server.workspace.profile("demo")["role"] == original_role
     assert client.server.workspace.order(2002)["total"] == 280
@@ -393,9 +421,9 @@ def test_new_checks_produce_provenance_guidance_and_unchanged_deterministic_prio
         assert result.risk == 60 and result.band == "High"
         assert result.cve_id is None and result.epss_percentile is None
         assert result.cvss_version_used is None and result.kev is False
-        guidance = harbordesk_guidance.guidance({
-            "tool": finding.tool, "tool_native_id": finding.tool_native_id
-        })
+        guidance = harbordesk_guidance.guidance(
+            {"tool": finding.tool, "tool_native_id": finding.tool_native_id}
+        )
         assert guidance and guidance["patch"] and guidance["verify"]
         assert "No vendor CVE" in guidance["source"]
 
@@ -406,7 +434,15 @@ def test_all_original_and_added_cases_remain_present_and_executable(client: Clie
     assert len(identities) == len(set(identities))
     assert {f"HD-{number:02}" for number in range(1, 25) if number != 12} == set(identities)
     assert {case["id"] for case in cases if case.get("category") == "network"} == {
-        "HD-13", "HD-14", "HD-15", "HD-16", "HD-20", "HD-21", "HD-22", "HD-23", "HD-24"
+        "HD-13",
+        "HD-14",
+        "HD-15",
+        "HD-16",
+        "HD-20",
+        "HD-21",
+        "HD-22",
+        "HD-23",
+        "HD-24",
     }
     assert client.api("/api/admin/export")[0] == 200
     assert client.api("/api/profile", {"role": "admin"}, cookie=DEMO)[0] == 200
@@ -426,7 +462,10 @@ def test_network_observations_use_actual_responses_not_catalog_claims(
     assert checks["HD-21"]["evidence"]["declared_service_ports"] == [8787]
     assert checks["HD-21"]["evidence"]["listener_reachability_tested"] is False
     assert "Python/" in checks["HD-22"]["evidence"]["observed_server_header"]
-    assert all(checks[identity]["observed_intentional_weakness"] for identity in ("HD-20", "HD-21", "HD-22"))
+    assert all(
+        checks[identity]["observed_intentional_weakness"]
+        for identity in ("HD-20", "HD-21", "HD-22")
+    )
     assert not {"HD-13", "HD-14", "HD-15", "HD-16"} & checks.keys()
     assert receipt["network_status"] == "not started"
     assert "HTTP transport/inventory/banner observations=3/3" in harbordesk_probe.coverage(receipt)
@@ -492,13 +531,14 @@ def test_network_findings_have_native_priorities_without_cve_or_listener_inventi
     for finding in selected:
         severity, priority = expected[finding.tool_native_id]
         assert finding.native_severity == severity and finding.cve_ids == ()
-        assert finding.port == 8787 and finding.url.startswith(harbordesk_probe.BASE)
+        assert finding.port == 8787
+        assert finding.url is not None and finding.url.startswith(harbordesk_probe.BASE)
         result = scoring.score(finding, None, profile, (), settings.weights)
         assert result.risk == priority and result.cvss_version_used is None
         assert result.cve_id is None and result.kev is False
-        guidance = harbordesk_guidance.guidance({
-            "tool": "harbordesk", "tool_native_id": finding.tool_native_id
-        })
+        guidance = harbordesk_guidance.guidance(
+            {"tool": "harbordesk", "tool_native_id": finding.tool_native_id}
+        )
         assert guidance and guidance["patch"] and guidance["verify"]
         row = receipt["checks"][finding.provenance.record_index - 1]
         assert json.loads(finding.evidence)["evidence"] == row["evidence"]

@@ -1,0 +1,23 @@
+{
+  "purpose": "Reproduce team-submitted intelligence lookups, not scanner detections",
+  "submissions": [
+    {
+      "contributor": "Maanya",
+      "source": "Maanya_EPSS_CISA_KEV_Final with ss.docx",
+      "cve": "CVE-2021-44228",
+      "submitted_epss_date": "2026-10-23",
+      "submitted_epss": 0.99999,
+      "submitted_kev_listed": true,
+      "original_script_provided": false
+    },
+    {
+      "contributor": "Ananya",
+      "source": "Submitted NVD JSON response",
+      "cve": "CVE-2022-0543",
+      "submitted_cvss31_base": 10.0,
+      "submitted_cvss31_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+      "credential_imported": false,
+      "original_script_provided": false
+    }
+  ]
+}

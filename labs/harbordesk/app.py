@@ -539,7 +539,9 @@ class Handler(BaseHTTPRequestHandler):
             or len(total) > 7
             or int(total) > 1_000_000
         ):
-            self.reply(400, {"error": "Total must be an integer from 0 to 1000000", "fixture": True})
+            self.reply(
+                400, {"error": "Total must be an integer from 0 to 1000000", "fixture": True}
+            )
             return
         # INTENTIONAL missing ownership check: fictional order integrity, not real payments.
         changed = workspace.update_order(int(identity), int(total))

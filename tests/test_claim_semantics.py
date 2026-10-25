@@ -1,6 +1,7 @@
 """Offline adversarial tests for the deliberately bounded semantic guard."""
 
 import copy
+import json
 
 import pytest
 
@@ -43,6 +44,72 @@ def check(text, evidence=(), *, ids=None, path="summary", label="observed"):
         "verification_action": "Check supplied capture" if label == "hypothesis" else None,
     }
     return verify_semantic_claims([claim], list(evidence), {path: text})
+
+
+def test_verified_fixture_login_bypass_is_not_proxy_topology():
+    proof = {
+        "id": "E1",
+        "kind": "harbordesk_finding",
+        "text": json.dumps(
+            {
+                "id": "HD-03",
+                "observed_intentional_weakness": True,
+                "evidence": {
+                    "normal_wrong_password_status": 401,
+                    "injected_fixture_login_status": 200,
+                },
+            }
+        ),
+    }
+    assert check("A login bypass was reproduced in the local fixture.", [proof]) is None
+    assert check("SQL injection bypasses authentication in the local fixture.", [proof]) is None
+    for text in (
+        "WebLogic bypasses nginx.",
+        "The firewall was bypassed.",
+        "An object authorization bypass was reproduced.",
+    ):
+        with pytest.raises(LLMUnavailable, match="bypass topology"):
+            check(text, [proof])
+    with pytest.raises(LLMUnavailable, match="bypass topology"):
+        check("A login bypass was reproduced.", [{**proof, "kind": "nmap_service"}])
+    proof["text"] = json.dumps(
+        {"id": "HD-03", "observed_intentional_weakness": False, "evidence": {}}
+    )
+    with pytest.raises(LLMUnavailable, match="bypass topology"):
+        check("A login bypass was reproduced.", [proof])
+
+
+def test_fixture_protocol_proofs_support_only_their_fixed_endpoints():
+    ftp = {
+        "id": "E1",
+        "kind": "harbordesk_finding",
+        "text": json.dumps(
+            {
+                "id": "HD-14",
+                "observed_intentional_weakness": True,
+                "evidence": {"protocol": "FTP", "tls_negotiated": False},
+            }
+        ),
+    }
+    tls = {
+        "id": "E2",
+        "kind": "harbordesk_finding",
+        "text": json.dumps(
+            {
+                "id": "HD-15",
+                "observed_intentional_weakness": True,
+                "evidence": {"tls_version": "TLSv1.3", "certificate_expired": True},
+            }
+        ),
+    }
+    assert check("FTP on port 2121 uses unencrypted transport.", [ftp]) is None
+    assert check("Port 8443 uses TLS.", [tls]) is None
+    for sentence, evidence in [
+        ("Port 8787 uses unencrypted transport.", ftp),
+        ("Port 8787 uses TLS.", tls),
+    ]:
+        with pytest.raises(LLMUnavailable, match="TLS assertion"):
+            check(sentence, [evidence])
 
 
 @pytest.mark.parametrize(

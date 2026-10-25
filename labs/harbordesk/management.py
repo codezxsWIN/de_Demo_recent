@@ -25,7 +25,9 @@ class ManagementHandler(Handler):
 
     def authorized(self) -> bool:
         if self.comparison and self.headers.get_all("X-Lab-Access") != ["training-admin"]:
-            self.reply(403, {"error": "Fixture administrator authorization required", "fixture": True})
+            self.reply(
+                403, {"error": "Fixture administrator authorization required", "fixture": True}
+            )
             return False
         return True
 

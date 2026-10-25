@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -17,6 +18,7 @@ from labs.harbordesk.app import LAB_ID
 from vulnassess import harbordesk_probe as probe
 from vulnassess import live_assessment
 from vulnassess.errors import ConfigError, ScopeError
+from vulnassess.scan_plans import PlanExecution
 from vulnassess.schema import Finding, Host, Service
 from vulnassess.settings import Settings
 
@@ -130,12 +132,13 @@ def test_scope_gate_precedes_verifier(tmp_path, monkeypatch, scope):
 
 
 @pytest.mark.parametrize("unknown_id", ["HD-99", "HD-12"])
-def test_unknown_negative_and_large_evidence(tmp_path, monkeypatch, receipt, unknown_id):
+@pytest.mark.parametrize("observed", [False, True])
+def test_unknown_negative_and_large_evidence(tmp_path, monkeypatch, receipt, unknown_id, observed):
     receipt["checks"][0]["evidence"] = {"actual_response": "x" * 10000}
     receipt["checks"].append(
         {
             "id": unknown_id,
-            "observed_intentional_weakness": True,
+            "observed_intentional_weakness": observed,
             "evidence": {"untrusted": "unknown check"},
         }
     )
@@ -145,6 +148,10 @@ def test_unknown_negative_and_large_evidence(tmp_path, monkeypatch, receipt, unk
     assert len(findings[0].evidence) <= 2048
     assert json.loads(findings[0].evidence)["truncated"] is True
     assert json.loads((tmp_path / "harbordesk-checks.json").read_text()) == receipt
+    detail = probe.coverage(receipt)
+    assert detail.startswith("partial:")
+    assert f"unsupported check IDs={unknown_id}" in detail
+    assert "2/3 verified" in detail  # Unknown positives never inflate observed weaknesses.
 
 
 @pytest.mark.parametrize(
@@ -258,11 +265,20 @@ def test_settings_validate_harbordesk_mapping(tmp_path, mapping):
         Settings(tmp_path)
 
 
-@pytest.mark.parametrize("failure", [False, True, "check_error", "network"])
+@pytest.mark.parametrize(
+    "failure", [False, True, "check_error", "network", "missing", "unknown", "plan"]
+)
 def test_live_collection_integrates_before_scoring_and_preserves_manifest(
     tmp_path, monkeypatch, receipt, failure
 ):
     events, cases = [], []
+    if failure == "missing":
+        receipt["requested_checks"] = [row["id"] for row in receipt["checks"]] + ["HD-03"]
+        receipt["requested_controls"] = ["HC-01"]
+    if failure == "unknown":
+        receipt["checks"].append(
+            {"id": "HD-99", "observed_intentional_weakness": True, "evidence": {}}
+        )
     if failure == "check_error":
         receipt["checks"].append(
             {
@@ -300,7 +316,8 @@ def test_live_collection_integrates_before_scoring_and_preserves_manifest(
             raise ValueError("Not the identified HarborDesk fixture lab")
         return receipt
 
-    monkeypatch.setattr(verifier, "verify", fake_verify)
+    verify_mock = Mock(side_effect=fake_verify)
+    monkeypatch.setattr(verifier, "verify", verify_mock)
     monkeypatch.setattr(live_assessment, "nmap_binary", lambda: "synthetic-nmap")
     monkeypatch.setattr(live_assessment, "mkdtemp", lambda **kw: str(tmp_path))
 
@@ -328,6 +345,16 @@ def test_live_collection_integrates_before_scoring_and_preserves_manifest(
             "ai_attempts": [],
         },
     )
+    plan = (
+        SimpleNamespace(
+            before=Mock(return_value=180),
+            remaining=Mock(return_value=90),
+            includes=Mock(return_value=False),
+            finish=Mock(return_value={"state": "completed"}),
+        )
+        if failure == "plan"
+        else None
+    )
     result = live_assessment.run(
         probe.BASE,
         {"status": "ready", "resolved_ips": ["127.0.0.1"], "endpoint": ENDPOINT},
@@ -335,12 +362,21 @@ def test_live_collection_integrates_before_scoring_and_preserves_manifest(
         provider="ollama",
         on_progress=lambda *e: events.append(e),
         on_case=cases.append,
+        plan_execution=cast(PlanExecution | None, plan),
     )
     payload = cases[0]["payload"]
-    partial = failure is True or failure == "check_error"
+    partial = failure is True or failure in ("check_error", "network", "missing", "unknown")
     assert result["scan_status"] == ("partial" if partial else "complete")
     coverage = payload["scanner_coverage"]["harbordesk-check"]
-    if failure is True:
+    if failure == "plan":
+        verify_mock.assert_not_called()
+        assert plan is not None
+        plan.before.assert_called_once()
+        assert payload["findings"] == payload["scores"] == []
+        assert coverage.startswith("not requested:")
+        assert "approved scan plan" in coverage
+        assert not (tmp_path / "harbordesk-checks.json").exists()
+    elif failure is True:
         assert payload["findings"] == []
         assert "failed:" in coverage
     else:
@@ -366,4 +402,70 @@ def test_live_collection_integrates_before_scoring_and_preserves_manifest(
         assert ports[2121]["name"] == "ftp"
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     capture = tmp_path / "harbordesk-checks.json"
-    assert manifest["files"][capture.name] == hashlib.sha256(capture.read_bytes()).hexdigest()
+    if failure == "plan":
+        assert capture.name not in manifest["files"]
+    else:
+        assert manifest["files"][capture.name] == hashlib.sha256(capture.read_bytes()).hexdigest()
+
+
+def test_requested_completeness_preserves_successes_and_completed_negatives(receipt):
+    receipt["requested_checks"] = [row["id"] for row in receipt["checks"]]
+    receipt["requested_controls"] = ["HC-01"]
+    assert probe.coverage(receipt).startswith("complete: 2/3")
+    receipt["requested_checks"].append("HD-03")
+    assert "missing requested checks=HD-03" in probe.coverage(receipt)
+    assert probe.coverage(receipt).startswith("partial: 2/3")
+    receipt["checks"].append(
+        {"id": "HD-03", "observed_intentional_weakness": False, "evidence": {"status": 401}}
+    )
+    # A completed negative result satisfies coverage without asserting a weakness.
+    assert probe.coverage(receipt).startswith("complete: 2/4")
+    receipt["secure_controls"] = []
+    assert "missing requested controls=HC-01" in probe.coverage(receipt)
+    assert probe.coverage(receipt).startswith("partial:")
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        {"id": "HC-01", "passed": False},
+        {"id": "HC-01", "passed": False, "check_error": "TimeoutError"},
+        {"id": "HC-99", "passed": True},
+    ],
+)
+def test_control_failure_error_and_unsupported_identity_are_partial(receipt, control):
+    receipt["secure_controls"] = [control]
+    detail = probe.coverage(receipt)
+    assert detail.startswith("partial: 2/3")
+    assert control["id"] in detail
+
+
+@pytest.mark.parametrize("requests", [None, "HD-02", [True], ["HD-02", "HD-02"], ["HD-99"]])
+def test_invalid_requested_check_manifest_is_partial(receipt, requests):
+    receipt["requested_checks"] = requests
+    receipt["requested_controls"] = ["HC-01"]
+    assert probe.coverage(receipt).startswith("partial:")
+
+
+def test_empty_and_historical_receipts_do_not_invent_coverage(receipt):
+    assert probe.coverage(receipt).startswith("complete:")
+    assert "historical receipt" in probe.coverage(receipt)
+    assert "coverage limited to returned rows" in probe.coverage(receipt)
+    receipt["checks"] = []
+    assert probe.coverage(receipt).startswith("partial: 0/0")
+    receipt["network_status"] = "enabled"
+    assert "missing enabled network checks=HD-13,HD-14,HD-15,HD-16" in probe.coverage(receipt)
+
+
+def test_split_historical_network_receipts_keep_provenance_and_deduplicate(receipt):
+    row = {
+        "id": "HD-15",
+        "port": 8443,
+        "observed_intentional_weakness": True,
+        "evidence": {"tls_version": "TLSv1.3"},
+    }
+    receipt["network_checks"] = [row]
+    assert probe._rows(receipt)[-1] == row
+    receipt["checks"].append(copy.deepcopy(row))
+    assert len(probe._rows(receipt)) == 4
+    assert probe.coverage(receipt).startswith("complete: 3/4")

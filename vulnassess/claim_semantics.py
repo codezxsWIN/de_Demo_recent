@@ -8,6 +8,7 @@ service booleans, port conventions, and claim quotations cannot supply them.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from collections.abc import Iterator
@@ -141,6 +142,34 @@ def _nonfactual(text: str, match: re.Match[str], *, presupposed: bool = False) -
 def _units(item: dict) -> Iterator[str]:
     if _NON_OBSERVATION_KIND.search(str(item.get("kind", ""))):
         return
+    if item.get("kind") == "harbordesk_finding":
+        try:
+            proof = json.loads(item["text"])
+        except (ValueError, TypeError):
+            return
+        if not isinstance(proof, dict) or proof.get("observed_intentional_weakness") is not True:
+            return
+        data = proof.get("evidence")
+        if not isinstance(data, dict) or "check_error" in data:
+            return
+        if (
+            proof.get("id") == "HD-14"
+            and data.get("protocol") == "FTP"
+            and data.get("tls_negotiated") is False
+        ):
+            yield "2121/tcp tls_test=negative"
+        if (
+            proof.get("id") == "HD-20"
+            and data.get("request_scheme") == "http"
+            and data.get("tls_negotiated") is False
+        ):
+            yield "8787/tcp tls_test=negative"
+        if proof.get("id") in ("HD-15", "HD-16") and data.get("tls_version") in (
+            "TLSv1.2",
+            "TLSv1.3",
+        ):
+            yield f"8443/tcp negotiated {data['tls_version']}"
+        return
     text = _normalise(item["text"])
     if item.get("kind") == "nmap_service":
         # One service evidence ID describes one leading listener. The server
@@ -252,6 +281,65 @@ def _verify_redirects(text: str, path: str, cited: list[dict]) -> None:
                 _reject(path, "HTTP redirect assertion", ports - supported_ports)
 
 
+def _fixture_application_bypass(clause: str, match: re.Match[str], cited: list[dict]) -> bool:
+    """A reproduced fixture login/object failure does not assert proxy topology."""
+    domain = r"(?:authentication|login|password|(?:object[- ](?:level[- ])?)?authorization|object[- ]ownership|access[- ]control)"
+    phrases = _rx(
+        rf"{domain}\s+bypass(?:es|ed|ing)?\b|\bbypass(?:es|ed|ing)?\s+(?:the\s+)?{domain}\b"
+    )
+    phrase = next(
+        (
+            item[0]
+            for item in phrases.finditer(clause)
+            if item.start() <= match.start() < item.end()
+        ),
+        None,
+    )
+    if phrase is None:
+        return False
+    for item in cited:
+        if item.get("kind") != "harbordesk_finding":
+            continue
+        try:
+            proof = json.loads(item["text"])
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(proof, dict) or proof.get("observed_intentional_weakness") is not True:
+            continue
+        evidence = proof.get("evidence")
+        if not isinstance(evidence, dict) or "check_error" in evidence:
+            continue
+        if proof.get("id") == "HD-03" and not _rx("object|authorization|access.control").search(
+            phrase
+        ):
+            if (
+                evidence.get("normal_wrong_password_status") == 401
+                and evidence.get("injected_fixture_login_status") == 200
+            ):
+                return True
+        if proof.get("id") in ("HD-04", "HD-09", "HD-10") and _rx(
+            "object|authorization|access.control"
+        ).search(phrase):
+            if (
+                evidence.get("signed_in_fixture") == "demo"
+                and evidence.get("returned_order_owner") == "other-demo"
+            ) or (
+                evidence.get("authenticated_fixture") == "demo"
+                and evidence.get("returned_owner") == "other-demo"
+                and evidence.get("status") == 200
+            ):
+                return True
+        if proof.get("id") == "HD-18" and _rx("authorization|access.control").search(phrase):
+            if (
+                evidence.get("baseline_admin_status") == 403
+                and evidence.get("role_assignment_status") == 200
+                and evidence.get("elevated_role") == "admin"
+                and evidence.get("elevated_admin_status") == 200
+            ):
+                return True
+    return False
+
+
 def _verify_topology(text: str, path: str, label: str, cited: list[dict]) -> None:
     for clause in _SENTENCE.split(text):
         for match in _TOPOLOGY.finditer(clause):
@@ -264,6 +352,8 @@ def _verify_topology(text: str, path: str, label: str, cited: list[dict]) -> Non
             ):
                 continue
             bypass = match[0].startswith("bypass")
+            if bypass and _fixture_application_bypass(clause, match, cited):
+                continue
             marker = _rx(
                 r"\bbypass\s*=\s*(?:observed|confirmed)\b"
                 if bypass

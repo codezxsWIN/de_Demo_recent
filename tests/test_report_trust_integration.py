@@ -191,6 +191,35 @@ def test_host_control_cannot_authorize_endpoint_auth_assertion(host_value):
         )
 
 
+def test_fixture_negative_auth_requires_own_citation_and_exact_endpoint():
+    proof = {
+        "id": "E1",
+        "kind": "harbordesk_finding",
+        "text": json.dumps(
+            {
+                "id": "HD-16",
+                "observed_intentional_weakness": True,
+                "evidence": {
+                    "unauthenticated_status": 200,
+                    "tls_version": "TLSv1.3",
+                    "fixture_only": True,
+                },
+            }
+        ),
+    }
+    text = "The management endpoint on port 8443 returned content without authentication."
+    result = {"summary": text, "claims": [{"path": "summary", "evidence_ids": ["E1"]}]}
+    analyst.validate_control_grounding(result, [], [text], evidence=[proof])
+    for changed in (text.replace("8443", "8787"), "Every management endpoint is unauthenticated."):
+        result["summary"] = changed
+        with pytest.raises(LLMUnavailable, match="unsupported control assertion"):
+            analyst.validate_control_grounding(result, [], [changed], evidence=[proof])
+    result["summary"] = text
+    result["claims"][0]["evidence_ids"] = []
+    with pytest.raises(LLMUnavailable, match="unsupported control assertion"):
+        analyst.validate_control_grounding(result, [], [text], evidence=[proof])
+
+
 def test_redis_finding_has_specific_verification_and_remediation():
     theme, meaning, verify, improve = assessment_report._finding_guidance(
         {

@@ -82,7 +82,7 @@ def wire_response(case, *, numeric=False):
                     finding["evidence_id"],
                     finding["id"],
                     score=score,
-                    label="observed" if rank == 2 else "inferred",
+                    label="inferred",
                     confidence=0.4 if rank == 2 else 0.9,
                 ),
                 "reason": claim(

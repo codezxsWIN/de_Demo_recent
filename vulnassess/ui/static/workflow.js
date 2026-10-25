@@ -9,6 +9,9 @@ import {buildInsightBrief, renderInsightBrief, renderInsightHighlights, reviewFi
 import {renderAssessmentOverview} from './workflow-overview.js';
 import {renderSelfDefence} from './self-defence.js';
 import {renderWorkflowActivity, renderActivityContext} from './workflow-activity.js';
+import {preserveWorkflowNavigation} from './workflow-navigation.js';
+
+document.addEventListener('click', preserveWorkflowNavigation, true);
 
 function showWorkspace(page) {
   document.body.dataset.workspace = page;

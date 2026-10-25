@@ -40,6 +40,62 @@ def client(output):
     )
 
 
+def test_large_fixture_report_keeps_later_network_findings_and_fits_provider_budget():
+    findings = [
+        {
+            "id": f"fixture-{number}",
+            "tool": "harbordesk",
+            "tool_native_id": "HD-02",
+            "title": "SQL injection in customer search",
+            "port": 8787,
+            "protocol": "tcp",
+            "url": "http://127.0.0.1:8787/api/customers",
+            "native_severity": "High",
+            "cve_ids": [],
+        }
+        for number in range(24)
+    ]
+    findings.append(
+        {
+            **findings[0],
+            "id": "expired-cert",
+            "tool_native_id": "HD-15",
+            "title": "Expired TLS certificate",
+            "port": 8443,
+            "url": "https://127.0.0.1:8443/",
+            "native_severity": "Medium",
+        }
+    )
+    record = {
+        "result": {"scan_status": "complete", "ai_status": "not_attempted"},
+        "payload": {
+            "findings": findings,
+            "scores": [
+                {
+                    "finding_id": item["id"],
+                    "risk": 60 if index < 24 else 40,
+                    "native_fallback": "harbordesk:High=60"
+                    if index < 24
+                    else "harbordesk:Medium=40",
+                }
+                for index, item in enumerate(findings)
+            ],
+            "scanner_coverage": {"harbordesk-check": "complete: 25/25 fixture checks"},
+        },
+    }
+    sources = helpy.sources(record)
+    assert "reproduced" in sources["R:exploitability"]["text"]
+    assert "25/25 fixture checks" in sources["R:web-coverage"]["text"]
+    assert any("HD-15" in item["text"] for item in sources.values())
+    bounded = helpy._bounded_sources(
+        sources, "Explain the expired TLS certificate on 8443 and its fix"
+    )
+    assert len(json.dumps(bounded, ensure_ascii=True).encode()) <= 14000
+    assert any("HD-15" in item["text"] for item in bounded.values())
+    assert "R:selection" in bounded
+    assert "Script execution requires additional" not in str(bounded)
+
+
 def test_selected_text_is_server_owned_not_model_written(tmp_path):
     _, record = record_at(tmp_path)
     result = helpy.answer(

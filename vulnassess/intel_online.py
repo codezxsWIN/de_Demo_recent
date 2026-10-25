@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 import re
 import time
 import urllib.error
@@ -11,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from vulnassess.errors import IntelUnavailable
 from vulnassess.intel import _compact_cve
@@ -60,10 +61,33 @@ def requested_cache(store: Any, cve_ids: Iterable[str]) -> RequestedCache:
     return RequestedCache(store, cve_ids)
 
 
+class _NoCredentialRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise IntelUnavailable("Authenticated NVD redirects are refused")
+
+
 def fetch_json(url: str, limit: int) -> dict[str, Any]:
-    request = urllib.request.Request(url, headers={"User-Agent": "vulnassess-intel/1.0"})
+    headers = {"User-Agent": "vulnassess-intel/1.0"}
+    parsed = urlsplit(url)
+    key = os.environ.get("NVD_API_KEY", "").strip()
+    authenticated = bool(
+        key
+        and parsed.scheme == "https"
+        and parsed.netloc == "services.nvd.nist.gov"
+        and parsed.path == "/rest/json/cves/2.0"
+    )
+    if authenticated:
+        if len(key) > 256 or any(ord(character) < 33 or ord(character) > 126 for character in key):
+            raise IntelUnavailable("NVD_API_KEY has an invalid format; value withheld")
+        headers["apiKey"] = key
+    request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        open_url = (
+            urllib.request.build_opener(_NoCredentialRedirect()).open
+            if authenticated
+            else urllib.request.urlopen
+        )
+        with open_url(request, timeout=20) as response:
             raw = response.read(limit + 1)
     except (OSError, TimeoutError, urllib.error.URLError) as error:
         raise IntelUnavailable("Public CVE intelligence source is unavailable") from error
@@ -253,4 +277,3 @@ def _save_meta(connection, feed: str, url: str, rows: list, date: str, now: date
         "file_date=excluded.file_date, rows=excluded.rows, loaded_at=excluded.loaded_at",
         (feed, url, _digest(rows), date, len(rows), now.isoformat()),
     )
-

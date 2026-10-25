@@ -32,6 +32,7 @@ native_fallback:                           # findings with no CVE rank on the to
   nessus: {Critical: 80, High: 60, Medium: 40, Low: 20}
   zap: {High: 60, Medium: 40, Low: 20, Informational: 5}
   harbordesk: {High: 60, Medium: 40, Low: 20, Informational: 5}
+  network-lab: {High: 60, Medium: 40, Low: 20, Informational: 5}
   nikto: 30
   nmap: 25
 

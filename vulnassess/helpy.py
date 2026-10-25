@@ -4,6 +4,7 @@ The model selects references, never supplies report facts or executable actions.
 """
 
 import json
+import re
 from typing import Any
 
 from vulnassess.ai_boundary import envelope
@@ -15,16 +16,19 @@ from vulnassess.report_composer import catalog
 
 def _verification_note(finding):
     """Curated, non-destructive next steps for the scanner lead actually retained."""
-    if finding.get("tool") == "harbordesk":
-        reviewed = guidance(finding)
-        if reviewed is not None:
-            return (
-                f"Retained intentional HarborDesk lab condition: {reviewed['meaning']} "
-                f"Bounded impact: {reviewed['impact']} "
-                "Fix-verification guidance: " + " ".join(reviewed["verify"]) + " "
-                "Use the recorded verifier receipt for observations; the case catalog alone "
-                "is not a detection, a vendor CVE, or evidence of production compromise."
-            )
+    lab = guidance(finding)
+    if lab:
+        return (
+            f"{finding.get('tool_native_id')} · {finding.get('title')} at {finding.get('url')}. "
+            + lab["meaning"]
+            + " Impact: "
+            + lab["impact"]
+            + " Fix: "
+            + " ".join(lab["patch"])
+            + " Verify: "
+            + " ".join(lab["verify"])
+            + " Scope: identified local fictional fixture only; no production compromise claimed."
+        )
     title = str(finding.get("title") or "").casefold()
     endpoint = (
         f"the recorded {finding.get('port', 'unknown')}/{finding.get('protocol', 'unknown')} endpoint"
@@ -85,7 +89,12 @@ def sources(record):
             "kind": "limitation",
         },
     }
-    for number, finding in enumerate(payload.get("findings", [])[:12]):
+    scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
+    findings = sorted(
+        payload.get("findings", []),
+        key=lambda item: (-(scores.get(item.get("id"), {}).get("risk") or 0), item.get("id", "")),
+    )
+    for number, finding in enumerate(findings):
         items[f"R:finding:{number}"] = {
             "text": (
                 "Retained HarborDesk verifier finding: "
@@ -110,7 +119,8 @@ def sources(record):
             )
             + ". Applicability limits: "
             + json.dumps(
-                assurance(finding)
+                (guidance(finding) or {}).get("meaning")
+                or assurance(finding)
                 or "Scanner observation; applicability and exploitability require verification."
             ),
             "section": "findings",
@@ -120,19 +130,6 @@ def sources(record):
             "text": _verification_note(finding),
             "section": "findings",
             "kind": "verification",
-        }
-    findings = payload.get("findings", [])
-    scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
-    if len(findings) > 12:
-        items["R:selection"] = {
-            "text": (
-                f"This capture retains {len(findings)} findings. Helpy's bounded source catalog "
-                "includes details for only the first 12 findings and at most 12 priorities. "
-                "Do not infer that an omitted finding is absent; inspect the full findings "
-                "section for evidence outside these excerpts."
-            ),
-            "section": "findings",
-            "kind": "coverage",
         }
     if findings:
         fallback_labels = {
@@ -144,7 +141,22 @@ def sources(record):
             not item.get("cve_ids") and scores.get(item.get("id"), {}).get("base_score") is None
             for item in findings
         )
-        if all_unscored_by_cve:
+        lab_findings = [finding for finding in findings if guidance(finding)]
+        if lab_findings:
+            items["R:exploitability"] = {
+                "text": (
+                    f"{len(lab_findings)} known intentional fictional HarborDesk conditions were reproduced "
+                    "by bounded local fixture checks. Their recorded native severities set the "
+                    "follow-up order; no vendor CVEs are assigned to these custom lab findings. "
+                    "Use the individual finding's verification note for the demonstrated impact "
+                    "and its limits. HTML reflection does not establish script execution. "
+                    "Some checks demonstrate reversible writes to fictional roles, orders or queue settings. "
+                    "Their receipt defines the demonstrated impact; no host command execution is claimed."
+                ),
+                "section": "findings",
+                "kind": "limitation",
+            }
+        elif all_unscored_by_cve:
             content = (
                 f"This capture records {len(findings)} retained findings and zero scanner-named "
                 "CVEs or CVSS scores. "
@@ -175,20 +187,21 @@ def sources(record):
                 "kind": "limitation",
             }
         coverage = payload.get("scanner_coverage", {})
-        if not any(key.lower() in {"zap", "web_app", "dast"} for key in coverage):
-            lab_coverage = (
-                "Retained HarborDesk verifier findings cover only their specific intentional "
-                "lab checks. These are separate from Nmap/Nikto and do not establish full "
-                "application-crawler/DAST coverage. "
-                if any(item.get("tool") == "harbordesk" for item in findings)
-                else (
+        if lab_findings:
+            items["R:web-coverage"] = {
+                "text": "HarborDesk fixture verification coverage: "
+                + str(coverage.get("harbordesk-check", "not recorded"))
+                + ". The retained checks exercise specific local application and protocol conditions. "
+                "They do not establish general crawler/DAST coverage or detection on unrelated websites.",
+                "section": "brief",
+                "kind": "coverage",
+            }
+        elif not any(key.lower() in {"zap", "web_app", "dast"} for key in coverage):
+            items["R:web-coverage"] = {
+                "text": (
                     "No retained full application-crawler/DAST coverage is recorded here. "
                     "The current observations alone do not establish SQL injection, XSS, "
                     "login bypass or application access-control flaws. "
-                )
-            )
-            items["R:web-coverage"] = {
-                "text": lab_coverage + (
                     "Consult the recorded scanner coverage rather than assume a tool ran. "
                     "A complete application assessment needs explicit in-scope evidence and "
                     "review beyond the specific retained checks."
@@ -196,9 +209,22 @@ def sources(record):
                 "section": "brief",
                 "kind": "coverage",
             }
-    for number, score in enumerate(payload.get("scores", [])[:12]):
+    for number, finding in enumerate(findings):
+        score = scores.get(finding.get("id"))
+        if score is None:
+            continue
         items[f"R:priority:{number}"] = {
-            "text": "Retained deterministic priority (not AI-generated): " + json.dumps(score),
+            "text": "Retained deterministic priority (not AI-generated): "
+            + json.dumps(
+                {
+                    "finding_id": finding["id"],
+                    "title": finding.get("title"),
+                    **{
+                        key: score.get(key)
+                        for key in ("risk", "band", "base_score", "native_fallback")
+                    },
+                }
+            ),
             "section": "findings",
             "kind": "priority",
         }
@@ -221,8 +247,6 @@ def sources(record):
         except (LLMUnavailable, KeyError, TypeError, ValueError, IndexError, AttributeError):
             batches = []
         for ref, item in catalog(batches).items():
-            if len(items) >= 64:
-                break
             if item["kind"] == "investigations":
                 continue  # Hypotheses need all their labels; do not extract them as facts.
             analysis = batches[item["batch"] - 1][0]["analysis"]
@@ -258,10 +282,53 @@ def sources(record):
     return {ref: item for ref, item in items.items() if len(item["text"]) <= 2500}
 
 
+def _bounded_sources(items, question):
+    """Index every finding, then select relevant excerpts within provider budgets."""
+    limit = 14_000
+    if len(json.dumps(items, ensure_ascii=True).encode()) <= limit:
+        return items
+    selected = {
+        key: items[key]
+        for key in ("R:coverage", "R:limits", "R:exploitability", "R:web-coverage")
+        if key in items
+    }
+    words = set(re.findall(r"[a-z0-9]+", question.casefold())) - {
+        "the",
+        "this",
+        "that",
+        "what",
+        "which",
+        "how",
+        "can",
+        "does",
+        "for",
+        "and",
+        "with",
+        "its",
+        "are",
+        "our",
+    }
+    candidates = [key for key in items if key not in selected]
+    candidates.sort(
+        key=lambda key: -len(words & set(re.findall(r"[a-z0-9]+", items[key]["text"].casefold())))
+    )
+    for key in candidates:
+        trial = {**selected, key: items[key]}
+        if len(json.dumps(trial, ensure_ascii=True).encode()) <= limit - 500:
+            selected[key] = items[key]
+    selected["R:selection"] = {
+        "text": f"Helpy selected {len(selected)} of {len(items)} available excerpts for this question. "
+        "The full finding inventory remains in the report; omitted excerpts were not reviewed for this reply.",
+        "section": "findings",
+        "kind": "coverage",
+    }
+    return selected
+
+
 def answer(record, question, client):
     if not isinstance(question, str) or not 1 <= len(question.strip()) <= 600:
         raise ConfigError("Ask a question of 1–600 characters")
-    items = sources(record)
+    items = _bounded_sources(sources(record), question)
     encoded = json.dumps(items, ensure_ascii=True)
     if len(encoded.encode()) > 28000:
         raise ConfigError("Assessment exceeds Helpy's evidence budget")

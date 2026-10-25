@@ -34,9 +34,10 @@ def test_summary_counts_the_whole_capture_not_only_the_first_twelve_findings() -
     record = synthetic_record(19)
     items = helpy.sources(record)
     assert "This capture records 19" in items["R:exploitability"]["text"]
-    assert sum(ref.startswith("R:finding:") for ref in items) == 12
-    assert "19 findings" in items["R:selection"]["text"]
-    assert "only the first 12" in items["R:selection"]["text"]
+    assert sum(ref.startswith("R:finding:") for ref in items) == 19
+    bounded = helpy._bounded_sources(items, "Explain the last scanner lead")
+    assert "R:selection" in bounded
+    assert "omitted excerpts were not reviewed" in bounded["R:selection"]["text"]
 
 
 def test_cve_after_the_excerpt_limit_is_not_reported_as_zero_cves() -> None:
@@ -69,8 +70,9 @@ def test_native_lab_observations_are_not_misrepresented_as_missing_application_c
 
 def test_no_nikto_collection_is_claimed_when_only_nmap_is_recorded() -> None:
     items = helpy.sources(synthetic_record())
-    assert "has Nmap port/service coverage and bounded Nikto checks" not in (
-        items["R:web-coverage"]["text"]
+    assert (
+        "has Nmap port/service coverage and bounded Nikto checks"
+        not in (items["R:web-coverage"]["text"])
     )
 
 

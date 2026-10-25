@@ -122,6 +122,8 @@ def test_citation_retry_respects_remaining_prompt_budget(tmp_path, monkeypatch):
     response = valid_result("F1", case["services"][0]["evidence_id"])
     client = FakeClient(response)
     monkeypatch.setattr(analyst, "MAX_PROMPT_CHARS", len(prompt) + 10)
+    # Exercise the runtime overflow guard with the proactive reserve disabled.
+    monkeypatch.setattr(analyst, "CORRECTION_RESERVE", 0)
     monkeypatch.setattr(analyst, "AUDIT_PATH", tmp_path / "synthetic_audit.jsonl")
     with pytest.raises(NeedsReview, match="supporting evidence"):
         analyst.analyze_target(payload, HOST, client)

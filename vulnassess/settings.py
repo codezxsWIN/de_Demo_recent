@@ -338,12 +338,19 @@ class Settings:
 
         native = self.weights["native_fallback"]
         self._unknown(
-            path, native, {"nessus", "zap", "nikto", "nmap", "harbordesk"}, "native_fallback"
+            path,
+            native,
+            {"nessus", "zap", "nikto", "nmap", "harbordesk", "network-lab"},
+            "native_fallback",
         )
         for key in ("nikto", "nmap"):
             self._number(path, native.get(key), f"native_fallback.{key}", 0, 100)
         severities = {"Critical", "High", "Medium", "Low", "Informational"}
-        for tool in ("nessus", "zap", *(["harbordesk"] if "harbordesk" in native else [])):
+        for tool in (
+            "nessus",
+            "zap",
+            *(key for key in ("harbordesk", "network-lab") if key in native),
+        ):
             severity_weights = self._mapping(path, native.get(tool), f"native_fallback.{tool}")
             allowed_severities = severities - (
                 {"Informational"} if tool == "nessus" else {"Critical"}

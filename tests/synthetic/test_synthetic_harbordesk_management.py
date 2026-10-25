@@ -68,8 +68,11 @@ class ManagementClient:
             raise AssertionError("Unexpected network destination")
         port = int(req.host.rsplit(":", 1)[1])
         return self.raw(
-            port, req.selector, method=req.get_method(),
-            body=req.data or b"", headers=dict(req.header_items()),
+            port,
+            req.selector,
+            method=req.get_method(),
+            body=req.data or b"",
+            headers=dict(req.header_items()),
         )
 
 
@@ -78,7 +81,10 @@ def test_unauthed_backup_and_queue_control_are_actual_stateful_operations() -> N
     backup = client.raw(8791, "/backup")
     assert backup.status == 200
     assert {key: len(rows) for key, rows in json.loads(backup.read())["backup"].items()} == {
-        "customers": 3, "orders": 2, "tickets": 2, "documents": 2
+        "customers": 3,
+        "orders": 2,
+        "tickets": 2,
+        "documents": 2,
     }
     assert client.raw(8791, "/dispatch").status == 200
     assert client.raw(8791, "/config", method="POST", body=b"paused=true").status == 200
@@ -97,14 +103,17 @@ def test_protected_listener_rejects_unauthorized_data_and_changes() -> None:
     assert client.servers[8792].paused is False
     headers = {"X-Lab-Access": "training-admin"}
     assert client.raw(8792, "/backup", headers=headers).status == 200
-    assert client.raw(
-        8792, "/config", method="POST", body=b"paused=true", headers=headers
-    ).status == 200
+    assert (
+        client.raw(8792, "/config", method="POST", body=b"paused=true", headers=headers).status
+        == 200
+    )
     assert client.raw(8792, "/dispatch", headers=headers).status == 503
     assert client.servers[8791].paused is False
 
 
-@pytest.mark.parametrize("body", [b"", b"paused=maybe", b"paused=true&host=x", b"command=stop", b"x" * 513])
+@pytest.mark.parametrize(
+    "body", [b"", b"paused=maybe", b"paused=true&host=x", b"command=stop", b"x" * 513]
+)
 def test_management_surface_cannot_control_hosts_or_accept_arbitrary_fields(body: bytes) -> None:
     client = ManagementClient()
     assert client.raw(8791, "/config", method="POST", body=body).status == 400
@@ -122,9 +131,10 @@ def test_management_binding_preserves_exact_loopback_boundary(host: str) -> None
 def test_host_and_origin_checks_precede_all_management_state_changes() -> None:
     client = ManagementClient()
     for headers in ({"Host": "attacker.invalid:8791"}, {"Origin": "https://attacker.invalid"}):
-        assert client.raw(
-            8791, "/config", method="POST", body=b"paused=true", headers=headers
-        ).status == 403
+        assert (
+            client.raw(8791, "/config", method="POST", body=b"paused=true", headers=headers).status
+            == 403
+        )
     assert client.servers[8791].paused is False
 
 
@@ -177,7 +187,9 @@ def test_high_network_cases_are_canonical_scored_and_visible_without_optional_ft
     network = ManagementClient()
 
     def routed_open(req: Any, timeout: int) -> Response:
-        return portal.open(req, timeout) if req.host.endswith(":8787") else network.open(req, timeout)
+        return (
+            portal.open(req, timeout) if req.host.endswith(":8787") else network.open(req, timeout)
+        )
 
     monkeypatch.setattr(verify, "build_opener", lambda *args: SimpleNamespace(open=routed_open))
     settings = Settings(ROOT / "config")
@@ -189,10 +201,13 @@ def test_high_network_cases_are_canonical_scored_and_visible_without_optional_ft
     assert receipt["management_status"] == "enabled"
     assert receipt["network_status"] == "not started"
     assert harbordesk_probe.confirmed_services(receipt) == (
-        Service(8791, "tcp", name="http"), Service(8792, "tcp", name="http")
+        Service(8791, "tcp", name="http"),
+        Service(8792, "tcp", name="http"),
     )
     host = Host("127.0.0.1", services=(Service(8787, "tcp", name="http"),))
-    profile = context.build_profile(host, findings, settings.scope, settings.roles, settings.controls)
+    profile = context.build_profile(
+        host, findings, settings.scope, settings.roles, settings.controls
+    )
     selected = [item for item in findings if item.tool_native_id in ("HD-23", "HD-24")]
     assert len(selected) == 2
     for finding in selected:

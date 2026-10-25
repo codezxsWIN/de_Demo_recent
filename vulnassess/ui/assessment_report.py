@@ -117,6 +117,16 @@ def _device(data):
 
 def _finding_guidance(finding):
     """Explain only recognized scanner observations; never promote them to proven exploits."""
+    from vulnassess.network_lab_probe import guidance as network_guidance
+
+    network = network_guidance(finding)
+    if network:
+        return (
+            network["category"],
+            network["meaning"],
+            " ".join(network["verify"]),
+            " ".join(network["patch"]),
+        )
     if finding.get("tool") == "harbordesk":
         from vulnassess.harbordesk_guidance import guidance
 
@@ -270,7 +280,7 @@ def _practical_assessment(result, payload):
                     for candidate in scores.values()
                 )
                 rank = (
-                    f"Tied · {score.get('risk')}/100 · {score.get('native_fallback')} "
+                    f"{'Tied' if tied > 1 else str(position) + '.'} · {score.get('risk')}/100 · {score.get('native_fallback')} "
                     f"(not CVSS; {tied} observation(s) share this score)"
                 )
             else:
@@ -413,7 +423,15 @@ def _findings(payload, proofs=(), policy=None):
     enriched_findings = {
         row["finding_id"] for row in payload.get("enrichments", []) if row.get("cve_id")
     }
-    for index, finding in enumerate(payload.get("findings", []), 1):
+    indexed = list(enumerate(payload.get("findings", []), 1))
+    indexed.sort(
+        key=lambda pair: (
+            scores.get(pair[1].get("id"), {}).get("risk") is None,
+            -(scores.get(pair[1].get("id"), {}).get("risk") or 0),
+            pair[0],
+        )
+    )
+    for index, finding in indexed:
         theme, meaning, verify, improve = _finding_guidance(finding)
         content += (
             f'<article id="finding-{index}"><h3>{text(finding.get("title") or finding["id"])}</h3>'
@@ -503,7 +521,20 @@ def _findings(payload, proofs=(), policy=None):
             + priority_label,
             "finding-strip",
         )
-        if score is not None:
+        if score is not None and score.get("native_fallback"):
+            content += '<details class="priority-explanation"><summary>Why this priority? · recorded native severity</summary>'
+            content += facts(
+                [
+                    ("Native severity", finding.get("native_severity") or "Scanner default"),
+                    ("Configured score basis", score["native_fallback"]),
+                    ("Retained priority", score.get("risk")),
+                ]
+            )
+            content += paragraph(
+                "This configured triage value is not CVSS or an exploitation probability."
+            )
+            content += paragraph(score.get("reason")) + "</details>"
+        elif score is not None:
             trace = priority_trace(
                 score, payload.get("scoring_policy", {}).get("weights") or policy
             )
@@ -750,6 +781,7 @@ def _validated_batches(analyst, payload):
                 *prose.values(),
                 *[claim["verification_action"] for claim in claims if claim["verification_action"]],
             ],
+            evidence=evidence,
         )
         retained_case = {
             "services": [
@@ -964,7 +996,8 @@ def _ai_highlights(batches, plan, payload):
     findings = payload.get("findings", [])
     scores = {row.get("finding_id"): row for row in payload.get("scores", [])}
     generic_native_only = bool(findings) and all(
-        not finding.get("cve_ids")
+        finding.get("tool") != "harbordesk"
+        and not finding.get("cve_ids")
         and scores.get(finding.get("id"), {}).get("native_fallback")
         and scores.get(finding.get("id"), {}).get("base_score") is None
         for finding in findings
@@ -1187,6 +1220,25 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     if payload.get("self_defence"):
         content += '<a href="#device">Your device</a>'
     content += '<a href="#decisions">Conclusions &amp; decisions</a><a href="#findings">Findings</a><a href="#context">Context &amp; coverage</a><a href="#ai">AI &amp; next steps</a><a href="#provenance">Provenance</a></nav>'
+    lab_findings = [
+        finding for finding in payload.get("findings", []) if finding.get("tool") == "harbordesk"
+    ]
+    if lab_findings:
+        counts = {
+            level: sum(finding.get("native_severity") == level for finding in lab_findings)
+            for level in ("High", "Medium", "Low")
+        }
+        content += '<section id="lab-results" aria-label="Verified HarborDesk results"><h2>HarborDesk · verified local fixture findings</h2>'
+        content += paragraph(
+            f"{len(lab_findings)} intentional application and network weaknesses reproduced. "
+            + " · ".join(f"{count} {level}" for level, count in counts.items())
+            + ". Native severities are reviewed lab classifications; no vendor CVEs are assigned.",
+            "highlight-verdict",
+        )
+        content += paragraph(
+            payload.get("scanner_coverage", {}).get("harbordesk-check", "Coverage not recorded")
+        )
+        content += '<p><a href="#practical">Open priority queue</a> · <a href="#findings">Inspect findings, evidence and fixes</a></p></section>'
     content += _ai(result, payload, composition)
     content += '<section id="brief"><h2>Assessment brief</h2>'
     content += paragraph(

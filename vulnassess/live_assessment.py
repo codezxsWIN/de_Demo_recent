@@ -812,7 +812,31 @@ def run(
     )
     harbordesk_coverage = None
     harbordesk_failed = False
-    if harbordesk_probe.eligible(target_ip, endpoint):
+    network_coverage = None
+    from vulnassess import network_lab_probe
+
+    if network_lab_probe.eligible(target_ip, endpoint):
+        if plan_execution is not None:
+            network_coverage = "not requested: approved plan has no network-lab verification step"
+        else:
+            emit("canonical", "running", "Reading fixed SMTP, cache and Modbus fixture endpoints")
+            try:
+                verified, observed_services, network_coverage = network_lab_probe.run(
+                    settings.scope, target_ip, endpoint, directory
+                )
+                findings.extend(verified)
+                services = {(item.port, item.protocol): item for item in host.services}
+                services.update({(item.port, item.protocol): item for item in observed_services})
+                host = replace(host, services=tuple(services.values()))
+                harbordesk_failed = network_coverage.startswith("partial:")
+            except (OSError, ValueError, TypeError, KeyError) as error:
+                harbordesk_failed = True
+                network_coverage = f"failed: network-lab verification ({type(error).__name__})"
+    if harbordesk_probe.eligible(target_ip, endpoint) and plan_execution is not None:
+        harbordesk_coverage = (
+            "not requested: approved scan plan contains no HarborDesk fixture-verification step"
+        )
+    elif harbordesk_probe.eligible(target_ip, endpoint):
         emit("canonical", "running", "Verifying the identified loopback HarborDesk fixture")
         try:
             verified, receipt = harbordesk_probe.run(settings.scope, target_ip, endpoint, directory)
@@ -859,7 +883,8 @@ def run(
         "canonical",
         "error" if harbordesk_failed else "complete",
         f"Parsed {len(host.services)} services and {len(findings)} findings; raw scanner files retained locally"
-        + (f"; {harbordesk_coverage}" if harbordesk_failed else "")
+        + (f"; {harbordesk_coverage}" if harbordesk_failed and harbordesk_coverage else "")
+        + (f"; {network_coverage}" if network_coverage is not None else "")
         + ("; local protection observations collected" if self_defence else ""),
     )
     captured_at = datetime.now(UTC).isoformat()
@@ -1030,6 +1055,8 @@ def run(
     scan_profile = payload["scanner_coverage"]["nmap"]
     if harbordesk_coverage is not None:
         payload["scanner_coverage"]["harbordesk-check"] = harbordesk_coverage
+    if network_coverage is not None:
+        payload["scanner_coverage"]["network-lab-check"] = network_coverage
     if device_check is not None:
         payload["self_defence"] = device_check
         payload["scanner_coverage"]["device-check"] = device_check["limitations"]

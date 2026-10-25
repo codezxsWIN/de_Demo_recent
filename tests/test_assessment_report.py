@@ -271,6 +271,20 @@ def test_report_refuses_tampered_or_legacy_receipts(tmp_path, filename, suffix):
     assert b"SYNTHETIC observed loopback service" not in response.body
 
 
+def test_missing_report_offers_navigation_without_substituting_another_run(tmp_path):
+    app, _ = setup_report(tmp_path)
+    response = app.get("/captures/assessment-missing/report")
+    assert response.status == 409
+    assert response.content_type == "text/html; charset=utf-8"
+    assert b"No different assessment has been substituted" in response.body
+    assert b'href="/vulnerabilities"' in response.body
+    assert b'href="/captures"' in response.body
+    assert b"SYNTHETIC observed loopback service" not in response.body
+    api = app.get("/api/captures/assessment-missing")
+    assert api.status == 409
+    assert json.loads(api.body)["error"]["type"] == "ConfigError"
+
+
 def test_legacy_report_does_not_promote_unverified_history(tmp_path):
     app, directory = setup_report(tmp_path)
     (directory / "review-evidence.json").unlink()
@@ -410,3 +424,41 @@ def test_ui_exposes_reports_in_both_summary_and_self_defence():
             "snapshot_hash": "",
         }
     )
+
+
+def test_fixture_findings_show_verified_summary_and_native_queue_without_ai(tmp_path):
+    _, directory = setup_report(tmp_path)
+    record = capture_history.load(directory.parent, directory.name)
+    record["result"]["ai_status"] = "needs_review"
+    record["payload"]["findings"] = [
+        {
+            "id": "fixture-sql",
+            "tool": "harbordesk",
+            "tool_native_id": "HD-02",
+            "title": "SQL injection in customer search",
+            "port": 8787,
+            "protocol": "tcp",
+            "native_severity": "High",
+            "cve_ids": [],
+            "evidence": "Synthetic differential proof",
+        }
+    ]
+    record["payload"]["scores"] = [
+        {
+            "finding_id": "fixture-sql",
+            "risk": 60,
+            "native_fallback": "harbordesk:High=60",
+            "band": "High",
+            "reason": "Configured native High severity",
+            "base_score": None,
+        }
+    ]
+    record["payload"]["scanner_coverage"] = {
+        "harbordesk-check": "complete: 1/1 verified fixture check"
+    }
+    document = assessment_report.render(record)
+    assert "1 intentional application and network weaknesses reproduced" in document
+    assert "1 High" in document
+    assert "recorded native severity" in document
+    assert "Native fallback arithmetic is unsupported" not in document
+    assert "Tied · 60/100" not in document

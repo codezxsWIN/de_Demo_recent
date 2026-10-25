@@ -733,6 +733,31 @@ def test_distinct_grounding_failures_get_bounded_corrections_without_prompt_grow
     assert result["canonical_scores_changed"] is False
 
 
+def test_score_misbinding_gets_a_fresh_correction_without_changing_priorities():
+    payload = demo_payload()
+    original = copy.deepcopy(payload)
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    good = valid_result(case["findings"][0]["id"], case["findings"][0]["evidence_id"])
+    bad = copy.deepcopy(good)
+    bad["summary"] = "The risk score is 999.9."
+
+    class CorrectingClient(FakeClient):
+        def __init__(self):
+            super().__init__(bad)
+            self.calls = 0
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.calls += 1
+            self.result = bad if self.calls == 1 else good
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = CorrectingClient()
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert client.calls == 2
+    assert result["analysis"]["summary"] == good["summary"]
+    assert result["canonical_scores_changed"] is False and payload == original
+
+
 def test_repeated_unsupported_control_assertion_is_never_published():
     payload = demo_payload()
     case, _, _ = analyst.build_case(payload, "172.28.0.12")
@@ -1378,6 +1403,26 @@ def test_batched_review_covers_every_finding_with_isolated_validated_citations(
         assert all(set(claim["evidence_ids"]) <= ids for claim in batch["analysis"]["claims"])
         assert batch["canonical_scores_changed"] is False
     assert payload == original
+
+
+def test_expanded_assessment_can_cover_more_than_sixteen_batches(monkeypatch):
+    payload = six_finding_payload()
+    base = payload["findings"][0]
+    payload["findings"] = [{**base, "id": f"expanded-{i}"} for i in range(34)]
+    payload["scores"] = []
+    payload["enrichments"] = []
+
+    def evaluate(current, host, **kwargs):
+        return {
+            "finding_coverage": {"included_ids": [item["id"] for item in current["findings"][:2]]},
+            "canonical_scores_changed": False,
+        }
+
+    monkeypatch.setattr(analyst, "analyze_target", evaluate)
+    result = analyst.analyze_findings(payload, base["host_ip"])
+    assert result["batch_coverage"]["batch_count"] == 17
+    assert result["batch_coverage"]["findings_included"] == 34
+    assert result["batch_coverage"]["findings_omitted"] == 0
 
 
 def test_invalid_later_batch_withholds_all_ai_output(monkeypatch, tmp_path):

@@ -146,6 +146,8 @@ CHECKS = {
         "http",
     ),
 }
+CONTROL_IDS = {f"HC-{number:02}" for number in range(1, 21)}
+NETWORK_IDS = {"HD-13", "HD-14", "HD-15", "HD-16"}
 
 
 def eligible(target_ip: str, endpoint: dict[str, Any] | None) -> bool:
@@ -233,7 +235,11 @@ def run(
     findings = []
     for index, row in enumerate(rows, 1):
         metadata = CHECKS.get(row["id"])
-        if metadata is None or row["observed_intentional_weakness"] is not True:
+        if (
+            metadata is None
+            or row["observed_intentional_weakness"] is not True
+            or (isinstance(row["evidence"], dict) and "check_error" in row["evidence"])
+        ):
             continue
         title, path, cwe, severity, port, scheme = metadata
         findings.append(
@@ -273,16 +279,105 @@ def run(
 
 def coverage(receipt: dict[str, Any]) -> str:
     rows = _rows(receipt)
-    passed = sum(row["observed_intentional_weakness"] for row in rows)
+    supported = [row for row in rows if row["id"] in CHECKS]
+    passed = sum(
+        row["observed_intentional_weakness"]
+        and not (isinstance(row["evidence"], dict) and "check_error" in row["evidence"])
+        for row in supported
+    )
     errors = [
         row["id"]
         for row in rows
         if isinstance(row["evidence"], dict) and "check_error" in row["evidence"]
     ]
-    status = "partial" if errors else "complete"
-    detail = f"{status}: {passed}/{len(rows)} verified intentional fixture weaknesses observed"
+    issues = []
+    unknown = sorted({row["id"] for row in rows if row["id"] not in CHECKS})
+    if unknown:
+        issues.append("unsupported check IDs=" + ",".join(unknown))
+    controls = receipt.get("secure_controls", [])
+    control_ids = set()
+    if not isinstance(controls, list):
+        issues.append("secure_controls invalid")
+        controls = []
+    for row in controls:
+        if (
+            not isinstance(row, dict)
+            or not isinstance(row.get("id"), str)
+            or type(row.get("passed")) is not bool
+        ):
+            issues.append("invalid secure control")
+            continue
+        identity = row["id"]
+        if identity in control_ids:
+            issues.append("duplicate secure control=" + identity)
+        control_ids.add(identity)
+        if identity not in CONTROL_IDS:
+            issues.append("unsupported control ID=" + identity)
+        if "check_error" in row or (
+            isinstance(row.get("evidence"), dict) and "check_error" in row["evidence"]
+        ):
+            errors.append(identity)
+        elif row["passed"] is False:
+            issues.append("secure control failed=" + identity)
+
+    def requested(key, known):
+        value = receipt.get(key)
+        if (
+            not isinstance(value, list)
+            or not all(isinstance(identity, str) for identity in value)
+            or len(set(value)) != len(value)
+        ):
+            issues.append(key + " invalid or missing")
+            return set()
+        identities = set(value)
+        unsupported = identities - known
+        if unsupported:
+            issues.append("unsupported " + key + "=" + ",".join(sorted(unsupported)))
+        return identities
+
+    expected_controls: set[str] = set()
+    explicit = "requested_checks" in receipt or "requested_controls" in receipt
+    if explicit:
+        expected = requested("requested_checks", set(CHECKS))
+        expected_controls = requested("requested_controls", CONTROL_IDS)
+        missing = expected - {row["id"] for row in rows}
+        if missing:
+            issues.append("missing requested checks=" + ",".join(sorted(missing)))
+        missing_controls = expected_controls - control_ids
+        if missing_controls:
+            issues.append("missing requested controls=" + ",".join(sorted(missing_controls)))
+        unexpected = {row["id"] for row in rows} - expected
+        unexpected_controls = control_ids - expected_controls
+        if unexpected or unexpected_controls:
+            issues.append(
+                "unrequested results=" + ",".join(sorted(unexpected | unexpected_controls))
+            )
+    else:
+        # Historical receipts have no request manifest: preserve their supported
+        # observations and label the limited basis rather than inventing web requests.
+        expected = {row["id"] for row in supported}
+    if receipt.get("network_status") == "enabled":
+        missing = NETWORK_IDS - {row["id"] for row in rows}
+        if missing:
+            issues.append("missing enabled network checks=" + ",".join(sorted(missing)))
+    if receipt.get("management_status") in ("enabled", "partial"):
+        missing_management = {"HD-23", "HD-24"} - {row["id"] for row in rows}
+        if missing_management:
+            issues.append("missing management checks=" + ",".join(sorted(missing_management)))
+        if receipt.get("management_status") == "partial":
+            issues.append("management verification partial")
+    if not supported:
+        issues.append("no supported checks returned")
+    status = "partial" if errors or issues else "complete"
+    detail = f"{status}: {passed}/{len(supported)} verified intentional fixture weaknesses observed"
     if errors:
         detail += "; check errors=" + ",".join(errors)
+    if issues:
+        detail += "; " + "; ".join(issues)
+    if explicit:
+        detail += f"; requested checks={len(expected)}; requested controls={len(expected_controls)}"
+    else:
+        detail += "; historical receipt: requested-check manifest unavailable; coverage limited to returned rows"
     if "network_status" in receipt:
         detail += "; network_status=" + _bounded_json(receipt["network_status"])
     if "management_status" in receipt:
@@ -322,7 +417,7 @@ def confirmed_services(receipt: dict[str, Any]) -> tuple[Service, ...]:
         if not isinstance(evidence, dict) or "check_error" in evidence:
             continue
         banner = evidence.get("banner")
-        if row["id"] == "HD-13" and isinstance(banner, str) and banner.startswith("220"):
+        if row["id"] in ("HD-13", "HD-14") and isinstance(banner, str) and banner.startswith("220"):
             services[2121] = Service(2121, "tcp", name="ftp", banner=banner[:2048])
         if row["id"] in ("HD-15", "HD-16") and evidence.get("tls_version") in (
             "TLSv1",
