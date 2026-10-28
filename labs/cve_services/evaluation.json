@@ -1,0 +1,13 @@
+{
+  "purpose": "Separate evaluation ground truth; never ingest as scanner evidence or derive CVEs from service names/labels.",
+  "candidate_cve": "CVE-2023-36824",
+  "primary_advisory": "https://github.com/redis/redis/security/advisories/GHSA-4cfx-h9gq-xpx3",
+  "advisory_checked_on": "2026-10-27",
+  "advisory_summary": "Redis identifies crafted COMMAND GETKEYS/GETKEYSANDFLAGS and variadic-key command ACL evaluation as trigger paths; the 7.0 branch fix is 7.0.12.",
+  "expected_versions": {"affected": "7.0.11", "patched": "7.0.12"},
+  "expected_endpoints": {"affected": {"host": "127.0.0.4", "port": 6379}, "patched": {"host": "127.0.0.5", "port": 6379}},
+  "conclusion_scope": "Version-only applicability candidate. COMMAND, all key commands, ACL administration, scripting and writes are denied. No exploitability or overflow behavior is tested. Patched means fixed for this candidate only, not free of other vulnerabilities.",
+  "allowed_probe": [["PING"], ["INFO", "server"]],
+  "topology_note": "Redis attaches only to the private internal pair network. Two bounded native socat forwarders join that network and a dedicated ingress bridge, publishing only the authorized loopback ports. Redis bytes pass through unchanged; no generated version responses. Docker suppresses host publication for internal-only containers.",
+  "acl_note": "Redis 7.0 first-argument ACL +info|server requires server as the first INFO argument. Redis permits additional INFO sections after that first argument; these remain read-only. The verifier sends only INFO server."
+}

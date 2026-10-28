@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sqlite3
 import time
 from dataclasses import dataclass
 from hashlib import sha256
@@ -29,7 +30,7 @@ import vulnassess.report_composer as report_composer
 import vulnassess.scan_plans as scan_plans
 from vulnassess.ai_boundary import digest
 from vulnassess.errors import AdapterError, ConfigError, LLMUnavailable, NeedsReview, ScopeError
-from vulnassess.intel_status import read_cache_status
+from vulnassess.intel_status import read_cache_status, read_cached_intelligence
 from vulnassess.nessus_import import import_nessus_report
 from vulnassess.readers._input import MAX_CAPTURE_BYTES
 from vulnassess.repository import ENV_VAR, AssessmentRepository
@@ -177,6 +178,27 @@ def _replay_evidence(
     baseline_state = (
         "complete" if baseline.startswith(("top 100 tcp ports", "complete")) else "error"
     )
+    from labs.service_networks.catalog import environment as network_environment
+
+    network_lab = network_environment(target_ip)
+    if (
+        network_lab
+        and source.get("target") == target_ip
+        and baseline == ("exact lab tcp ports " + ",".join(map(str, sorted(network_lab["tcp"]))))
+    ):
+        baseline_state = "complete"
+    declared_ports = payload.get("network_service_tcp_ports")
+    policy_digest = payload.get("network_service_policy_sha256")
+    if (
+        isinstance(declared_ports, list)
+        and 1 <= len(declared_ports) <= 16
+        and all(type(port) is int and 1 <= port <= 65535 for port in declared_ports)
+        and declared_ports == sorted(set(declared_ports))
+        and isinstance(policy_digest, str)
+        and re.fullmatch(r"[0-9a-f]{64}", policy_digest)
+        and baseline == "owner-authorised tcp ports " + ",".join(map(str, declared_ports))
+    ):
+        baseline_state = "complete"
     states = {"scanner": (baseline_state, nmap or "Nmap baseline coverage was not retained")}
     endpoint = re.search(r"; explicit TCP/(\d+) check (.+)", nmap)
     parsed = urlsplit(str(source.get("target", "")))
@@ -396,8 +418,20 @@ class UiApplication:
                 "resolved_ips": addresses,
                 "reason": "At least one resolved address is outside the authorised scope; no scanner command was built",
             }
+        from vulnassess import network_service_policy
+
+        declared_service_policy = (
+            network_service_policy.load(self.config_dir, settings.scope, addresses[0])
+            if len(addresses) == 1 and endpoint is None
+            else None
+        )
         nmap, nmap_detail = live_assessment.nmap_probe()
         missing = [] if nmap else ["nmap"]
+        from labs.service_networks.catalog import environment as network_environment
+
+        network_lab = (
+            network_environment(addresses[0]) if len(addresses) == 1 and endpoint is None else None
+        )
         return {
             "target": addresses[0],
             "submitted": submitted,
@@ -409,7 +443,11 @@ class UiApplication:
             "scope": settings.scope.segment(addresses[0]) or addresses[0],
             "missing": missing,
             "reason": (
-                f"Scope accepted. The live run will pin the URL to {addresses[0]}, check its requested port, and use only scanners allowed for this configured asset. {nmap_detail}"
+                f"Scope accepted for {len(declared_service_policy['endpoints'])} owner-authorised service endpoint checks. Protocol observations are evaluated against explicit access policy; no web tests. {nmap_detail}"
+                if declared_service_policy and not missing
+                else f"Scope accepted for {network_lab['name']}. Exact declared TCP ports and bounded service-protocol checks; no web tests. {nmap_detail}"
+                if network_lab and not missing
+                else f"Scope accepted. The live run will pin the URL to {addresses[0]}, check its requested port, and use only scanners allowed for this configured asset. {nmap_detail}"
                 if endpoint is not None and hostname != addresses[0]
                 else f"Scope accepted. The live run will check the requested port on the pinned target and use only scanners allowed for this configured asset. {nmap_detail}"
                 if endpoint is not None
@@ -1018,8 +1056,49 @@ class UiApplication:
             return error_response(404, "UI path not found")
         if decoded == "/workflow":
             return self._static(["workflow.html"])
+        if decoded == "/intelligence":
+            return self._static(["intelligence.html"])
         if decoded == "/findings":
             return self._static(["findings.html"])
+        if decoded in {"/cve-lab", "/cve-lab/comparison.json"} and not parsed.query:
+            from vulnassess.ui import cve_lab, network_labs
+
+            try:
+                records = network_labs.latest_records(
+                    self.config_dir.parent / "data/live/raw", {"127.0.0.4", "127.0.0.5"}
+                )
+                if decoded == "/cve-lab/comparison.json":
+                    return json_response(200, cve_lab.comparison(records))
+                return Response(
+                    200, cve_lab.render(records).encode("utf-8"), "text/html; charset=utf-8"
+                )
+            except (ConfigError, OSError):
+                return error_response(409, "CVE lab evidence is unavailable or unverified")
+        if decoded == "/network-labs" and not parsed.query:
+            from vulnassess.service_network_deployment import load_latest as load_deployment
+            from vulnassess.service_network_remediation import load_latest as load_remediation
+            from vulnassess.ui import network_labs
+
+            try:
+                records = network_labs.latest_records(self.config_dir.parent / "data/live/raw")
+                try:
+                    deployment = load_deployment(self.config_dir.parent / "data/service-networks")
+                except (ConfigError, OSError):
+                    deployment = None
+                remediation, remediation_error = None, None
+                try:
+                    remediation = load_remediation(self.config_dir.parent / "data/service-networks")
+                except (ConfigError, OSError) as error:
+                    remediation_error = str(error)
+                return Response(
+                    200,
+                    network_labs.render(records, deployment, remediation, remediation_error).encode(
+                        "utf-8"
+                    ),
+                    "text/html; charset=utf-8",
+                )
+            except (ConfigError, OSError):
+                return error_response(409, "Network lab evidence is unavailable or unverified")
         if decoded == "/environment":
             parameters = parse_qs(parsed.query, keep_blank_values=True)
             if set(parameters) - {"capture"} or (
@@ -1036,23 +1115,49 @@ class UiApplication:
                         return error_response(409, "No completed assessment is available")
                     identity = latest["capture_id"]
                 record = capture_history.load(root, identity)
+                from vulnassess.service_network_deployment import load_latest as load_deployment
+
+                deployment, deployment_error = None, None
+                try:
+                    deployment = load_deployment(self.config_dir.parent / "data/service-networks")
+                except (ConfigError, OSError):
+                    deployment_error = True
                 return Response(
-                    200, environment.render(record).encode("utf-8"), "text/html; charset=utf-8"
+                    200,
+                    environment.render(
+                        record, deployment=deployment, deployment_error=deployment_error
+                    ).encode("utf-8"),
+                    "text/html; charset=utf-8",
                 )
             except (ConfigError, OSError):
                 return error_response(409, "Environment evidence is unavailable or unverified")
         if decoded == "/website-check" and not parsed.query:
             return self._static(["website-check.html"])
-        if decoded == "/vulnerabilities" and not parsed.query:
-            return self._static(["vulnerabilities.html"])
-        if decoded == "/api/vulnerability-findings" and not parsed.query:
+        if decoded in {"/vulnerabilities", "/api/vulnerability-findings"}:
             try:
-                dashboard = vulnerability_findings.latest(self.config_dir.parent / "data/live/raw")
+                parameters = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=1)
+                capture_id = parameters.get("capture", [None])[0]
+                if set(parameters) - {"capture"} or (
+                    capture_id is not None
+                    and not re.fullmatch(r"assessment-[a-zA-Z0-9_-]{1,80}", capture_id)
+                ):
+                    return error_response(400, "Findings accepts one valid saved assessment ID")
+            except ValueError:
+                return error_response(400, "Findings accepts one valid saved assessment ID")
+            if decoded == "/vulnerabilities":
+                return self._static(["vulnerabilities.html"])
+            try:
+                root = self.config_dir.parent / "data/live/raw"
+                dashboard = (
+                    vulnerability_findings.selected(root, capture_id)
+                    if capture_id is not None
+                    else vulnerability_findings.latest(root)
+                )
                 return json_response(200, dashboard)
             except (ConfigError, OSError, ValueError, TypeError, KeyError):
                 return error_response(
                     409,
-                    "The latest completed assessment could not be verified. No evidence was changed.",
+                    "The requested assessment could not be verified. No evidence was changed.",
                 )
         if decoded == "/":
             parameters = parse_qs(parsed.query, keep_blank_values=True)
@@ -1188,6 +1293,41 @@ class UiApplication:
             )
         if parts == ["api", "intel-status"]:
             return json_response(200, self.intelligence_status())
+        if parts == ["api", "intelligence", "catalog"]:
+            from vulnassess.intelligence_catalog import read_catalog
+
+            try:
+                if len(parsed.query) > 512:
+                    raise ConfigError("Catalog query is too long")
+                parameters = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=8)
+                if set(parameters) - {"q", "source", "page", "page_size"} or any(
+                    len(values) != 1 for values in parameters.values()
+                ):
+                    raise ConfigError("Catalog accepts one q, source, page and page_size value")
+                return json_response(
+                    200,
+                    read_catalog(
+                        self.database,
+                        page=int(parameters.get("page", ["1"])[0]),
+                        page_size=int(parameters.get("page_size", ["50"])[0]),
+                        search=parameters.get("q", [""])[0],
+                        source=parameters.get("source", ["all"])[0],
+                    ),
+                )
+            except (ConfigError, ValueError) as error:
+                return error_response(400, str(error))
+        if parts == ["api", "intelligence"]:
+            parameters = parse_qs(parsed.query, keep_blank_values=True)
+            if set(parameters) - {"cve"} or ("cve" in parameters and len(parameters["cve"]) != 1):
+                return error_response(400, "Cache lookup accepts one CVE identifier")
+            try:
+                return json_response(
+                    200, read_cached_intelligence(self.database, parameters.get("cve", [None])[0])
+                )
+            except ConfigError as error:
+                return error_response(400, str(error))
+            except (OSError, ValueError, sqlite3.DatabaseError):
+                return error_response(409, "Cached intelligence is unavailable")
         if parts[0] != "api":
             return error_response(404, "UI route not found")
         try:

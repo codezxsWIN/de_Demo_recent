@@ -3564,3 +3564,20 @@ data/live/raw. A human must provide a real retained assessment and an available
 approved provider to verify that integration. Do not turn this missing runtime
 into a fabricated successful chat. Existing HarborDesk services were not changed
 or restarted by the Helpy check.
+
+## Network-service native triage v1 — 2026-10-26
+
+Decision: replace the identical fallback only for evidence-bound `service-network`
+owner-policy violations with the optional `service-network-triage-v1` hypothesis
+in `weights.yaml`. Base categories distinguish login, bounded file read, confirmed
+MQTT nonce exchange, SNMP management read, optional signing and certificate expiry.
+Explicit, sufficiently confident exposure/environment/owner-criticality inputs
+contribute separate bounded terms. Retain the category, terms, policy version,
+endpoint-policy hash and evidence hash; replay them in reports and snapshot audits.
+
+Rejected: assigning invented CVSS vectors, importing CVE threat data without a CVE,
+using an LLM to set scores, or treating host role/other endpoint controls as proven
+mitigation. Existing CVE and other scanner paths, including HarborDesk, keep their
+numerical behavior. Historical receipts are not rewritten. The weights are local
+operational assumptions, not calibrated risk estimates or expert-validated ranks;
+independent held-out judgments remain necessary to assess ranking quality.

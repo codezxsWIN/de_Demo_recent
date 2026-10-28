@@ -30,6 +30,7 @@ RESULT_KEYS = frozenset(
         "ai_attempts",
         "selected_provider",
         "used_provider",
+        "role_model",
     }
 )
 FIELDS = frozenset(
@@ -61,6 +62,16 @@ AI_SUMMARY_FIELDS = frozenset(
 
 def _hash(value):
     return sha256(encoded(value).encode("utf-8")).hexdigest()
+
+
+def _intelligence_content(payload):
+    result = {
+        "enrichments": payload.get("enrichments", []),
+        "feeds_meta": payload.get("feeds_meta", {}),
+    }
+    if "intelligence_evidence" in payload:
+        result["intelligence_evidence"] = payload["intelligence_evidence"]
+    return result
 
 
 def _directory(root, identity):
@@ -204,6 +215,7 @@ def _same_collection(baseline, final):
         "finding_count",
         "scan_status",
         "decision_frame",
+        "role_model",
     )
     if any(not _same_content(baseline.get(key), final.get(key)) for key in fields):
         raise ConfigError("Final AI review cannot change collection evidence or its status")
@@ -290,6 +302,19 @@ def _collections(payload: dict[str, Any]) -> None:
     """Reject malformed present collections without filling absent historical fields."""
     if not _same_content(payload, payload):
         raise ConfigError("Saved assessment evidence contains invalid JSON values")
+    if "intelligence_evidence" in payload:
+        from vulnassess.errors import IntelUnavailable
+        from vulnassess.intelligence_evidence import verify
+
+        try:
+            verify(
+                payload["intelligence_evidence"],
+                findings=payload.get("findings", []),
+                enrichments=payload.get("enrichments", []),
+                feeds=payload.get("feeds_meta", {}),
+            )
+        except (IntelUnavailable, ValueError, TypeError, KeyError) as error:
+            raise ConfigError("Saved assessment publisher evidence is invalid") from error
     for key in (
         "hosts",
         "findings",
@@ -329,6 +354,13 @@ def _collections(payload: dict[str, Any]) -> None:
 def _summary_facts(result, payload):
     """Compare recorded projections, never import an engine or recalculate a score."""
     _collections(payload)
+    if "role_model" in result:
+        if "role_model" not in payload or not _same_content(
+            payload["role_model"], result["role_model"]
+        ):
+            raise ConfigError(
+                "Saved assessment shadow role prediction contradicts retained evidence"
+            )
     _summary_ai(result)
     summary = result["assessment_summary"]
     _check_facts(summary, {key: result[key] for key in ("target", "resolved_ip", "scan_status")})
@@ -562,15 +594,7 @@ def load(root, identity):
         raise ConfigError("Saved assessment case hash mismatch")
     if "scan_status" in payload and payload["scan_status"] != record["result"]["scan_status"]:
         raise ConfigError("Saved assessment collection status does not match its evidence")
-    if (
-        _hash(
-            {
-                "enrichments": payload.get("enrichments", []),
-                "feeds_meta": payload.get("feeds_meta", {}),
-            }
-        )
-        != record["intelligence_hash"]
-    ):
+    if _hash(_intelligence_content(payload)) != record["intelligence_hash"]:
         raise ConfigError("Saved assessment intelligence hash mismatch")
     if any(record["result"][key] != manifest.get(key) for key in ("target", "resolved_ip")):
         raise ConfigError("Saved assessment target does not match its manifest")
@@ -757,12 +781,7 @@ def save(
             "configuration_hash": config_hash,
             "manifest_hash": sha256(manifest_raw).hexdigest(),
             "evidence_hash": _hash(payload),
-            "intelligence_hash": _hash(
-                {
-                    "enrichments": payload.get("enrichments", []),
-                    "feeds_meta": payload.get("feeds_meta", {}),
-                }
-            ),
+            "intelligence_hash": _hash(_intelligence_content(payload)),
             "parent_hash": None,
             "result": safe_result,
         }

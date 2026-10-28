@@ -8,19 +8,23 @@ import argparse
 import json
 import sys
 import tempfile
+import time
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from vulnassess import intel_online  # noqa: E402
+from vulnassess import cpe_match, intel_online  # noqa: E402
+from vulnassess.errors import IntelUnavailable  # noqa: E402
 from vulnassess.store import Store  # noqa: E402
 
 REFERENCE_CASES = Path(__file__).resolve().parents[1] / "examples/intelligence-reference-cases.json"
 
 
-def verify(cves, output_root, *, cache_path=None, fetch=intel_online.fetch_json):
+def verify(
+    cves, output_root, *, cache_path=None, fetch=intel_online.fetch_json, include_cpe_matches=False
+):
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="intelligence-", dir=output_root))
@@ -67,6 +71,21 @@ def verify(cves, output_root, *, cache_path=None, fetch=intel_online.fetch_json)
                         "cve_applies_to_scanned_host": "not evaluated",
                     }
                 )
+                if include_cpe_matches:
+                    if not cve:
+                        rows[-1]["cpe_match_status"] = "not applicable: no cached NVD CVE"
+                        continue
+                    time.sleep(7)  # Preserve NVD's public request budget.
+                    try:
+                        evidence = cpe_match.lookup(cve_id, fetch=archive)
+                        cpe_match.save(store, cve_id, evidence)
+                        rows[-1]["cpe_match_status"] = evidence["coverage"]
+                        rows[-1]["cpe_match"] = evidence
+                    except IntelUnavailable:
+                        # A supplemental lookup cannot invalidate the three independently verified feeds.
+                        rows[-1]["cpe_match_status"] = (
+                            "unavailable; no new applicability evidence saved"
+                        )
             result = {
                 "results": rows,
                 "counts": counts,
@@ -90,6 +109,11 @@ def main():
     parser.add_argument("cves", nargs="*")
     parser.add_argument("--output", type=Path, default=Path("data/intelligence-verification"))
     parser.add_argument(
+        "--cpe-match",
+        action="store_true",
+        help="Also retrieve at most 50 NVD applicability criteria per requested CVE; no target scan",
+    )
+    parser.add_argument(
         "--update-cache",
         action="store_true",
         help="Refresh the operational isolated data/intel-cache.db after validating all sources",
@@ -98,7 +122,10 @@ def main():
     references = json.loads(REFERENCE_CASES.read_text(encoding="utf-8"))
     cves = args.cves or [item["cve"] for item in references["submissions"]]
     directory, result = verify(
-        cves, args.output, cache_path=Path("data/intel-cache.db") if args.update_cache else None
+        cves,
+        args.output,
+        cache_path=Path("data/intel-cache.db") if args.update_cache else None,
+        include_cpe_matches=args.cpe_match,
     )
     print(
         json.dumps(

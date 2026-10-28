@@ -1,0 +1,122 @@
+name: vulnassess-service-networks
+x-runtime: &runtime
+  image: vulnassess-service-networks:local
+  build: .
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 96
+  mem_limit: 512m
+  cpus: 1.0
+  tmpfs: ["/runtime:rw,nosuid,nodev,noexec,uid=10001,gid=10001,mode=0700,size=16m", "/tmp:rw,nosuid,nodev,noexec,size=32m"]
+  restart: "no"
+  healthcheck:
+    test: [CMD, python, -c, "import json,socket; d=json.load(open('/runtime/ready.json')); [(socket.create_connection(('127.0.0.1',s['port']),timeout=2).close()) for s in d['services'] if s['protocol']!='snmp']"]
+    interval: 15s
+    timeout: 10s
+    retries: 3
+    start_period: 20s
+x-redis: &redis
+  platform: linux/amd64
+  user: "10001:10001"
+  entrypoint: [redis-server]
+  command: [--bind, 0.0.0.0, --port, "6379", --protected-mode, "no", --save, "", --appendonly, "no", --dir, /data, --user, default, "on", nopass, resetkeys, resetchannels, -@all, +ping, +info|server, --maxmemory, 32mb, --maxmemory-policy, noeviction, --maxclients, "16", --databases, "1", --timeout, "5", --tcp-keepalive, "5", --proto-max-bulk-len, 1mb, --client-query-buffer-limit, 1mb, --enable-debug-command, "no", --enable-module-command, "no"]
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 32
+  mem_limit: 96m
+  memswap_limit: 96m
+  cpus: 0.5
+  tmpfs: ["/data:rw,nosuid,nodev,noexec,uid=10001,gid=10001,mode=0700,size=8m"]
+  restart: "no"
+  healthcheck:
+    test: [CMD, redis-cli, --raw, -h, 127.0.0.1, -p, "6379", PING]
+    interval: 10s
+    timeout: 3s
+    retries: 3
+    start_period: 3s
+services:
+  office-redis:
+    <<: *redis
+    image: redis:7.0.11@sha256:1008c73f08e9f913868e2fa2e843212b62ea5bf3c66435d87bc7a6207bc0f1b4
+    networks:
+      office: {ipv4_address: 172.30.41.4}
+  iot-redis:
+    <<: *redis
+    image: redis:7.0.12@sha256:a030024d2b65447fba04de1e3b440226d78dfe6e4fbc8ab0ca9a44ca6eed0acd
+    networks:
+      iot: {ipv4_address: 172.30.42.4}
+  office:
+    <<: *runtime
+    command: [office]
+    networks:
+      office:
+        ipv4_address: 172.30.41.2
+  office-gateway:
+    <<: *runtime
+    entrypoint: [python, -m, labs.service_networks.gateway]
+    command: [office]
+    mem_limit: 128m
+    depends_on:
+      office: {condition: service_healthy}
+      office-redis: {condition: service_healthy}
+    sysctls: {net.ipv4.ip_forward: "0"}
+    networks:
+      office:
+        ipv4_address: 172.30.41.3
+      office-ingress:
+        ipv4_address: 172.30.43.2
+    ports:
+      - "127.0.0.2:2121:2121"
+      - "127.0.0.2:2122:2122"
+      - "127.0.0.2:2222:2222"
+      - "127.0.0.2:2223:2223"
+      - "127.0.0.2:1445:1445"
+      - "127.0.0.2:1446:1446"
+      - "127.0.0.2:6379:6379"
+      - "127.0.0.2:32200-32209:32200-32209"
+  iot:
+    <<: *runtime
+    command: [iot]
+    networks:
+      iot:
+        ipv4_address: 172.30.42.2
+  iot-gateway:
+    <<: *runtime
+    entrypoint: [python, -m, labs.service_networks.gateway]
+    command: [iot]
+    mem_limit: 128m
+    depends_on:
+      iot: {condition: service_healthy}
+      iot-redis: {condition: service_healthy}
+    sysctls: {net.ipv4.ip_forward: "0"}
+    networks:
+      iot:
+        ipv4_address: 172.30.42.3
+      iot-ingress:
+        ipv4_address: 172.30.44.2
+    ports:
+      - "127.0.0.3:1883:1883"
+      - "127.0.0.3:1884:1884"
+      - "127.0.0.3:8883:8883"
+      - "127.0.0.3:6379:6379"
+      - "127.0.0.3:1161:1161/udp"
+      - "127.0.0.3:1162:1162/udp"
+networks:
+  office:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.41.0/29}]
+  iot:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.42.0/29}]
+  office-ingress:
+    ipam:
+      config: [{subnet: 172.30.43.0/29}]
+  iot-ingress:
+    ipam:
+      config: [{subnet: 172.30.44.0/29}]

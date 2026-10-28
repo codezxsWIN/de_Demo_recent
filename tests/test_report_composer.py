@@ -91,6 +91,49 @@ def test_saved_composition_is_bound_to_source_snapshot_and_write_once(tmp_path):
         report_composer.load_saved(directory, record)
 
 
+def test_large_report_composition_uses_bounded_candidates_and_binds_all_sources(monkeypatch):
+    batches = []
+    for _ in range(34):
+        batches.append(
+            (
+                {
+                    "analysis": {
+                        "summary": "Summary " + "x" * 400,
+                        "context_effect": {"explanation": "Context " + "y" * 400},
+                        "recommended_actions": [
+                            {"action": "Review " + "z" * 250, "reason": "Evidence " + "q" * 250}
+                        ],
+                        "investigations": [],
+                        "uncertainties": ["Review the evidence " * 20],
+                    }
+                },
+                None,
+            )
+        )
+    monkeypatch.setattr(assessment_report, "_validated_batches", lambda *_: batches)
+    index = report_composer.catalog(batches)
+
+    class BoundedClient:
+        model = "test"
+
+        def generate_structured(self, prompt, schema, **_):
+            assert len(prompt.encode("utf-8")) <= 14000
+            assert len(schema["properties"]["executive"]["items"]["enum"]) < 34
+            return {
+                "layout": "brief",
+                "section_order": list(report_composer.SECTIONS),
+                "executive": ["B1:executive"],
+                "context": ["B1:context"],
+                "actions": ["B1:actions:0"],
+                "investigations": [],
+                "uncertainties": [],
+            }
+
+    document = report_composer.compose({}, {}, BoundedClient())
+    assert document["input_hash"] == digest(index)
+    assert report_composer.validate_document(document, batches) == document["plan"]
+
+
 def test_modified_source_prose_invalidates_old_ai_layout(tmp_path):
     _, record, document = record_and_document(tmp_path)
     batches = assessment_report._validated_batches(record["result"]["analyst"], record["payload"])

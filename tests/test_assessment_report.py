@@ -462,3 +462,31 @@ def test_fixture_findings_show_verified_summary_and_native_queue_without_ai(tmp_
     assert "recorded native severity" in document
     assert "Native fallback arithmetic is unsupported" not in document
     assert "Tied · 60/100" not in document
+
+
+def test_experimental_shadow_role_is_reported_without_changing_context():
+    from vulnassess.ui.assessment_report import _context
+
+    payload = {
+        "hosts": [],
+        "context": [],
+        "role_model": {
+            "mode": "synthetic_shadow",
+            "status": "complete",
+            "prediction": {
+                "label": "<unsafe>",
+                "abstained": False,
+                "confidence": 0.9,
+                "feature_coverage": 0.5,
+                "model_hash": "test",
+                "evidence": "service",
+            },
+        },
+    }
+    rendered = _context(payload)
+    assert "Experimental role classifier" in rendered
+    assert "not independently validated" in rendered
+    assert "does not change the recorded context or risk scores" in rendered
+    assert "&lt;unsafe&gt;" in rendered and "<unsafe>" not in rendered
+    payload["role_model"]["prediction"]["abstained"] = True
+    assert "Abstained" in _context(payload)

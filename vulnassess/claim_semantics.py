@@ -171,7 +171,7 @@ def _units(item: dict) -> Iterator[str]:
             yield f"8443/tcp negotiated {data['tls_version']}"
         return
     text = _normalise(item["text"])
-    if item.get("kind") == "nmap_service":
+    if item.get("kind") in {"nmap_service", "observed_service"}:
         # One service evidence ID describes one leading listener. The server
         # projection is "port/protocol; tls=STATE (source); FINGERPRINT".
         # Source annotations and all later fingerprint/banner text are untrusted
@@ -403,6 +403,25 @@ def verify_semantic_claims(
             raise LLMUnavailable(f"Needs review: unknown semantic evidence citation at {path}")
         cited = [by_id[identity] for identity in identities]
         text = _normalise(claim_text[path])
+        if any(item.get("kind") == "nvd-cpe_finding" for item in cited):
+            assertion = _rx(
+                r"\b(?:confirmed|proven|definitively)\b|\bvulnerable\s+to\b|\b(?:remote code execution|host compromise)\s+(?:was\s+)?(?:achieved|demonstrated)\b"
+            )
+            for sentence in _SENTENCE.split(text):
+                for match in assertion.finditer(sentence):
+                    modal_candidate = match.group(0).startswith("vulnerable") and _rx(
+                        r"\b(?:may|might|could|possibly|potentially)\b(?:(?!\b(?:but|and|because|however)\b).){0,40}$"
+                    ).search(sentence[: match.start()])
+                    if (
+                        not _nonfactual(sentence, match)
+                        and not _rx(r"\b(?:not|unconfirmed|unverified|unknown)\s*$").search(
+                            sentence[: match.start()]
+                        )
+                        and not modal_candidate
+                    ):
+                        raise LLMUnavailable(
+                            f"Needs review: product-version CVE asserted as confirmed at {path}"
+                        )
         if (
             "cve-2022-0543" in text
             and not _rx(

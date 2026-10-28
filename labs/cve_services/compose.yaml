@@ -1,0 +1,121 @@
+name: vulnassess-cve-services
+
+# Real, unmodified official Redis binaries; the command line is the configuration.
+# No bind mounts, generated banners, scanner annotations, or writable volumes.
+x-redis: &redis
+  platform: linux/amd64
+  user: "10001:10001"
+  entrypoint: [redis-server]
+  command:
+    - --bind
+    - 0.0.0.0
+    - --port
+    - "6379"
+    - --protected-mode
+    - "no"
+    - --save
+    - ""
+    - --appendonly
+    - "no"
+    - --dir
+    - /data
+    - --user
+    - default
+    - "on"
+    - nopass
+    - resetkeys
+    - resetchannels
+    - -@all
+    - +ping
+    - +info|server
+    - --maxmemory
+    - 32mb
+    - --maxmemory-policy
+    - noeviction
+    - --maxclients
+    - "16"
+    - --databases
+    - "1"
+    - --timeout
+    - "5"
+    - --tcp-keepalive
+    - "5"
+    - --proto-max-bulk-len
+    - 1mb
+    - --client-query-buffer-limit
+    - 1mb
+    - --enable-debug-command
+    - "no"
+    - --enable-module-command
+    - "no"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 32
+  mem_limit: 96m
+  memswap_limit: 96m
+  cpus: 0.5
+  tmpfs: ["/data:rw,nosuid,nodev,noexec,uid=10001,gid=10001,mode=0700,size=8m"]
+  networks: [pair]
+  restart: "no"
+  stop_grace_period: 5s
+  logging:
+    driver: json-file
+    options: {max-size: 1m, max-file: "1"}
+  healthcheck:
+    test: [CMD, redis-cli, --raw, -h, 127.0.0.1, -p, "6379", PING]
+    interval: 10s
+    timeout: 3s
+    retries: 3
+    start_period: 3s
+
+# Docker does not publish ports on an internal-only network. Native, fixed-route
+# forwarders provide ingress while the Redis pair has no external network.
+x-forwarder: &forwarder
+  image: alpine/socat:1.8.0.3@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+  platform: linux/amd64
+  user: "10001:10001"
+  entrypoint: [socat]
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 16
+  mem_limit: 32m
+  memswap_limit: 32m
+  cpus: 0.25
+  sysctls: {net.ipv4.ip_forward: "0"}
+  networks: [pair, ingress]
+  restart: "no"
+  stop_grace_period: 3s
+  logging:
+    driver: json-file
+    options: {max-size: 1m, max-file: "1"}
+
+services:
+  affected:
+    <<: *redis
+    image: redis:7.0.11@sha256:1008c73f08e9f913868e2fa2e843212b62ea5bf3c66435d87bc7a6207bc0f1b4
+  patched:
+    <<: *redis
+    image: redis:7.0.12@sha256:a030024d2b65447fba04de1e3b440226d78dfe6e4fbc8ab0ca9a44ca6eed0acd
+  affected-ingress:
+    <<: *forwarder
+    command: ["-T", "5", "TCP4-LISTEN:6379,reuseaddr,fork,max-children=8", "TCP4:affected:6379,connect-timeout=2"]
+    depends_on: {affected: {condition: service_healthy}}
+    ports: ["127.0.0.4:6379:6379/tcp"]
+  patched-ingress:
+    <<: *forwarder
+    command: ["-T", "5", "TCP4-LISTEN:6379,reuseaddr,fork,max-children=8", "TCP4:patched:6379,connect-timeout=2"]
+    depends_on: {patched: {condition: service_healthy}}
+    ports: ["127.0.0.5:6379:6379/tcp"]
+
+networks:
+  pair:
+    internal: true
+    attachable: false
+  ingress:
+    attachable: false
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"

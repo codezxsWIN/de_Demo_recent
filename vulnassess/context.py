@@ -113,7 +113,17 @@ def _texts(host: Host, findings: Sequence[Finding]) -> list[str]:
     texts = [service.banner or "" for service in host.services]
     # Titles are scanner interpretations, not observed response evidence. Appending
     # them also made Feature.evidence cease to be a raw-record substring.
-    texts.extend(finding.evidence for finding in findings)
+    # Policy-led protocol evidence includes owner expectations (require_auth,
+    # require_signing), not host-wide observations. Its typed endpoint facts are
+    # interpreted separately; scanning its JSON for words can turn the intended
+    # policy into an invented observed control on this or another service.
+    # Publisher metadata (including arbitrary match UUIDs) is not a response from
+    # the target and cannot establish WAF, authentication or rate-limit controls.
+    texts.extend(
+        finding.evidence
+        for finding in findings
+        if finding.tool not in {"service-network", "nvd-cpe"}
+    )
     return [text for text in texts if text]
 
 

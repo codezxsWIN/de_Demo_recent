@@ -15,12 +15,22 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
 ]
 
+[project.optional-dependencies]
+network-labs = [
+    "pyftpdlib==2.2.0",
+    "asyncssh==2.24.1",
+    "impacket==0.13.1",
+    "amqtt==0.11.4",
+    "pysnmp==7.1.30",
+    "cryptography>=48.0.1,<51",
+]
+
 [project.scripts]
 vulnassess = "vulnassess.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["vulnassess*"]
+include = ["vulnassess*", "labs.service_networks*"]
 
 [tool.ruff]
 line-length = 100

@@ -33,7 +33,26 @@ native_fallback:                           # findings with no CVE rank on the to
   zap: {High: 60, Medium: 40, Low: 20, Informational: 5}
   harbordesk: {High: 60, Medium: 40, Low: 20, Informational: 5}
   network-lab: {High: 60, Medium: 40, Low: 20, Informational: 5}
+  service-network: {High: 60, Medium: 40, Low: 20, Informational: 5}
   nikto: 30
   nmap: 25
+
+# Local operational triage hypothesis, deliberately separate from CVSS/EPSS.
+# Applies only to owner-policy service-network findings with bound protocol proof;
+# legacy scanners, HarborDesk and CVE-enriched scores retain their existing paths.
+# These starting weights need independent expert evaluation, not a claim of accuracy.
+service_network_triage:
+  version: service-network-triage-v1
+  base:
+    login: 40                 # authentication accepted; no command execution inferred
+    file_read: 60             # bounded authorised-file read; no sensitivity inferred
+    message_exchange: 60      # nonce pub/sub on one authorised topic; no device control inferred
+    management_read: 30       # public sysDescr GET; no configuration write inferred
+    signing_optional: 30      # negotiation proof only; no relay attack demonstrated
+    expired_certificate: 20   # expiry observed; trust/hostname not evaluated
+  internet_facing_add: 15      # eligible context only; private IP is not isolation proof
+  test_environment_subtract: 10
+  criticality_step_add: 5      # each explicit owner criticality step above 3
+  min_confidence: 0.5
 
 bands: {Critical: 80, High: 60, Medium: 35}

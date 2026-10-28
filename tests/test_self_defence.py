@@ -273,17 +273,21 @@ def test_local_evidence_reaches_ai_and_survives_provider_failure(tmp_path, monke
 
     monkeypatch.setattr(live_assessment.subprocess, "run", scan)
     monkeypatch.setattr(analyst, "analyze_optional", unavailable)
+    events = []
     result = live_assessment.run(
         "127.0.0.1",
         {"status": "ready", "resolved_ips": ["127.0.0.1"]},
         Path(__file__).resolve().parents[1] / "config",
         provider="ollama",
-        on_progress=lambda *a: None,
+        on_progress=lambda *a: events.append(a),
         self_defence=True,
     )
     assert result["scan_status"] == "complete"
+    assert result["role_model"]["mode"] == "synthetic_shadow"
+    assert ("role_model", "complete") in [(stage, state) for stage, state, _ in events]
     assert result["assessment_summary"]["self_defence"] == protection
     saved_case = json.loads((evidence_dir / "case.json").read_text())
+    assert saved_case["role_model"] == result["role_model"]
     assert saved_case["self_defence"] == protection
     assert saved_case["scanner_coverage"]["device-check"] == protection["limitations"]
     assert json.loads((evidence_dir / "device-check.json").read_text()) == protection

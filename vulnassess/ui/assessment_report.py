@@ -1,6 +1,7 @@
 """Printable, read-only reports from verified saved checkpoints; no tool or model calls."""
 
 import base64
+import json
 import re
 from hashlib import sha256
 from html import escape
@@ -48,6 +49,91 @@ def facts(values):
         + "".join(f"<dt>{text(key)}</dt><dd>{text(value)}</dd>" for key, value in values)
         + "</dl>"
     )
+
+
+def _intelligence_used(payload):
+    snapshot = payload.get("intelligence_evidence")
+    if snapshot is None:
+        return ""
+    from vulnassess.intelligence_evidence import verify
+
+    verify(snapshot)
+    content = '<section id="intelligence-used"><h2>Intelligence used in this assessment</h2>'
+    content += paragraph(snapshot["notice"], "notice")
+    content += facts(
+        [
+            ("Recorded", snapshot["recorded_at"]),
+            ("Referenced CVEs", len(snapshot["records"])),
+            ("Snapshot SHA-256", snapshot["sha256"]),
+        ]
+    )
+    by_finding = {item["id"]: item for item in payload.get("findings", [])}
+    for row in snapshot["records"]:
+        nvd = row["records"]["nvd"] or {}
+        epss = row["records"]["epss"] or {}
+        kev = row["records"]["kev"] or {}
+        probability = epss.get("epss")
+        probability_label = (
+            f"{probability * 100:.2f}%"
+            if isinstance(probability, (float, int)) and not isinstance(probability, bool)
+            else "not available"
+        )
+        kev_label = (
+            "listed"
+            if row["kev_listed"] is True
+            else "not listed"
+            if row["kev_listed"] is False
+            else "not checked"
+        )
+        version40 = (
+            f" · CVSS 4.0: {text(nvd['cvss40_base'])}" if nvd.get("cvss40_base") is not None else ""
+        )
+        content += f"<details><summary><strong>{text(row['cve'])}</strong> · CVSS 3.1: {text(nvd.get('cvss31_base'))}{version40} · EPSS: {text(probability_label)} · KEV: {text(kev_label)}</summary>"
+        content += f"<article><h3>{text(row['cve'])}</h3>"
+        content += paragraph(
+            nvd.get("description") or kev.get("shortDescription") or "No NVD description retained."
+        )
+        content += facts(
+            [
+                (
+                    "Linked scan findings",
+                    ", ".join(
+                        by_finding.get(identity, {}).get("title", identity)
+                        for identity in row["finding_ids"]
+                    ),
+                ),
+                (
+                    "Matching outcome",
+                    "Accepted CVE association; applicability and exploitability still require verification"
+                    if row["matched_finding_ids"]
+                    else "No accepted enrichment; no CVE-backed priority established",
+                ),
+                ("NVD CVSS 3.1 base", nvd.get("cvss31_base")),
+                ("NVD CVSS 3.1 vector", nvd.get("cvss31_vector")),
+                ("NVD CVSS 4.0 base", nvd.get("cvss40_base")),
+                ("NVD CVSS 4.0 vector", nvd.get("cvss40_vector")),
+                ("NVD record retrieved", row.get("nvd_fetched_at")),
+                ("EPSS probability", epss.get("epss")),
+                ("EPSS percentile", epss.get("percentile")),
+                ("EPSS score date", epss.get("score_date")),
+                (
+                    "KEV membership in retained catalog",
+                    "Listed"
+                    if row["kev_listed"] is True
+                    else "Not listed"
+                    if row["kev_listed"] is False
+                    else "Not checked",
+                ),
+                ("CISA required action", kev.get("requiredAction")),
+                ("CISA catalog due date (not a local deadline)", kev.get("dueDate")),
+            ]
+        )
+        content += (
+            "<details><summary>Exact retained publisher records and hashes</summary><pre>"
+            + text(json.dumps(row, indent=2, ensure_ascii=True))
+            + "</pre></details></article></details>"
+        )
+    return content + "</section>"
 
 
 def _device(data):
@@ -117,9 +203,21 @@ def _device(data):
 
 def _finding_guidance(finding):
     """Explain only recognized scanner observations; never promote them to proven exploits."""
-    from vulnassess.network_lab_probe import guidance as network_guidance
+    from vulnassess.cve_discovery import candidate_facts
 
-    network = network_guidance(finding)
+    candidate = candidate_facts(finding)
+    if candidate:
+        return (
+            "Conditional product/version CVE association",
+            "The observed service version matches an NVD affected-product branch. Package identity, backported fixes, configuration preconditions and exploitation are unverified.",
+            "Verify the installed package revision and vendor advisory, review required commands/features and access controls, then compare the same service version and applicable ranges after an approved upgrade. Do not trigger the vulnerability.",
+            "Use the vendor's maintained security release and verify required client functionality. A historical reference patch may fix this CVE while remaining affected by later issues.",
+        )
+    from vulnassess.network_lab_probe import guidance as network_guidance
+    from vulnassess.network_service_checks import guidance as policy_guidance
+    from vulnassess.service_network_probe import guidance as service_guidance
+
+    network = policy_guidance(finding) or service_guidance(finding) or network_guidance(finding)
     if network:
         return (
             network["category"],
@@ -243,6 +341,7 @@ def _practical_assessment(result, payload):
         all_generic_tie = (
             generic_fallbacks
             and all(generic_fallbacks)
+            and not any(score.get("inputs", {}).get("native_triage") for score in scores.values())
             and len(set(generic_fallbacks)) == 1
             and len({scores.get(finding.get("id"), {}).get("risk") for finding in findings}) == 1
         )
@@ -252,6 +351,14 @@ def _practical_assessment(result, payload):
                 f"No CVE match or CVSS severity was recorded. All {len(findings)} observations share "
                 f"the same configured scanner fallback ({fallback}); they are tied for follow-up, "
                 "not ranked by vulnerability severity. These scanner leads are not confirmed exploits.",
+                "notice",
+            )
+        elif any(score.get("inputs", {}).get("native_triage") for score in scores.values()):
+            content += paragraph(
+                "Native context triage orders demonstrated endpoint-policy violations using a "
+                "versioned local hypothesis. Access category and eligible context adjustments "
+                "are shown per finding. These numbers are not CVSS, exploit probabilities or "
+                "independently validated business-risk estimates.",
                 "notice",
             )
         else:
@@ -273,6 +380,15 @@ def _practical_assessment(result, payload):
             score = scores.get(finding.get("id"))
             if score is None or score.get("risk") is None:
                 rank = f"{position}. Unscored · review required"
+            elif score.get("inputs", {}).get("native_triage"):
+                tied = sum(
+                    candidate.get("risk") == score.get("risk") for candidate in scores.values()
+                )
+                rank = (
+                    f"{'Tied' if tied > 1 else str(position) + '.'} · {score.get('risk')}/100 "
+                    f"· native context triage · {score['inputs']['native_triage'].get('category')} "
+                    "(local policy hypothesis, not CVSS)"
+                )
             elif score.get("native_fallback"):
                 tied = sum(
                     candidate.get("risk") == score.get("risk")
@@ -501,6 +617,8 @@ def _findings(payload, proofs=(), policy=None):
         score = scores.get(finding["id"])
         if score is None:
             priority_label = " · unscored"
+        elif score.get("inputs", {}).get("native_triage"):
+            priority_label = f" · native context triage {score.get('risk')} / 100 · local policy hypothesis, not CVSS severity"
         elif score.get("native_fallback"):
             tied = sum(
                 1
@@ -522,7 +640,12 @@ def _findings(payload, proofs=(), policy=None):
             "finding-strip",
         )
         if score is not None and score.get("native_fallback"):
-            content += '<details class="priority-explanation"><summary>Why this priority? · recorded native severity</summary>'
+            triage = score.get("inputs", {}).get("native_triage")
+            content += (
+                '<details class="priority-explanation"><summary>Why this priority? · '
+                + ("native context arithmetic" if triage else "recorded native severity")
+                + "</summary>"
+            )
             content += facts(
                 [
                     ("Native severity", finding.get("native_severity") or "Scanner default"),
@@ -533,6 +656,23 @@ def _findings(payload, proofs=(), policy=None):
             content += paragraph(
                 "This configured triage value is not CVSS or an exploitation probability."
             )
+            if triage:
+                trace = priority_trace(
+                    score, payload.get("scoring_policy", {}).get("weights") or policy
+                )
+                content += paragraph(f"Trace: {trace['status']} · {trace['reason']}", "meta")
+                content += (
+                    "<ol>"
+                    + "".join(
+                        "<li>"
+                        + facts([(step["label"], step["value"])])
+                        + paragraph(step["detail"])
+                        + "</li>"
+                        for step in trace["steps"]
+                    )
+                    + "</ol>"
+                )
+                content += paragraph(triage.get("limitation"), "notice")
             content += paragraph(score.get("reason")) + "</details>"
         elif score is not None:
             trace = priority_trace(
@@ -617,6 +757,36 @@ def _findings(payload, proofs=(), policy=None):
 
 def _context(payload):
     content = '<section id="context"><h2>Context, services and coverage</h2>'
+    role_model = payload.get("role_model")
+    if isinstance(role_model, dict) and role_model.get("mode") == "synthetic_shadow":
+        content += '<article id="experimental-role"><h3>Experimental role classifier</h3>'
+        content += paragraph(
+            "Synthetic training data only; this prediction is not independently validated and does not change the recorded context or risk scores.",
+            "notice",
+        )
+        prediction = role_model.get("prediction")
+        if role_model.get("status") == "complete" and isinstance(prediction, dict):
+            content += facts(
+                [
+                    (
+                        "Prediction",
+                        "Abstained" if prediction.get("abstained") else prediction.get("label"),
+                    ),
+                    (
+                        "Model confidence, not independently calibrated",
+                        prediction.get("confidence"),
+                    ),
+                    ("Feature coverage", prediction.get("feature_coverage")),
+                    ("Model hash", prediction.get("model_hash")),
+                ]
+            )
+            if prediction.get("evidence"):
+                content += paragraph("Model evidence: " + str(prediction["evidence"]), "meta")
+        else:
+            content += paragraph(
+                "The experimental prediction was unavailable for this assessment.", "notice"
+            )
+        content += "</article>"
     profiles = {item.get("host_ip"): item for item in payload.get("context", [])}
     for host in payload.get("hosts", []):
         content += f"<h3>Observed services · {text(host.get('ip'))}</h3>"
@@ -782,6 +952,7 @@ def _validated_batches(analyst, payload):
                 *[claim["verification_action"] for claim in claims if claim["verification_action"]],
             ],
             evidence=evidence,
+            policy_findings=payload.get("findings", []),
         )
         retained_case = {
             "services": [
@@ -1002,7 +1173,14 @@ def _ai_highlights(batches, plan, payload):
         and scores.get(finding.get("id"), {}).get("base_score") is None
         for finding in findings
     )
-    if generic_native_only:
+    from vulnassess.network_policy_facts import observation as policy_observation
+
+    if findings and all(policy_observation(finding) is not None for finding in findings):
+        summary = [
+            f"{len(findings)} endpoint-policy violations reproduced by bounded network checks. "
+            "The findings show the exact operation and policy conflict; no CVE applicability or host compromise is claimed."
+        ]
+    elif generic_native_only:
         header_count = sum(
             str(finding.get("title") or "")
             .casefold()
@@ -1092,6 +1270,10 @@ def _ai(result, payload, composition=None):
         f"Current report validation: passed · model {analyst.get('model', 'not recorded')}",
         "ai-validation-passed",
     )
+    content += paragraph(
+        "Validation checks citations, selected claim patterns and recorded scores; it does not prove every AI statement is factually correct. Verify consequential conclusions against the underlying evidence.",
+        "notice",
+    )
     document = composition or analyst.get("report_document")
     plan = {}
     if document:
@@ -1104,6 +1286,11 @@ def _ai(result, payload, composition=None):
             )
             document = None
     if not document:
+        if analyst.get("report_document_status") == "unavailable":
+            content += paragraph(
+                "AI report composition was unavailable; the standard layout presents the validated source analysis.",
+                "notice",
+            )
         sources = catalog(batches)
         plan = {
             "layout": "brief",
@@ -1125,7 +1312,7 @@ def _ai(result, payload, composition=None):
                     seen.add(normalized)
     else:
         content += paragraph(
-            f"Report composed by {document['model']} · {plan['layout']} layout · selections checked against validated source claims.",
+            f"Report composed by {document['model']} · {plan['layout']} layout · selections checked against validated source claims. The full source analysis remains in the evidence appendix.",
             "report-composed",
         )
     if result.get("scan_status") == "partial":
@@ -1187,7 +1374,7 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     content = '<!doctype html><html lang="en" class="report-theme"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">'
     content += "<title>VulnAssess · Assessment report</title>" + stylesheet + "</head><body>"
     if not standalone:
-        content += f'<nav class="toolbar" aria-label="Report actions"><a href="/captures/{identity}">Evidence &amp; provenance</a><a href="/captures/{identity}/report/download" download="VulnAssess-{identity}.html">Download report · HTML</a><a href="/vulnerabilities">Findings &amp; remediation ↗</a><span>Print / save PDF: Ctrl+P or your browser’s Print menu</span></nav>'
+        content += f'<nav class="toolbar" aria-label="Report actions"><a href="/captures/{identity}">Evidence &amp; provenance</a><a href="/captures/{identity}/report/download" download="VulnAssess-{identity}.html">Download report · HTML</a><a href="/vulnerabilities?capture={identity}">Findings &amp; remediation ↗</a><a href="/network-labs" target="_blank" rel="noopener">Open lab environments ↗</a><span>Print / save PDF: Ctrl+P or your browser’s Print menu</span></nav>'
     content += (
         '<main><header><p class="eyebrow">VULNASSESS / EVIDENCE-LED ASSESSMENT</p><h1>'
         + (
@@ -1219,7 +1406,10 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     content += '<nav class="contents" aria-label="Report sections"><a href="#ai">Read this first</a><a href="#brief">Brief</a><a href="#practical">What it means</a>'
     if payload.get("self_defence"):
         content += '<a href="#device">Your device</a>'
-    content += '<a href="#decisions">Conclusions &amp; decisions</a><a href="#findings">Findings</a><a href="#context">Context &amp; coverage</a><a href="#ai">AI &amp; next steps</a><a href="#provenance">Provenance</a></nav>'
+    content += '<a href="#decisions">Conclusions &amp; decisions</a><a href="#findings">Findings</a><a href="#context">Context &amp; coverage</a><a href="#ai">AI &amp; next steps</a>'
+    if payload.get("intelligence_evidence"):
+        content += '<a href="#intelligence-used">Intelligence used</a>'
+    content += '<a href="#provenance">Provenance</a></nav>'
     lab_findings = [
         finding for finding in payload.get("findings", []) if finding.get("tool") == "harbordesk"
     ]
@@ -1281,6 +1471,7 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
         + _findings(payload, record.get("bounded_protocol_proofs", []), policy)
         + _context(payload)
     )
+    content += _intelligence_used(payload)
     content += '<section id="provenance"><h2>Intelligence, integrity and audit trail</h2>'
     content += paragraph(
         "Feed facts are retained snapshots, not a new live lookup. No CVE means CVE enrichment may be not applicable. KEV membership does not prove this host was exploited."

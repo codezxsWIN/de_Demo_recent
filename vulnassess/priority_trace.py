@@ -1,9 +1,14 @@
 """Pure report explanations of retained priority arithmetic, never replacement scores."""
 
+import json
 from math import isfinite
 from typing import cast
 
 from vulnassess import cvss31
+from vulnassess.errors import ConfigError
+from vulnassess.network_triage import VERSION as NATIVE_VERSION
+from vulnassess.network_triage import calculate as native_calculate
+from vulnassess.schema import ContextProfile
 from vulnassess.scoring import risk, weights_hash
 
 _REQUIRED = (
@@ -55,6 +60,65 @@ def _requirements(value: object) -> str:
     return ", ".join(f"{key}={value[key]}" for key in ("CR", "IR", "AR"))
 
 
+def _native_trace(score, weights):
+    matched = False
+    try:
+        retained = score["inputs"]["native_triage"]
+        if retained["version"] != NATIVE_VERSION:
+            raise ValueError("Unsupported retained native triage version")
+        value = _number(score["risk"], "risk", 100)
+        if (
+            not str(score.get("native_fallback", "")).startswith("service-network:")
+            or score.get("cvss_version_used") is not None
+            or score.get("cve_id") is not None
+            or score.get("kev") is not False
+            or score.get("threat_multiplier") is not None
+        ):
+            raise ValueError("Native triage contradicts retained scoring basis")
+        if not isinstance(weights, dict) or weights_hash(weights) != score["weights_hash"]:
+            return _result(
+                "retained_only",
+                "No matching retained policy; native triage arithmetic unverified.",
+                [],
+                False,
+            )
+        matched = True
+        profile = ContextProfile.from_json({**score["inputs"], "host_ip": score["host_ip"]})
+        expected = native_calculate(
+            retained["category"], profile, weights["service_network_triage"]
+        )
+        label = f"service-network:{expected['category']}={expected['base']:g} (context-adjusted)"
+        if score["native_fallback"] != label:
+            raise ValueError("Retained native fallback label contradicts matching policy")
+        for key in ("version", "category", "base", "risk", "steps"):
+            if json.dumps(retained[key], sort_keys=True) != json.dumps(
+                expected[key], sort_keys=True
+            ):
+                raise ValueError(
+                    f"Retained native triage {key} contradicts matching policy arithmetic"
+                )
+        if value != expected["risk"]:
+            raise ValueError("Retained risk contradicts native triage arithmetic")
+        result = _result(
+            "verified",
+            "Matching policy reproduces native triage arithmetic; protocol evidence and business impact are not independently verified here.",
+            expected["steps"],
+            True,
+        )
+        result["computed_risk"] = value
+        return result
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+        ConfigError,
+    ) as error:
+        return _result("unavailable", str(error), [], matched)
+
+
 def priority_trace(score: dict, weights: dict | None = None) -> dict:
     """Explain a CVSS 3.1 priority without modifying either argument.
 
@@ -66,6 +130,12 @@ def priority_trace(score: dict, weights: dict | None = None) -> dict:
     matched_hash is a boolean, independent of arithmetic validity. computed_risk
     is included only for verified results. No policy is loaded or assumed.
     """
+    if (
+        isinstance(score, dict)
+        and isinstance(score.get("inputs"), dict)
+        and "native_triage" in score["inputs"]
+    ):
+        return _native_trace(score, weights)
     matched = False
     steps: list[dict] = []
     try:

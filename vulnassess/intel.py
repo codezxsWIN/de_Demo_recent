@@ -64,6 +64,12 @@ def _digest(path: Path) -> str:
     return sha256(_read_snapshot(path)).hexdigest()
 
 
+def publisher_record_digest(record: dict[str, Any]) -> str:
+    """Bind publisher content while allowing a later retrieval of the same record."""
+    content = {key: value for key, value in record.items() if key != "_fetched_at"}
+    return sha256(json.dumps(content, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def _read_snapshot(path: Path) -> bytes:
     try:
         with path.open("rb") as handle:
@@ -132,6 +138,7 @@ def _compact_cve(entry: dict[str, Any]) -> dict[str, Any]:
                 cpe_matches.append(
                     {
                         "criteria": match.get("criteria", ""),
+                        "matchCriteriaId": match.get("matchCriteriaId"),
                         "versionStartIncluding": match.get("versionStartIncluding"),
                         "versionStartExcluding": match.get("versionStartExcluding"),
                         "versionEndIncluding": match.get("versionEndIncluding"),
@@ -397,7 +404,14 @@ def match_finding_with_trace(
     feed_dates: dict[str, str],
 ) -> tuple[list[Enrichment], list[MatchTrace]]:
     service = next(
-        (item for item in host_services if finding.port and item.port == finding.port), None
+        (
+            item
+            for item in host_services
+            if finding.port
+            and item.port == finding.port
+            and (finding.protocol is None or item.protocol == finding.protocol)
+        ),
+        None,
     )
     enrichments: list[Enrichment] = []
     claimed: set[str] = set()
@@ -424,13 +438,76 @@ def match_finding_with_trace(
 
     for cve_id in finding.cve_ids:
         record = store.cve(cve_id)
+        if finding.tool == "nvd-cpe":
+            from vulnassess.cve_discovery import candidate_facts, matching_criteria
+
+            facts = candidate_facts(finding, service) if service is not None else None
+            criteria = (
+                matching_criteria(record.get("_configurations", []), service)
+                if record and service
+                else []
+            )
+            if (
+                not facts
+                or not criteria
+                or facts["nvd_record_sha256"]
+                not in {
+                    publisher_record_digest(record),
+                    # Legacy evidence included retrieval metadata: accept only an exact match.
+                    sha256(
+                        json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+                    ).hexdigest(),
+                }
+            ):
+                trace(
+                    "rejected",
+                    "cpe_range",
+                    "Candidate lacks matching endpoint-bound identity and NVD applicability evidence",
+                    cve_id,
+                )
+                continue
+            match = criteria[0]
+            end = match.get("versionEndExcluding") or match.get("versionEndIncluding")
+            enrichments.append(
+                _enrichment(
+                    finding,
+                    cve_id,
+                    record,
+                    "cpe_range",
+                    0.7,
+                    end,
+                    store,
+                    feed_dates,
+                    _end_inclusive(match),
+                )
+            )
+            trace(
+                "accepted",
+                "cpe_range",
+                "Product/version candidate; package revision, vendor backports and exploitability remain unverified",
+                cve_id,
+                0.7,
+            )
+            continue
         version_end = None
         version_end_inclusive = None
         if record and service and service.cpe:
-            for cpe_match in record.get("cpe_matches", []):
+            if "_configurations" in record:
+                from vulnassess.cve_discovery import matching_criteria
+
+                criteria = matching_criteria(record["_configurations"], service)
+            else:
+                criteria = record.get("cpe_matches", [])
+            for cpe_match in criteria:
                 if not _same_product(service.cpe, cpe_match.get("criteria")):
                     continue
-                matched, _, end = _in_range(service.version, cpe_match)
+                if "_configurations" in record:
+                    matched = True
+                    end = cpe_match.get("versionEndExcluding") or cpe_match.get(
+                        "versionEndIncluding"
+                    )
+                else:
+                    matched, _, end = _in_range(service.version, cpe_match)
                 if matched and end:
                     version_end = end
                     version_end_inclusive = _end_inclusive(cpe_match)
@@ -461,6 +538,8 @@ def match_finding_with_trace(
         )
         claimed.add(cve_id)
 
+    if finding.tool == "nvd-cpe":
+        return enrichments, traces
     if service is None:
         trace(
             "not_attempted",
@@ -478,11 +557,32 @@ def match_finding_with_trace(
         for record in store.all_cves():
             if record["id"] in claimed:
                 continue
-            for cpe_match in record.get("cpe_matches", []):
+            strict = "_configurations" in record
+            if strict:
+                from vulnassess.cve_discovery import matching_criteria
+
+                criteria = matching_criteria(record["_configurations"], service)
+                if not criteria:
+                    trace(
+                        "rejected",
+                        "cpe_range",
+                        "No supported product/version-only applicability branch for this endpoint",
+                        record["id"],
+                    )
+                    continue
+            else:
+                criteria = record.get("cpe_matches", [])
+            for cpe_match in criteria:
                 if not _same_product(service.cpe, cpe_match.get("criteria")):
                     continue
                 product_candidates += 1
-                matched, confidence, end = _in_range(service.version, cpe_match)
+                if strict:
+                    matched, confidence = True, 0.7
+                    end = cpe_match.get("versionEndExcluding") or cpe_match.get(
+                        "versionEndIncluding"
+                    )
+                else:
+                    matched, confidence, end = _in_range(service.version, cpe_match)
                 if not matched:
                     trace(
                         "rejected",
@@ -512,7 +612,9 @@ def match_finding_with_trace(
                 trace(
                     "accepted",
                     "cpe_range",
-                    (f"service CPE product matches and version {service.version!r} is in range"),
+                    "Product/version candidate; package revision, vendor backports and exploitability remain unverified"
+                    if strict
+                    else f"service CPE product matches and version {service.version!r} is in range",
                     record["id"],
                     confidence,
                 )

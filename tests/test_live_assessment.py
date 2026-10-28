@@ -119,7 +119,13 @@ def test_live_scan_uses_pinned_ip_and_sends_fresh_services_to_analyst():
     assert result["assessment_summary"]["context"]["exposure"] == "internet_facing"
     saved = Path(result["evidence_directory"])
     assert (saved / "nmap.xml").is_file()
-    assert json.loads((saved / "case.json").read_text())["hosts"][0]["services"][0]["port"] == 22
+    case = json.loads((saved / "case.json").read_text())
+    assert case["hosts"][0]["services"][0]["port"] == 22
+    assert case["scanner_coverage"]["cve-discovery"].startswith(
+        "partial: 0 observed product/version queries; skipped services: 1"
+    )
+    receipt = json.loads((saved / "cve-discovery.json").read_text())
+    assert receipt["queries"] == [] and receipt["services_skipped"][0]["port"] == 22
     manifest = json.loads((saved / "manifest.json").read_text())
     assert manifest["resolved_ip"] == "45.33.32.156"
     for name, digest in manifest["files"].items():
@@ -207,6 +213,7 @@ def test_live_web_run_scans_requested_port_and_runs_bounded_nikto():
     assert nikto_command[nikto_command.index("-timeout") + 1] == "5"
     assert nikto_command[nikto_command.index("-maxtime") + 1] == "90s"
     assert "-nolookup" in nikto_command
+    assert nikto_command[nikto_command.index("-ask") + 1] == "no"
     assert "Host: agent.example.test:7001" in nikto_command
     assert [service["port"] for service in result["services"]] == [80, 7001]
     assert result["finding_count"] == 1

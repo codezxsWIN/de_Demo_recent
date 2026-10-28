@@ -1,5 +1,6 @@
 """Optional scanner failures must preserve the completed discovery evidence."""
 
+import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -24,7 +25,18 @@ def endpoint_run(tmp_path, monkeypatch):
 
     def scanner(command, **kwargs):
         flag = "-oX" if "-oX" in command else "-output"
-        Path(command[command.index(flag) + 1]).write_text("SYNTHETIC scanner boundary")
+        Path(command[command.index(flag) + 1]).write_text(
+            "SYNTHETIC scanner boundary"
+            if flag == "-oX"
+            else json.dumps(
+                {
+                    "ip": host.ip,
+                    "port": endpoint["port"],
+                    "vulnerabilities": [],
+                    "end_time": "SYNTHETIC completed report",
+                }
+            )
+        )
         return subprocess.CompletedProcess(command, 0, "", "")
 
     transport = Mock(side_effect=scanner)

@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import replace
@@ -27,10 +28,13 @@ from vulnassess import (
     harbordesk_probe,
     intel,
     intel_online,
+    network_service_checks,
+    network_service_policy,
     orchestrator,
     protocols,
     redis_probe,
     scoring,
+    service_network_probe,
 )
 from vulnassess.ai_boundary import digest
 from vulnassess.errors import AdapterError, ConfigError, IntelUnavailable, NeedsReview
@@ -46,6 +50,15 @@ from vulnassess.settings import Settings
 from vulnassess.store import Store
 
 Progress = Callable[[str, str, str], None]
+
+
+def _pace_nvd_handoff(store, batch_ids, previous_requests):
+    """Keep discovery, targeted-sync and successive-batch request budgets joined."""
+    if previous_requests and any(
+        not intel_online._fresh((store.cve(cve) or {}).get("_fetched_at"), datetime.now(UTC))
+        for cve in batch_ids
+    ):
+        time.sleep(7)
 
 
 def nmap_binary() -> str | None:
@@ -255,6 +268,7 @@ def assessment_summary(
     nmap_coverage = recorded_coverage("nmap")
     nikto_coverage = recorded_coverage("nikto")
     nessus_coverage = recorded_coverage("nessus")
+    cve_coverage = recorded_coverage("cve-discovery")
     return {
         "target": target,
         "resolved_ip": target_ip,
@@ -318,6 +332,11 @@ def assessment_summary(
             f"Nessus coverage: {nessus_coverage}."
             if nessus_coverage
             else "Nessus coverage was not recorded; no Nessus assessment is established.",
+            *(
+                [f"CVE discovery: {cve_coverage}."]
+                if cve_coverage and not cve_coverage.startswith("complete:")
+                else []
+            ),
             *(
                 ["No vulnerability intelligence feed snapshots were available."]
                 if findings and not payload.get("feed_status")
@@ -650,6 +669,8 @@ def _scan_requested_endpoint(
         "-output",
         str(output),
         "-nointeractive",
+        "-ask",
+        "no",
         "-nocheck",
         "-nolookup",
         "-Tuning",
@@ -669,6 +690,7 @@ def _scan_requested_endpoint(
         with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as transcript:
             result = subprocess.run(
                 nikto_command,
+                stdin=subprocess.DEVNULL,
                 stdout=transcript,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -755,7 +777,42 @@ def run(
 
     emit("scope", "complete", f"{target} pinned to authorised {target_ip}")
     emit("model", "complete", analyst.configuration_detail(provider))
-    emit("scanner", "running", "Nmap: common 100 TCP ports, light service detection")
+    from labs.service_networks.catalog import environment
+
+    service_environment = (
+        environment(target_ip) if endpoint is None and plan_execution is None else None
+    )
+    service_policy = (
+        network_service_policy.load(config_dir, settings.scope, target_ip)
+        if endpoint is None and plan_execution is None
+        else None
+    )
+    policy_tcp_ports = (
+        sorted({item["port"] for item in service_policy["endpoints"] if item["transport"] == "tcp"})
+        if service_policy
+        else []
+    )
+    specific_tcp_ports = policy_tcp_ports or (
+        sorted(service_environment["tcp"]) if service_environment else []
+    )
+    scan_description = (
+        "exact lab TCP ports "
+        + ",".join(map(str, sorted(service_environment["tcp"])))
+        + (
+            "; UDP services verified by bounded protocol requests, not Nmap UDP scanning"
+            if service_environment["udp"]
+            else "; light service detection"
+        )
+        if service_environment
+        else "top 100 TCP ports, light service detection"
+    )
+    if policy_tcp_ports:
+        scan_description = (
+            "owner-authorised TCP ports "
+            + ",".join(map(str, policy_tcp_ports))
+            + "; protocol checks evaluated against explicit endpoint policy"
+        )
+    emit("scanner", "running", "Nmap: " + scan_description)
     raw_root = Path(config_dir).resolve().parent / "data" / "live" / "raw"
     raw_root.mkdir(parents=True, exist_ok=True)
     directory = Path(mkdtemp(prefix="assessment-", dir=raw_root))
@@ -765,8 +822,8 @@ def run(
         "-n",
         "-Pn",
         "-sT",
-        "--top-ports",
-        "100",
+        "-p" if specific_tcp_ports else "--top-ports",
+        ",".join(map(str, specific_tcp_ports)) if specific_tcp_ports else "100",
         "-sV",
         "--version-light",
         "-T3",
@@ -813,6 +870,50 @@ def run(
     harbordesk_coverage = None
     harbordesk_failed = False
     network_coverage = None
+    service_network_coverage = None
+    if service_environment or service_policy:
+        emit(
+            "canonical",
+            "running",
+            "Verifying network access, authentication and service policy using real protocol exchanges",
+        )
+        try:
+            if service_policy:
+                verified, observed_services, service_network_coverage = network_service_checks.run(
+                    settings.scope, target_ip, service_policy, host.services, directory
+                )
+            else:
+                verified, observed_services, service_network_coverage = service_network_probe.run(
+                    settings.scope, target_ip, endpoint, directory
+                )
+            findings.extend(verified)
+            services = {(item.port, item.protocol): item for item in host.services}
+            for item in observed_services:
+                key = (item.port, item.protocol)
+                previous = services.get(key)
+                services[key] = (
+                    replace(
+                        previous,
+                        name=item.name or previous.name,
+                        product=item.product or previous.product,
+                        version=item.version or previous.version,
+                        cpe=item.cpe or previous.cpe,
+                        tls=previous.tls or item.tls,
+                        banner=(previous.banner or item.banner)
+                        if previous.name == item.name or previous.product
+                        else item.banner,
+                    )
+                    if previous
+                    else item
+                )
+            host = replace(host, services=tuple(services.values()))
+            if service_network_coverage.startswith("partial:"):
+                emit("canonical", "error", service_network_coverage)
+        except (OSError, ValueError, ImportError) as error:
+            service_network_coverage = (
+                f"failed: network-service verification ({type(error).__name__})"
+            )
+            emit("canonical", "error", service_network_coverage)
     from vulnassess import network_lab_probe
 
     if network_lab_probe.eligible(target_ip, endpoint):
@@ -881,15 +982,106 @@ def run(
         device_check["comparison"] = compare(previous_capture(raw_root), device_check)
     emit(
         "canonical",
-        "error" if harbordesk_failed else "complete",
+        "error"
+        if harbordesk_failed
+        or (
+            service_network_coverage is not None
+            and not service_network_coverage.startswith("complete:")
+        )
+        else "complete",
         f"Parsed {len(host.services)} services and {len(findings)} findings; raw scanner files retained locally"
         + (f"; {harbordesk_coverage}" if harbordesk_failed and harbordesk_coverage else "")
         + (f"; {network_coverage}" if network_coverage is not None else "")
+        + (f"; {service_network_coverage}" if service_network_coverage is not None else "")
         + ("; local protection observations collected" if self_defence else ""),
     )
+    from vulnassess.role_model import load_model
+
+    emit(
+        "role_model", "running", "Running the synthetic shadow role model on observed host services"
+    )
+    role_model_result = {
+        "mode": "synthetic_shadow",
+        "status": "unavailable",
+        "prediction": None,
+    }
+    try:
+        model = load_model(
+            Path(__file__).resolve().parent.parent / "models" / "synthetic-role-model.json"
+        )
+        sources = model.training.get("label_sources")
+        if (
+            not isinstance(sources, dict)
+            or set(sources) != {"synthetic"}
+            or type(sources["synthetic"]) is not int
+            or sources["synthetic"] < 1
+        ):
+            raise ConfigError("Role model does not declare exclusively synthetic training labels")
+        prediction = model.predict(host).to_json()
+        role_model_result.update(status="complete", prediction=prediction)
+        emit(
+            "role_model",
+            "complete",
+            "Synthetic shadow prediction "
+            + ("abstained" if prediction["abstained"] else "completed")
+            + "; canonical context and scores unchanged",
+        )
+    except (ConfigError, OSError, ValueError, TypeError, KeyError, OverflowError) as error:
+        emit(
+            "role_model",
+            "error",
+            f"Synthetic shadow prediction unavailable ({type(error).__name__}); canonical assessment continues",
+        )
+    role_model_events = [
+        {"stage": stage, "state": state, "detail": detail}
+        for stage, state, detail in stage_events
+        if stage == "role_model"
+    ]
+    # Discovery is driven by observed service identities, including runs where
+    # no scanner has named a CVE. Candidate creation does not confirm exploitation.
+    discovery_receipt: dict[str, Any] | None = None
+    from vulnassess import cve_discovery
+
+    discovery_cache = (
+        Path(database).with_name("intel-cache.db")
+        if database and not str(database).startswith(("postgres:", "postgresql:", "env:"))
+        else None
+    )
+    if host.services:
+        try:
+            if discovery_cache is not None:
+                with Store(discovery_cache) as discovery_store:
+                    candidates, discovery_receipt = cve_discovery.discover(
+                        host, directory, discovery_store, progress=emit
+                    )
+            else:
+                candidates, discovery_receipt = cve_discovery.discover(
+                    host, directory, None, progress=emit
+                )
+            existing = {
+                (item.port, item.protocol, cve) for item in findings for cve in item.cve_ids
+            }
+            findings.extend(
+                item
+                for item in candidates
+                if not any((item.port, item.protocol, cve) in existing for cve in item.cve_ids)
+            )
+            emit(
+                "intel",
+                "running",
+                f"Product/version discovery produced {len(candidates)} conditional CVE candidates; package and patch applicability remain unverified",
+            )
+        except (IntelUnavailable, ConfigError, sqlite3.DatabaseError, OSError, ValueError) as error:
+            discovery_receipt = {"error": type(error).__name__}
+            emit(
+                "intel",
+                "error",
+                "Service CVE discovery could not complete; no missing candidates treated as safe",
+            )
     captured_at = datetime.now(UTC).isoformat()
     enrichments = []
     feed_meta = {}
+    intelligence_evidence = None
     cve_ids = sorted({cve for finding in findings for cve in finding.cve_ids})
     feed_failure = (
         "No scanner-named CVE IDs to look up"
@@ -926,7 +1118,29 @@ def run(
                                 f"Offline snapshot dated {feed_meta[feed].get('file_date') or 'unknown'}; coverage limited to loaded rows",
                             )
                     else:
-                        intel_online.sync_cves(cve_ids, store, on_progress=emit)
+                        from vulnassess.intelligence_sync import maintain_public_catalog
+
+                        maintenance = maintain_public_catalog(
+                            store, feed_path.parent / "intelligence"
+                        )
+                        if maintenance["state"] in {"cached", "refreshed"}:
+                            emit(
+                                "intel",
+                                "running",
+                                f"Full public catalog {maintenance['state']}: {maintenance['counts']['epss']} EPSS scores and {maintenance['counts']['kev']} KEV entries",
+                            )
+                        for offset in range(0, len(cve_ids), intel_online.MAX_CVES):
+                            batch_ids = cve_ids[offset : offset + intel_online.MAX_CVES]
+                            _pace_nvd_handoff(
+                                store,
+                                batch_ids,
+                                offset or (discovery_receipt and discovery_receipt.get("queries")),
+                            )
+                            intel_online.sync_cves(
+                                batch_ids,
+                                store,
+                                on_progress=emit,
+                            )
                     feed_meta = store.feeds_meta()
                 if findings and feed_meta:
                     dates = {name: item.get("file_date") or "" for name, item in feed_meta.items()}
@@ -940,6 +1154,9 @@ def run(
                             finding, host.services, matching_store, dates
                         )
                         enrichments.extend(matches)
+                    from vulnassess.intelligence_evidence import freeze
+
+                    intelligence_evidence = freeze(store, findings, enrichments, feed_meta)
         except (IntelUnavailable, ConfigError, sqlite3.DatabaseError, OSError, ValueError) as error:
             feed_meta = {}
             enrichments = []
@@ -968,6 +1185,7 @@ def run(
                 "resolved_ip": target_ip,
                 "services": [service.to_json() for service in host.services],
                 "finding_count": len(findings),
+                "role_model": role_model_result,
             }
         )
     emit("context", "running", "Inferring context from the observed services")
@@ -990,6 +1208,8 @@ def run(
             if enrichments
             else "using native-severity fallback; no CVE match"
         )
+        if any(item.inputs.get("native_triage") for item in scores):
+            basis = "using versioned native context triage; not CVSS or exploit probability"
         if not unscored_findings:
             emit("score", "complete", f"Calculated {len(scores)} deterministic priorities {basis}")
         emit("queue", "complete", f"Ordered {len(scores)} findings by deterministic risk")
@@ -1022,6 +1242,7 @@ def run(
         "scores": [score.to_json() for score in scores],
         "unscored_findings": unscored_findings,
         "enrichments": [item.to_json() for item in enrichments],
+        **({"intelligence_evidence": intelligence_evidence} if intelligence_evidence else {}),
         "feed_status": sorted(feed_meta),
         "feeds_meta": feed_meta,
         "intelligence_mode": (
@@ -1032,6 +1253,8 @@ def run(
         if feed_meta
         else "unavailable",
         "context": [profile.to_json()],
+        "role_model": role_model_result,
+        "role_model_events": role_model_events,
         "scoring_policy": {
             "weights": settings.weights,
             "hash": scoring.weights_hash(settings.weights),
@@ -1040,7 +1263,7 @@ def run(
             "nmap": (
                 f"top 100 TCP ports; explicit TCP/{endpoint['port']} check {endpoint_scan_status}"
                 if endpoint is not None
-                else "top 100 TCP ports, light service detection"
+                else scan_description
             ),
             "nikto": (
                 f"complete: bounded checks on {endpoint['scheme']} endpoint, {sum(item.tool == 'nikto' for item in findings)} findings"
@@ -1057,6 +1280,13 @@ def run(
         payload["scanner_coverage"]["harbordesk-check"] = harbordesk_coverage
     if network_coverage is not None:
         payload["scanner_coverage"]["network-lab-check"] = network_coverage
+    if service_network_coverage is not None:
+        payload["scanner_coverage"]["service-network"] = service_network_coverage
+    if discovery_receipt is not None:
+        payload["scanner_coverage"]["cve-discovery"] = cve_discovery.coverage(discovery_receipt)
+    if service_policy:
+        payload["network_service_policy_sha256"] = service_policy["policy_sha256"]
+        payload["network_service_tcp_ports"] = policy_tcp_ports
     if device_check is not None:
         payload["self_defence"] = device_check
         payload["scanner_coverage"]["device-check"] = device_check["limitations"]
@@ -1096,6 +1326,7 @@ def run(
         "scan_profile": scan_profile,
         "services": [service.to_json() for service in host.services],
         "finding_count": len(findings),
+        "role_model": role_model_result,
         "decision_frame": decision_frame,
         "assessment_summary": evidence_summary,
         "scan_status": scan_status,
@@ -1125,6 +1356,7 @@ def run(
                 "resolved_ip": target_ip,
                 "services": [service.to_json() for service in host.services],
                 "finding_count": len(findings),
+                "role_model": role_model_result,
                 "scan_profile": scan_profile,
                 "scanner_coverage": payload["scanner_coverage"],
                 "scan_status": scan_status,
@@ -1140,6 +1372,7 @@ def run(
                 "scan_profile": scan_profile,
                 "services": [service.to_json() for service in host.services],
                 "finding_count": len(findings),
+                "role_model": role_model_result,
                 "decision_frame": decision_frame,
                 "assessment_summary": evidence_summary,
                 "payload": payload,
@@ -1180,6 +1413,7 @@ def run(
         "scan_profile": scan_profile,
         "services": [service.to_json() for service in host.services],
         "finding_count": len(findings),
+        "role_model": role_model_result,
         "decision_frame": decision_frame,
         "assessment_summary": summary,
         "scan_status": scan_status,

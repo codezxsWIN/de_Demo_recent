@@ -23,6 +23,7 @@ roles:
     - {match: service, regex: "microsoft-ds|netbios-ssn|nfs|^ftp", weight: 0.3}
   iot_embedded:
     - {match: port, any_of: [23], weight: 0.3}
+    - {match: service, regex: "^mqtts?$", weight: 0.6}
     - {match: banner, regex: "boa|goahead|mini_httpd|rompager|micro_httpd|busybox|dropbear", weight: 0.9}
   network_device:
     - {match: os, regex: "cisco ios|junos|routeros|fortios|pan-os", weight: 0.8}

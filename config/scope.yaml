@@ -12,7 +12,8 @@
 # Owner-authorized 2026-10-22: HCL AltoroJ / Testfire training app, published as a
 # deliberately vulnerable demo and listed by OWASP ZAP as a test application.
 # Restrict to its current A record; refresh this /32 only after verifying a DNS change.
-allowed_cidrs: [172.28.0.10/32, 172.28.0.11/32, 172.28.0.12/32, 192.168.0.0/24, 127.0.0.1/32, 45.33.32.156/32, 178.79.134.182/32, 65.61.137.117/32]
+# Owner-requested 2026-10-26: exact loopback-only network-service environments.
+allowed_cidrs: [172.28.0.10/32, 172.28.0.11/32, 172.28.0.12/32, 192.168.0.0/24, 127.0.0.1/32, 127.0.0.2/32, 127.0.0.3/32, 127.0.0.4/32, 127.0.0.5/32, 45.33.32.156/32, 178.79.134.182/32, 65.61.137.117/32]
 allowed_hosts: []
 vantage: internal
 lab_targets:
@@ -20,6 +21,10 @@ lab_targets:
   - {name: dvwa,            ip: 172.28.0.11, tags: {environment: prod, criticality: 4}}
   - {name: juice-shop,      ip: 172.28.0.12, tags: {environment: prod, criticality: 3, vantage: external}}
   - {name: real-local-lab,  ip: 127.0.0.1,  tags: {environment: test, criticality: 3}}
+  - {name: office-service-network, ip: 127.0.0.2, tags: {environment: test, criticality: 3}}
+  - {name: iot-service-network, ip: 127.0.0.3, tags: {environment: test, criticality: 3}}
+  - {name: redis-affected-version, ip: 127.0.0.4, tags: {environment: test, criticality: 3}}
+  - {name: redis-reference-patch, ip: 127.0.0.5, tags: {environment: test, criticality: 3}}
   - {name: pentest-ground-agent, ip: 178.79.134.182, tags: {environment: test, vantage: external}}
   - {name: hcl-altoroj-testfire, ip: 65.61.137.117, tags: {environment: test, vantage: external}}
 canary: {ip: 172.28.0.250}

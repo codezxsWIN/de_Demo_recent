@@ -8,6 +8,18 @@ def is_redis_lua(finding):
 
 
 def assurance(finding):
+    if finding.get("tool") == "nvd-cpe":
+        from vulnassess.cve_discovery import candidate_facts
+
+        facts = candidate_facts(finding)
+        if facts:
+            return {
+                "condition": "Observed product/version matches an NVD applicability branch",
+                "cve": "Candidate association — package and patch applicability unconfirmed",
+                "package": "Package revision, vendor backports and required configuration not established",
+                "exploitability": "Not tested — no exploit, command execution or compromise demonstrated",
+                "priority": "Conditional CVE triage; not proof of confirmed vulnerability or exploitation",
+            }
     if not is_redis_lua(finding):
         return None
     return {

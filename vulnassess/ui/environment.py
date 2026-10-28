@@ -7,7 +7,7 @@ def text(value):
     return escape(str(value if value is not None else "Not established"), quote=True)
 
 
-def render(record):
+def render(record, *, deployment=None, deployment_error=None):
     payload = record["payload"]
     result = record["result"]
     identity = text(record["capture_id"])
@@ -45,8 +45,42 @@ def render(record):
         "or vendor CVEs. Availability must be checked locally.</li>"
         "<li><strong>Multi-host network:</strong> requires an isolated VM/container network "
         "with independently assessed hosts. A single website scan does not establish it.</li>"
-        "</ul></section><section><h2>Observed hosts and services</h2>"
+        "</ul><h3>Two network-only service environments</h3>"
+        "<p><strong>Office · 127.0.0.2:</strong> FTP TCP/2121,2122; SMB TCP/1445,1446; SSH TCP/2222,2223. "
+        "Anonymous share access, signing policy and one known training credential are verified over the network.</p>"
+        "<p><strong>IoT · 127.0.0.3:</strong> MQTT TCP/1883,1884; TLS TCP/8883; SNMP UDP/1161,1162. "
+        "Anonymous message exchange, public-community reads and certificate expiry are verified over the network.</p>"
+        "<p>Start the optional labs.service_networks runtime and enter either IP in Run. "
+        "These use real protocol stacks with fictional data on one computer, not separate OS instances. "
+        "The endpoint list is a declared lab inventory, not a claim that its ports are currently open.</p>"
+        "</section>"
     )
+    if deployment:
+        body += (
+            '<section id="network-lab-deployment"><h2>Network labs · last verified deployment</h2>'
+            f"<p>Verified at <strong>{text(deployment['verified_at'])}</strong> · "
+            f"receipt {text(deployment['filename'])}</p>"
+            '<p class="notice">This is a separate, dated deployment check—not live status or '
+            "evidence that the selected scan observed the whole topology. File integrity is checked; "
+            "it does not independently authenticate the Docker host. Containers share the WSL Linux kernel.</p>"
+            '<div class="scroll"><table><thead><tr><th>Environment</th><th>Windows entry point</th>'
+            "<th>Gateway</th><th>Internal backend</th><th>Backend network namespace</th></tr></thead><tbody>"
+        )
+        for name, loopback in (("office", "127.0.0.2"), ("iot", "127.0.0.3")):
+            row = deployment["containers"][name]
+            body += f"<tr><td>{text(name)}</td><td>{text(loopback)}</td><td>Fixed TCP/UDP relays; IP forwarding disabled</td><td>{text(row['private_ip'])}</td><td>{text(row['runtime']['network_namespace'])}</td></tr>"
+        body += "</tbody></table></div><h3>Measured paths</h3><ul>"
+        for control in deployment["client_controls"]:
+            same, cross = control["positive_control"], control["cross_segment_control"]
+            body += f"<li>{text(control['client_segment'])} client → {text(same['target'])}:{text(same['port'])}: protocol exchange succeeded; → {text(cross['target'])}:{text(cross['port'])}: TCP connection did not succeed.</li>"
+        body += (
+            "<li>IoT UDP gateway: public-community management read succeeded; the protected endpoint "
+            "did not return a value to the public community while approved monitoring succeeded.</li></ul>"
+            "<p>These are the tested paths only. Other ports, UDP segmentation, lateral movement and container escapes were not assessed.</p></section>"
+        )
+    elif deployment_error:
+        body += '<section><h2>Network lab deployment</h2><p class="notice">Container verification could not be checked. Saved scan evidence remains separate.</p></section>'
+    body += "<section><h2>Observed hosts and services</h2>"
     for host in hosts:
         ip = host.get("ip")
         related = [item for item in findings if item.get("host_ip") == ip]

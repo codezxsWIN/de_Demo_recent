@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from vulnassess import intel, intel_online, live_assessment, saved_cve_case, scoring
+from vulnassess import cve_discovery, intel, intel_online, live_assessment, saved_cve_case, scoring
 from vulnassess.errors import ConfigError
 from vulnassess.saved_cve_case import refresh_saved_case
 from vulnassess.schema import ContextProfile, Feature, Finding, Host, Provenance, Service
@@ -215,6 +215,17 @@ def test_requested_cache_never_decodes_unrelated_malformed_cve_rows(tmp_path):
 
 @pytest.fixture
 def live_cache_scenario(tmp_path, monkeypatch):
+    # This fixture exercises explicit-ID freshness, not live product discovery.
+    # Supply the newly introduced publisher transport without disabling discovery.
+    monkeypatch.setattr(
+        cve_discovery.intel_online,
+        "fetch_json",
+        lambda *_: {
+            "startIndex": 0,
+            "totalResults": 0,
+            "vulnerabilities": [],
+        },
+    )
     config = tmp_path / "config"
     shutil.copytree(Path(__file__).resolve().parents[2] / "config", config)
     payload = _payload()
@@ -376,6 +387,7 @@ def test_live_offline_snapshot_keeps_full_catalog_matching(live_cache_scenario, 
 
     monkeypatch.setattr(intel_online, "sync_cves", forbidden)
     monkeypatch.setattr(intel_online, "requested_cache", forbidden)
+    monkeypatch.setattr(cve_discovery.intel_online, "fetch_json", forbidden)
     result, payload = run()
 
     assert payload["intelligence_mode"] == "offline"

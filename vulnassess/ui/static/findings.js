@@ -14,7 +14,7 @@ const host = row => row.host ?? 'Unknown target';
 const endpoint = row => `${host(row)}${row.port == null ? '' : `:${row.port}`}${row.protocol ? ` / ${String(row.protocol).toUpperCase()}` : ''}`;
 const association = row => !cves(row).length ? 'none' : cves(row).some(cve => cve.match_method === 'explicit') ? 'explicit' : 'candidate';
 const associationLabels = {explicit: 'Scanner-named · verify applicability', candidate: 'Candidate association · verify applicability', none: 'No CVE associated'};
-const colors = {explicit: '#8de3ef', candidate: '#ffdd8c', none: '#afbed0'};
+const colors = {explicit: 'var(--findings-color-8de3ef)', candidate: 'var(--findings-color-ffdd8c)', none: 'var(--findings-color-afbed0)'};
 let assessment = null;
 let visible = [];
 let opener = null;

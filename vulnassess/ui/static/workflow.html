@@ -19,6 +19,8 @@
     <div class="run-controls"><label for="workflow-run">Assessment</label><select id="workflow-run" disabled><option>Loading records</option></select><span id="data-kind" class="data-kind">LOCAL</span></div>
     <div class="header-tools"><label class="sr-only" for="preview-scenario">Preview example</label><select id="preview-scenario" aria-label="Preview example"><option value="light">Nmap + AI · no findings</option><option value="web">Full web assessment</option><option value="noWeb">No HTTP · web tools skipped</option><option value="modelError">Model unavailable</option><option value="denied">Target outside scope</option></select><button id="preview-flow" class="tool-text preview-button" type="button" title="Animate a simulated workflow without scanning or calling a model">Preview flow</button><button id="open-run" class="run-button" type="button" aria-controls="run-panel" aria-expanded="false">Run</button><a id="assessment-link" class="quiet-link" href="/">Back to project</a><button id="refresh-workflow" class="tool" type="button" title="Refresh stored records" aria-label="Refresh stored records"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10a8 8 0 1 0-2 8M20 4v6h-6"/></svg></button></div>
   </header>
+  <div class="workspace-collapse-bar"><button id="toggle-workspace-controls" class="workspace-collapse-toggle" type="button" aria-controls="workspace-controls" aria-expanded="true"><span class="workspace-collapse-icon" aria-hidden="true">⌃</span><span>Collapse workspace controls</span></button></div>
+  <div id="workspace-controls">
   <div class="workflow-bar">
     <div class="canvas-heading"><span class="workspace-eyebrow">SECURITY INTELLIGENCE / WORKSPACE</span><h1>Assessment workspace</h1><p id="canvas-caption">Loading the recorded assessment.</p></div>
     <p id="record-summary" class="record-summary" aria-label="Stored record counts"></p>
@@ -36,6 +38,7 @@
     <button type="button" data-workspace-page="workflow" aria-pressed="true"><span>02</span> Workflow explorer</button>
     <button type="button" data-workspace-page="insights" aria-pressed="false"><span>03</span> AI & next steps</button>
     <a class="quiet-link" href="/findings">Findings &amp; Evidence</a>
+    <a class="quiet-link" href="/intelligence">Intelligence catalog</a>
     <a class="quiet-link" href="/captures">Saved assessments</a>
     <a id="latest-live-report" class="quiet-link" href="/captures" target="_blank" rel="noopener noreferrer" title="Opens separately; the workflow stays running" hidden>Latest live report ↗</a>
     <a class="quiet-link findings-dashboard-link" href="/vulnerabilities">Findings &amp; remediation ↗</a>
@@ -43,6 +46,7 @@
     <p>Evidence first. Every conclusion traceable.</p>
   </nav>
   <div class="trace-controls workspace-filters"><label for="workflow-host">Target</label><select id="workflow-host" disabled><option>All recorded hosts</option></select><label class="sr-only" for="workflow-finding">Trace a finding</label><select id="workflow-finding" disabled><option>All findings</option></select><span id="connection-hint">All dependencies visible · select a module for internals</span></div>
+  </div>
   <section id="assessment-overview" class="assessment-overview" aria-label="Assessment overview" tabindex="-1"><p>Loading the assessment overview.</p></section>
   <section id="assessment-highlights" class="assessment-highlights" aria-label="Assessment at a glance"></section>
   <section id="self-defence-workspace" class="device-workspace" aria-label="Self-defence" tabindex="-1" hidden>
@@ -53,13 +57,26 @@
   <!-- ==================== RUN ANALYSIS PANEL: START ==================== -->
   <section id="run-panel" class="run-panel" aria-label="Run analysis" hidden>
     <div class="run-panel-heading"><div><span class="eyebrow">ASSESSMENT RUN</span><h2>Run analysis</h2></div><button id="close-run" class="tool" type="button" aria-label="Close run panel">×</button></div>
+    <section id="demo-environments" aria-label="Demo environments">
+      <p class="run-label demo-environments-label">Choose an environment</p>
+      <div class="demo-choices" role="group" aria-label="Choose a demo environment" aria-describedby="demo-environment-description"><button type="button" data-demo-choice="harbordesk" aria-pressed="false">HarborDesk <small>Web &amp; services</small></button><button type="button" data-demo-choice="office" aria-pressed="false">Office <small>FTP · SSH · SMB · Redis</small></button><button type="button" data-demo-choice="iot" aria-pressed="false">IoT <small>MQTT · SNMP · TLS · Redis</small></button></div>
+      <label class="sr-only" for="demo-environment">Demo environment</label><select id="demo-environment" class="sr-only" tabindex="-1" aria-hidden="true"><option value="">Custom authorised target</option><option value="harbordesk">HarborDesk</option><option value="office">Office network</option><option value="iot">IoT network</option></select>
+      <p id="demo-environment-description">Choose a demo to fill its correct target, then check scope and run. Selection does not launch a scan or start containers.</p>
+      <a id="open-demo-environment" target="_blank" rel="noopener" hidden>Open environment ↗</a>
+    </section>
+    <div class="new-target-check"><label class="run-label" for="new-target">Target address</label><div><input id="new-target" type="text" placeholder="Authorised IP or hostname" spellcheck="false"><button id="check-target" class="tool-text" type="button">Check scope</button></div><p id="target-check-result" role="status">The live run pins the address, scans the top 100 TCP ports plus your URL’s exact port, runs bounded Nikto only for configured test assets, and reports each stage.</p></div>
     <p>Enter an authorised address and port. Run performs light Nmap discovery and checks the exact requested port. On exact environment:test assets, web endpoints receive bounded Nikto checks; a detected plaintext Redis endpoint receives one fixed Lua sandbox configuration check, without loading libraries or executing OS commands. Nessus remains an imported-report path.</p>
     <p id="intel-cache-status" role="status">Checking public intelligence cache…</p>
+    <details class="recorded-run"><summary>Network-only lab targets · no website URL</summary>
+      <p><strong>Office network — 127.0.0.2:</strong> FTP 2121/2122, SSH 2222/2223, SMB 1445/1446 and Redis 6379. Tests anonymous file access, a fixed lab default SSH credential, SMB signing and Redis version identity.</p>
+      <p><strong>IoT network — 127.0.0.3:</strong> MQTT 1883/1884, TLS 8883, SNMP UDP 1161/1162 and Redis 6379. Tests anonymous messaging, default-community management access, certificate validity and Redis version identity.</p>
+      <p>Checks use the owner’s <code>config/network-services.json</code> endpoint policy and actual protocol responses—not expected training payloads. Public access is a finding only where policy forbids it. Authentication and signing are evaluated separately; an authentication-protected comparison may still have a signing weakness.</p>
+      <p>Docker Desktop and the lab containers must be running. Select Office or IoT above to fill the correct bare IP and check scope. Each target includes protected comparisons. These are real protocol-library services on separate loopback addresses, not separate operating systems. No SQL injection or Nikto web checks are used for these bare-IP lab runs. Live availability is established during assessment, not by this list.</p>
+    </details>
     <label class="run-label" for="analyst-provider">Analyst model</label>
     <select id="analyst-provider"><option value="ollama">Local Ollama</option><option value="openrouter">DeepSeek V4 Flash · OpenRouter free</option><option value="groq">GPT-OSS 120B · Groq (original key)</option><option value="groq_qwen">Qwen 3.8 27B · Groq (second key)</option><option value="google">Gemini 3.5 Flash-Lite · Google</option></select>
     <label id="cloud-consent" class="cloud-consent"><input id="share-evidence" type="checkbox"> I agree to send bounded scan evidence to configured cloud providers if the selected analyst is unavailable. Local Ollama stays on this device unless I enable and consent to fallback.</label>
     <label class="cloud-consent"><input id="allow-fallback" type="checkbox" checked> Try configured alternative providers if generation is unavailable. A slow local Ollama attempt is capped at 45 seconds only when cloud fallback is consented to. Evidence-only reports remain available if AI fails.</label>
-    <div class="new-target-check"><label class="run-label" for="new-target">Target address</label><div><input id="new-target" type="text" placeholder="Authorised IP or hostname" spellcheck="false"><button id="check-target" class="tool-text" type="button">Check scope</button></div><p id="target-check-result" role="status">The live run pins the address, scans the top 100 TCP ports plus your URL’s exact port, runs bounded Nikto only for configured test assets, and reports each stage.</p></div>
     <label class="run-label" for="live-run-mode">Run mode</label>
     <select id="live-run-mode"><option value="new">New live assessment + AI</option><option value="self">Self-defence · check this device + AI</option><option value="reuse">Re-analyze retained scan evidence · no scan</option><option value="saved">Fresh intelligence + AI · saved CVE evidence · no scan</option></select>
     <p id="self-defence-help" hidden>Checks the computer running VulnAssess, not a remote browser device. Reads Windows firewall and Defender status and checks common local service ports. No settings are changed. AI explains the evidence and practical precautions; this is not an antivirus or a guarantee of safety.</p>

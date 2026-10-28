@@ -1,0 +1,18 @@
+{
+  "purpose": "Evaluation labels only. The assessment engine must not import this file.",
+  "targets": {
+    "127.0.0.2": [
+      "policy:ftp:2121:authentication",
+      "policy:smb:1445:authentication",
+      "policy:smb:1445:signing",
+      "policy:smb:1446:signing",
+      "policy:ssh:2222:credential"
+    ],
+    "127.0.0.3": [
+      "policy:mqtt:1883:authentication",
+      "policy:snmp:1161:authentication",
+      "policy:tls:8883:certificate",
+      "policy:tls:8883:chain"
+    ]
+  }
+}

@@ -6,6 +6,7 @@ reports/
 .env.*
 !.env.example
 .venv/
+.venv-network-labs/
 .venv.backup/
 venv/
 

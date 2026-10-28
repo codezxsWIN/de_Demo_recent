@@ -4,10 +4,15 @@ export const stageStateLabel = state => ({complete: 'Executed', skipped: 'Not ap
 
 export function nodeExecutionEntry(stages, ids) {
   const entries = ids.map(id => stages.get(id)).filter(Boolean);
-  return entries.filter(entry => entry.state === 'error').at(-1)
+  const entry = entries.filter(entry => entry.state === 'error').at(-1)
     || entries.filter(entry => entry.state === 'running').at(-1)
     || entries.filter(entry => entry.state === 'complete').at(-1)
     || entries.at(-1);
+  if (entry && ids.length === 1 && ['nvd', 'epss', 'kev'].includes(ids[0])) {
+    const label = {complete: 'Checked in this run', skipped: 'Skipped in this run', error: 'Failed in this run', running: 'Checking in this run', pending: 'Waiting in this run'}[entry.state];
+    return label ? {...entry, detail: `${label}${entry.detail ? ` · ${entry.detail}` : ''}`} : entry;
+  }
+  return entry;
 }
 
 export function isLiveAssessmentResult(result) {
@@ -111,9 +116,9 @@ function fixtureFeed(metadata) {
 }
 
 function feedState(metadata) {
-  if (!metadata || !Number.isFinite(Number(metadata.rows)) || Number(metadata.rows) <= 0) return {state: 'missing', status: 'No usable snapshot'};
+  if (!metadata || !Number.isFinite(Number(metadata.rows)) || Number(metadata.rows) <= 0) return {state: 'missing', status: 'No usable feed metadata · run usage unverified'};
   if (fixtureFeed(metadata)) return {state: 'missing', status: 'Test fixture only'};
-  return {state: 'stored', status: `Local snapshot · ${metadata.rows} rows`};
+  return {state: 'stored', status: `Feed metadata · ${metadata.rows} rows · run usage unverified`};
 }
 
 export function currentSlice(assessment, hostIp = '', findingId = '') {
@@ -224,9 +229,9 @@ export function nodeDetails(identity, assessment, scope, weights, selection = {}
       ? `${metadata ? 'Feed metadata is recorded for this assessment run.' : 'No feed metadata has been recorded for this run.'} ${(assessment.history?.limitations || []).join(' ')} Nothing is downloaded by opening this page.`
       : 'Feed metadata is current store state, not a frozen per-run snapshot. Nothing is downloaded by opening this page.';
     const labels = {nvd: ['Vulnerability catalog', 'CVEs and CVSS vectors'], epss: ['Exploitation predictions', 'Per-CVE probability and percentile'], kev: ['Known exploitation catalog', 'CVE membership and recorded date']};
-    return {...base, input: labels[identity][0], operation: 'Read a human-provided local feed snapshot.', output: labels[identity][1],
+    return {...base, input: labels[identity][0], operation: 'Look up available feed data when the assessment requires it.', output: labels[identity][1],
       rows: metadata ? [{label: 'Snapshot date', value: metadata.file_date}, {label: 'Rows stored', value: metadata.rows}, {label: 'SHA-256', value: metadata.sha256}, {label: 'Local path', value: metadata.path}] : [],
-      records: metadata ? [metadata] : [], message: fixtureFeed(metadata) ? 'This is a test fixture, not operational vulnerability intelligence. It must not be used for a live assessment.' : historyMessage, provenance: 'intel.py / feeds_meta'};
+      records: metadata ? [metadata] : [], message: `${fixtureFeed(metadata) ? 'This is a test fixture, not operational vulnerability intelligence. It must not be used for a live assessment.' : historyMessage} Feed metadata alone does not establish that this source was checked or used in the run.`, provenance: 'intel.py / feeds_meta'};
   }
   if (identity === 'intel') return {...base, input: 'Finding identity + dated feed facts', operation: 'Match explicit CVEs or supported CPE version ranges. Preserve unmatched findings.', output: 'Stored enrichment records',
     rows: slice.enrichments.flatMap(item => [{label: 'CVE', value: item.cve_id}, {label: 'Match method', value: item.match_method}, {label: 'Match confidence', value: item.match_confidence}, {label: 'EPSS percentile', value: item.epss_percentile}, {label: 'KEV', value: item.kev}]), records: slice.enrichments,

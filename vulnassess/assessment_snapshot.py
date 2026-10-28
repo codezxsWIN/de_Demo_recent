@@ -468,6 +468,11 @@ def _check_current_replay(entry: dict[str, Any], expected: dict[str, Any]) -> li
             if not _same_json(actual_value, expected_value):
                 raise ValueError(f"scores.{field} does not match deterministic replay")
     inputs = entry.get("inputs", {})
+    if "native_triage" in inputs or "native_triage" in expected["inputs"]:
+        if "native_triage" not in inputs:
+            missing.append("inputs.native_triage")
+        elif not _same_json(inputs["native_triage"], expected["inputs"].get("native_triage")):
+            raise ValueError("scores.inputs.native_triage does not match deterministic replay")
     for field in ("role", "exposure", "manual", "controls", "observed_controls", "context_policy"):
         if field not in inputs:
             missing.append(f"inputs.{field}")

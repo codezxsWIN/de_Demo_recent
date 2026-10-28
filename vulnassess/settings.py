@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 
 from vulnassess.errors import ConfigError
+from vulnassess.network_triage import validate as validate_network_triage
 
 CONFIG_FILES = ("scope.yaml", "weights.yaml", "roles.yaml", "controls.yaml")
 SCOPE_KEYS = {"allowed_cidrs", "allowed_hosts", "vantage", "lab_targets", "canary"}
@@ -244,8 +245,17 @@ class Settings:
         self._unknown(
             path,
             self.weights,
-            {"version", "environmental", "threat", "native_fallback", "bands"},
+            {
+                "version",
+                "environmental",
+                "threat",
+                "native_fallback",
+                "bands",
+                "service_network_triage",
+            },
         )
+        if "service_network_triage" in self.weights:
+            validate_network_triage(self.weights["service_network_triage"])
         for section in ("environmental", "threat", "native_fallback", "bands"):
             if section not in self.weights:
                 raise ConfigError(f"{path}: key {section!r} is required")
@@ -340,7 +350,7 @@ class Settings:
         self._unknown(
             path,
             native,
-            {"nessus", "zap", "nikto", "nmap", "harbordesk", "network-lab"},
+            {"nessus", "zap", "nikto", "nmap", "harbordesk", "network-lab", "service-network"},
             "native_fallback",
         )
         for key in ("nikto", "nmap"):
@@ -349,7 +359,7 @@ class Settings:
         for tool in (
             "nessus",
             "zap",
-            *(key for key in ("harbordesk", "network-lab") if key in native),
+            *(key for key in ("harbordesk", "network-lab", "service-network") if key in native),
         ):
             severity_weights = self._mapping(path, native.get(tool), f"native_fallback.{tool}")
             allowed_severities = severities - (

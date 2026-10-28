@@ -159,6 +159,45 @@ def valid_result(finding_id, evidence_id):
     }
 
 
+def test_repeated_optional_investigation_gets_bounded_regeneration_without_relaxing_validation():
+    payload = demo_payload()
+    case, _, _ = analyst.build_case(payload, "172.28.0.12")
+    finding = case["findings"][0]
+    good = valid_result(finding["id"], finding["evidence_id"])
+    bad = copy.deepcopy(good)
+    bad["investigations"] = [
+        {
+            "hypothesis": bad["summary"],
+            "verification": "Review the retained finding evidence.",
+            "alternative": "An alternative explanation needs owner confirmation.",
+            "finding_ids": [finding["id"]],
+            "evidence_ids": [finding["evidence_id"]],
+        }
+    ]
+
+    class Sequence(FakeClient):
+        def __init__(self, repeat=False):
+            super().__init__(bad)
+            self.calls = 0
+            self.repeat = repeat
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.result = bad if self.repeat or not self.calls else good
+            self.calls += 1
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = Sequence()
+    before = copy.deepcopy(payload)
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert client.calls == 2 and result["canonical_scores_changed"] is False
+    assert "optional investigation repeated" in client.prompt
+    assert payload == before
+    repeating = Sequence(repeat=True)
+    with pytest.raises(NeedsReview, match="investigation repeats"):
+        analyst.analyze_target(payload, "172.28.0.12", repeating)
+    assert repeating.calls == 2
+
+
 def test_case_packages_all_target_evidence_without_mutating_records():
     payload = demo_payload()
     original = copy.deepcopy(payload)
@@ -169,7 +208,7 @@ def test_case_packages_all_target_evidence_without_mutating_records():
     canonical = {finding["id"] for finding in payload["findings"]}
     assert set(alias_map.values()) <= canonical
     assert all(item["id"].startswith("F") for item in case["findings"])
-    assert any(item["kind"] == "nmap_service" for item in evidence)
+    assert any(item["kind"] == "observed_service" for item in evidence)
     assert any(item["kind"] == "vulnerability_intelligence" for item in evidence)
     assert any(item["kind"] == "deterministic_priority" for item in evidence)
 
@@ -1025,7 +1064,7 @@ def test_displayed_action_citations_include_verified_child_claim_citations():
     payload = demo_payload()
     case, evidence, alias_map = analyst.build_case(payload, "172.28.0.12")
     finding = case["findings"][0]
-    service = next(item for item in evidence if item["kind"] == "nmap_service")
+    service = next(item for item in evidence if item["kind"] == "observed_service")
     response = complete_fixture(
         valid_result(finding["id"], finding["evidence_id"]),
         {item["id"]: item["text"] for item in evidence},
@@ -1050,7 +1089,7 @@ def test_zero_finding_display_citations_follow_verified_claims_without_new_findi
     payload["scores"] = []
     payload["enrichments"] = []
     case, evidence, aliases = analyst.build_case(payload, "172.28.0.12")
-    service = next(item for item in evidence if item["kind"] == "nmap_service")
+    service = next(item for item in evidence if item["kind"] == "observed_service")
     exposure_id = case["context"]["exposure"]["evidence_id"]
     response = complete_fixture(
         {
@@ -1421,6 +1460,49 @@ def test_expanded_assessment_can_cover_more_than_sixteen_batches(monkeypatch):
     monkeypatch.setattr(analyst, "analyze_target", evaluate)
     result = analyst.analyze_findings(payload, base["host_ip"])
     assert result["batch_coverage"]["batch_count"] == 17
+    assert result["batch_coverage"]["findings_included"] == 34
+    assert result["batch_coverage"]["findings_omitted"] == 0
+
+
+def test_google_preserves_score_binding_by_using_single_finding_requests(monkeypatch):
+    payload = six_finding_payload()
+    before = copy.deepcopy(payload)
+    seen = []
+
+    def evaluate(current, host, **kwargs):
+        assert kwargs["provider"] == "google"
+        assert len(current["findings"]) == 1
+        identity = current["findings"][0]["id"]
+        assert all(
+            item["finding_id"] == identity for item in current["scores"] + current["enrichments"]
+        )
+        seen.append(identity)
+        return {"finding_coverage": {"included_ids": [identity]}, "canonical_scores_changed": False}
+
+    monkeypatch.setattr(analyst, "analyze_target", evaluate)
+    result = analyst.analyze_findings(payload, payload["findings"][0]["host_ip"], provider="google")
+    assert set(seen) == {item["id"] for item in payload["findings"]}
+    assert result["batch_coverage"]["findings_omitted"] == 0
+    assert payload == before
+
+
+def test_google_covers_a_full_demo_inventory_larger_than_thirty_two_findings(monkeypatch):
+    payload = six_finding_payload()
+    base = payload["findings"][0]
+    payload["findings"] = [{**base, "id": f"demo-inventory-{index}"} for index in range(34)]
+    payload["scores"] = []
+    payload["enrichments"] = []
+    calls = []
+
+    def evaluate(current, host, **kwargs):
+        assert len(current["findings"]) == 1 and kwargs["provider"] == "google"
+        identity = current["findings"][0]["id"]
+        calls.append(identity)
+        return {"finding_coverage": {"included_ids": [identity]}, "canonical_scores_changed": False}
+
+    monkeypatch.setattr(analyst, "analyze_target", evaluate)
+    result = analyst.analyze_findings(payload, base["host_ip"], provider="google")
+    assert len(calls) == len(set(calls)) == 34
     assert result["batch_coverage"]["findings_included"] == 34
     assert result["batch_coverage"]["findings_omitted"] == 0
 

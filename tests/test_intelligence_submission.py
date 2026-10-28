@@ -29,12 +29,13 @@ def test_nvd_key_only_goes_to_exact_official_https_endpoint(monkeypatch):
         "https://services.nvd.nist.gov.attacker.invalid/rest/json/cves/2.0",
         "http://services.nvd.nist.gov/rest/json/cves/2.0",
         "https://services.nvd.nist.gov/unrelated",
+        "https://services.nvd.nist.gov/rest/json/cpematch/2.0?cveId=CVE-2022-0543",
     ]
     for url in urls:
         intel_online.fetch_json(url, 10)
     for index, request in enumerate(requests):
         headers = {key.lower(): value for key, value in request.header_items()}
-        assert (headers.get("apikey") == "synthetic-private-key") is (index == 0)
+        assert (headers.get("apikey") == "synthetic-private-key") is (index in {0, 6})
         assert "synthetic-private-key" not in request.full_url
 
 

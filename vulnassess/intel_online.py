@@ -19,6 +19,7 @@ from vulnassess.intel import _compact_cve
 
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 EPSS_URL = "https://api.first.org/data/v1/epss"
+EPSS_BULK_URL = "https://epss.empiricalsecurity.com/epss_scores-current.csv.gz"
 KEV_URL = "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json"
 MAX_CVES = 5
 FRESH_FOR = timedelta(hours=24)
@@ -74,7 +75,7 @@ def fetch_json(url: str, limit: int) -> dict[str, Any]:
         key
         and parsed.scheme == "https"
         and parsed.netloc == "services.nvd.nist.gov"
-        and parsed.path == "/rest/json/cves/2.0"
+        and parsed.path in {"/rest/json/cves/2.0", "/rest/json/cpematch/2.0"}
     )
     if authenticated:
         if len(key) > 256 or any(ord(character) < 33 or ord(character) > 126 for character in key):
@@ -137,6 +138,14 @@ def sync_cves(
         raise IntelUnavailable("On-demand intelligence requires the isolated intel-cache.db store")
     current = now or datetime.now(UTC)
     meta = store.feeds_meta()
+    bulk_mode = meta.get("epss", {}).get("path") == EPSS_BULK_URL
+    if bulk_mode:
+        from vulnassess.intelligence_sync import maintain_public_catalog
+
+        maintain_public_catalog(
+            store, Path(store.path).parent / "intelligence", now=current, force=force_refresh
+        )
+        meta = store.feeds_meta()
 
     def emit(feed: str, state: str, detail: str) -> None:
         if on_progress is not None:
@@ -148,15 +157,22 @@ def sync_cves(
         if force_refresh or not _fresh((store.cve(item) or {}).get("_fetched_at"), current)
     ]
     epss_meta = meta.get("epss", {})
+    complete_bulk = (
+        epss_meta.get("path") == EPSS_BULK_URL
+        and type(epss_meta.get("rows")) is int
+        and epss_meta["rows"] > 0
+        and store.connection.execute("SELECT count(*) FROM epss").fetchone()[0] == epss_meta["rows"]
+        and _fresh(epss_meta.get("loaded_at"), current)
+    )
     epss_needed = (
-        force_refresh
-        or epss_meta.get("path") != EPSS_URL
+        (force_refresh and not bulk_mode)
+        or epss_meta.get("path") not in {EPSS_URL, EPSS_BULK_URL}
         or not _fresh(epss_meta.get("loaded_at"), current)
-        or any(store.epss(item) is None for item in requested)
+        or (not complete_bulk and any(store.epss(item) is None for item in requested))
     )
     kev_meta = meta.get("kev", {})
     kev_needed = (
-        force_refresh
+        (force_refresh and not bulk_mode)
         or kev_meta.get("path") != KEV_URL
         or not _fresh(kev_meta.get("loaded_at"), current)
     )
@@ -261,11 +277,19 @@ def sync_cves(
         "epss": sum(store.epss(item) is not None for item in requested),
         "kev": sum(store.kev(item) is not None for item in requested),
     }
+    current_meta = store.feeds_meta()
     for feed in ("nvd", "epss", "kev"):
+        coverage = (
+            "full daily EPSS snapshot"
+            if feed == "epss" and current_meta.get(feed, {}).get("path") == EPSS_BULK_URL
+            else "full KEV catalog snapshot"
+            if feed == "kev" and current_meta.get(feed, {}).get("path") == KEV_URL
+            else "on-demand cache, not full coverage"
+        )
         emit(
             feed,
             "complete",
-            f"Checked {len(requested)} CVE IDs; {result[feed]} matched; on-demand cache, not full coverage",
+            f"Checked {len(requested)} CVE IDs; {result[feed]} matched; {coverage}",
         )
     return result
 

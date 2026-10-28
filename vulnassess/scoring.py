@@ -13,6 +13,7 @@ from typing import Any, Sequence, cast
 from vulnassess import cvss31
 from vulnassess.control_applicability import POLICY_VERSION, profile_for_finding
 from vulnassess.errors import ConfigError, IntelUnavailable
+from vulnassess.network_triage import for_finding as network_triage
 from vulnassess.schema import ContextProfile, Enrichment, Feature, Finding, ScoreBreakdown, Service
 from vulnassess.score_facts import threat_description
 
@@ -373,7 +374,7 @@ def score(
         float(weights["environmental"].get("min_confidence_to_apply", 0.5)),
     )
     internet_facing = profile.exposure.value == "internet_facing"
-    inputs = {
+    inputs: dict[str, Any] = {
         "role": profile.role.to_json(),
         "exposure": profile.exposure.to_json(),
         "controls": {key: value.to_json() for key, value in sorted(profile.controls.items())},
@@ -425,6 +426,11 @@ def score(
                 f"vector or explicit native_fallback.{finding.tool} mapping for the "
                 "reported severity is required; no priority or Low band was assigned"
             )
+        triage = network_triage(finding, profile, weights) if enrichment is None else None
+        if triage is not None:
+            native_key = triage["risk"]
+            label = f"service-network:{triage['category']}={triage['base']:g} (context-adjusted)"
+            inputs["native_triage"] = triage
         percentile = enrichment.epss_percentile if enrichment is not None else None
         kev = enrichment.kev if enrichment is not None else False
         value, multiplier = risk(None, percentile, kev, native_key, weights, internet_facing)
@@ -451,6 +457,17 @@ def score(
         )
 
     reason = describe(breakdown, profile)
+    if "native_triage" in inputs:
+        triage = inputs["native_triage"]
+        adjustments = "; ".join(
+            f"{step['label']} {step['value']:+g}" for step in triage["steps"][1:-1]
+        )
+        reason = (
+            f"{breakdown.band}: native triage {triage['category']} base {triage['base']:g}; "
+            f"{adjustments}; final {breakdown.risk:g}/100. "
+            "Uncalibrated local policy, not CVSS or exploit probability; "
+            "host role and unrelated control signals do not adjust this score."
+        )
     withheld = sorted(
         key for key, decision in control_decisions.items() if decision["status"] == "withheld"
     )

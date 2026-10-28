@@ -10,8 +10,20 @@ import {renderAssessmentOverview} from './workflow-overview.js';
 import {renderSelfDefence} from './self-defence.js';
 import {renderWorkflowActivity, renderActivityContext} from './workflow-activity.js';
 import {preserveWorkflowNavigation} from './workflow-navigation.js';
+import {mountCachedIntelligence} from './workflow-intelligence.js';
+import {mountDemoEnvironments, demoFromHash} from './demo-environments.js';
 
 document.addEventListener('click', preserveWorkflowNavigation, true);
+
+const workspaceControls = document.getElementById('workspace-controls');
+const workspaceToggle = document.getElementById('toggle-workspace-controls');
+workspaceToggle.addEventListener('click', () => {
+  const collapsed = !workspaceControls.hidden;
+  workspaceControls.hidden = collapsed;
+  workspaceToggle.setAttribute('aria-expanded', String(!collapsed));
+  workspaceToggle.querySelector('.workspace-collapse-icon').textContent = collapsed ? '⌄' : '⌃';
+  workspaceToggle.querySelector('span:last-child').textContent = collapsed ? 'Show workspace controls' : 'Collapse workspace controls';
+});
 
 function showWorkspace(page) {
   document.body.dataset.workspace = page;
@@ -37,6 +49,7 @@ const message = document.getElementById('loading-state');
 const inspector = document.getElementById('node-inspector');
 const content = document.getElementById('node-content');
 const runPanel = document.getElementById('run-panel');
+let demoEnvironments = null;
 const runTargets = document.getElementById('run-targets');
 const runProgress = document.getElementById('run-progress');
 const runSearch = document.getElementById('run-target-search');
@@ -66,7 +79,7 @@ const runState = {busy: false, stop: false, targets: [], selected: new Set(), en
 const liveStages = [
   ['scope', 'Authorise target'], ['model', 'Prepare AI provider'], ['scanner', 'Discover services'],
   ['endpoint_scan', 'Verify requested port'], ['nikto', 'Run bounded Nikto checks'],
-  ['canonical', 'Normalize evidence'], ['nvd', 'Look up NVD CVEs'],
+  ['canonical', 'Normalize evidence'], ['role_model', 'Predict role · experimental'], ['nvd', 'Look up NVD CVEs'],
   ['epss', 'Look up EPSS scores'], ['kev', 'Check CISA KEV catalog'],
   ['intel', 'Enrich findings'], ['context', 'Infer context'],
   ['score', 'Calculate deterministic risk'], ['queue', 'Prioritize findings'],
@@ -76,7 +89,8 @@ const liveStages = [
 ];
 const liveState = {active: false, busy: false, previewState: 'idle', previewScenario: null, target: '', provider: '', reuseRecent: false, stages: new Map(), scan: null, result: null, error: '', needsReview: false};
 let latestSavedCapture = null;
-const stageNode = {scope: 'scope', scanner: 'nmap', endpoint_scan: 'nmap', nikto: 'nikto', canonical: 'canonical', nvd: 'nvd', epss: 'epss', kev: 'kev', intel: 'intel', context: 'context', score: 'score', queue: 'queue', rationale: 'rationale', model: 'analyst', evidence: 'analyst', coverage: 'analyst', prompt: 'analyst', generation: 'analyst', validation: 'analyst', report: 'report'};
+const stageNode = {scope: 'scope', scanner: 'nmap', endpoint_scan: 'nmap', nikto: 'nikto', canonical: 'canonical', nvd: 'nvd', epss: 'epss', kev: 'kev', intel: 'intel', role_model: 'shadow', context: 'context', score: 'score', queue: 'queue', rationale: 'rationale', model: 'analyst', evidence: 'analyst', coverage: 'analyst', prompt: 'analyst', generation: 'analyst', validation: 'analyst', report: 'report'};
+let cachedFeedAvailability = {};
 const retainedStages = new Set(['scanner', 'endpoint_scan', 'canonical', 'context']);
 const displayStageState = (id, state) => liveState.savedCapture && state === 'complete' && retainedStages.has(id) ? 'Retained' : stageStateLabel(state);
 let previewSequence = 0;
@@ -389,6 +403,7 @@ function renderLiveProgress() {
   }
   document.getElementById('start-live-run').disabled = liveState.busy;
   document.getElementById('new-target').disabled = liveState.busy;
+  demoEnvironments?.setBusy(liveState.busy);
   providerSelect.disabled = liveState.busy;
   const previewButton = document.getElementById('preview-flow');
   previewButton.disabled = liveState.busy && liveState.previewState !== 'running';
@@ -492,6 +507,11 @@ function renderLiveExecution() {
 }
 
 function applyLiveRunToNodes(nodes) {
+  for (const node of nodes) {
+    if (['nvd', 'epss', 'kev'].includes(node.id) && cachedFeedAvailability[node.id]) {
+      node.cacheStatus = cachedFeedAvailability[node.id].status;
+    }
+  }
   if (!liveState.active) return nodes;
   for (const node of nodes) {
     const stage = liveState.previewState !== 'idle'
@@ -511,6 +531,11 @@ function applyLiveRunToNodes(nodes) {
     node.status = liveState.previewState !== 'idle'
       ? entry?.state === 'running' ? 'Simulated step running' : entry?.state === 'complete' ? 'Simulated step complete' : entry?.state === 'skipped' ? 'Skipped (preview)' : entry?.state === 'error' ? 'Blocked (preview)' : 'Waiting (preview)'
       : entry?.detail || 'Waiting for upstream stage';
+    if (liveState.previewState === 'idle' && ['nvd', 'epss', 'kev'].includes(node.id) && cachedFeedAvailability[node.id]) {
+      const feed = cachedFeedAvailability[node.id];
+      const availability = {cached: 'Cache available', stale: 'Cache stale', offline_snapshot: 'Offline snapshot available', fixture: 'Test fixture only', missing: 'Cache missing', unavailable: 'Cache unavailable'}[feed.status] || 'Cache status unknown';
+      node.status = `${availability} · ${node.status}${entry?.state === 'complete' ? ' (latest update)' : ''}`;
+    }
     if (node.id === 'nmap' && liveState.scan) {
       node.status = `${liveState.scan.services.length} services ${liveState.savedCapture ? 'in retained capture' : 'discovered'}${liveState.reuseRecent ? ' · reused scan' : ''}`;
     }
@@ -635,6 +660,7 @@ async function startLiveRun(planBinding = null) {
       renderGraph();
     } else if (event.type === 'result' && isLiveAssessmentResult(event.result)) {
       liveState.result = event.result;
+      if (!liveState.stages.has('role_model')) liveState.stages.set('role_model', {state: 'skipped', detail: 'No role-classifier prediction was recorded for this assessment.'});
       void refreshLatestReportLink();
       renderLiveResult();
       renderLiveExecution();
@@ -995,11 +1021,15 @@ async function refreshIntelStatus() {
   const status = document.getElementById('intel-cache-status');
   try {
     const payload = await getRecord('/api/intel-status');
+    cachedFeedAvailability = Object.fromEntries((payload.feeds || []).map(feed => [feed.feed, feed]));
     const labels = {cached: 'cached', stale: 'stale', fixture: 'test data only', offline_snapshot: 'local snapshot', missing: 'not cached', unavailable: 'unavailable'};
     const feeds = (payload.feeds || []).map(feed => `${feed.feed.toUpperCase()}: ${labels[feed.status] || 'unavailable'}${feed.status === 'cached' ? ` (${feed.rows} records, ${feed.date || 'date unknown'})` : ''}`);
-    status.textContent = `Public intelligence · ${feeds.join(' · ')}. CVEs are looked up on demand only when scanner findings name them.`;
+    status.textContent = `Public intelligence · ${feeds.join(' · ')}. Bounded CVE lookups use observed product/version identities and scanner-named CVE IDs; version matches remain candidates.`;
+    if (view.assessment) renderGraph();
   } catch (_) {
+    cachedFeedAvailability = {};
     status.textContent = 'Public intelligence cache status unavailable; live lookups will report their own status.';
+    if (view.assessment) renderGraph();
   }
 }
 
@@ -1141,8 +1171,9 @@ function renderGraph() {
     if (previewPath.has(node.id)) button.dataset.executionPath = 'true';
     button.style.left = `${node.x}px`;
     button.style.top = `${node.y}px`;
-    button.setAttribute('aria-label', `${node.title}: ${node.status}. Drag to arrange, or use Alt and arrow keys.`);
-    button.title = `${node.title} / ${node.subtitle} / ${node.status} · Drag to arrange`;
+    const cacheLabel = node.cacheStatus === 'cached' ? ' Current cache ready; recorded assessment status is separate.' : '';
+    button.setAttribute('aria-label', `${node.title}: ${node.status}.${cacheLabel} Drag to arrange, or use Alt and arrow keys.`);
+    button.title = `${node.title} / ${node.subtitle} / ${node.status}${cacheLabel} · Drag to arrange`;
     button.setAttribute('aria-pressed', String(view.node === node.id));
     if (view.node && !connected.has(node.id) && !liveState.active) button.classList.add('muted-node');
     const disc = element('span', 'node-disc');
@@ -1152,7 +1183,8 @@ function renderGraph() {
     stateMark.textContent = node.state === 'error' ? '!' : node.state === 'complete' ? '✓' : '';
     disc.append(stateMark);
     button.append(disc, element('strong', 'node-title', node.title), element('span', 'node-subtitle', node.subtitle), element('span', 'node-status', node.status), element('span', 'node-inspect-hint', '↗'));
-    const stateLabel = {complete:'Executed',stored:'Recorded',live:'Live evidence',running:'Running',error:'Failed',skipped:'Not applicable',not_in_mode:'Not in this run',missing:'No recorded output',optional:'Optional',pending:'Waiting'}[node.state] || 'Inspect evidence';
+    let stateLabel = {complete:'Executed',stored:'Recorded',live:'Live evidence',running:'Running',error:'Failed',skipped:'Not applicable',not_in_mode:'Not in this run',missing:'No recorded output',optional:'Optional',pending:'Waiting'}[node.state] || 'Inspect evidence';
+    if (node.cacheStatus === 'cached') stateLabel = `Cache ready · ${stateLabel}`;
     button.append(element('span', 'node-summary', stateLabel));
     button.addEventListener('keydown', event => {
       const offsets = {ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20]};
@@ -1258,8 +1290,33 @@ function renderInspector() {
   const module = element('div', 'module-path');
   module.append(element('span', 'detail-label', 'IMPLEMENTATION'), element('span', 'evidence', details.provenance));
   content.append(logic, module);
+  if (['nvd', 'epss', 'kev', 'intel'].includes(view.node)) {
+    const selected = view.assessment.findings.find(item => item.id === view.finding);
+    mountCachedIntelligence(content, selected?.cve_ids?.[0] || '', view.node);
+  }
   if (liveState.active && liveState.previewState === 'idle' && view.node === 'analyst') {
     renderAnalyst();
+    return;
+  }
+  if (liveState.active && liveState.previewState === 'idle' && view.node === 'shadow') {
+    const role = liveState.result?.role_model || liveState.scan?.role_model;
+    const stage = liveState.stages.get('role_model');
+    content.append(element('p', 'boundary-note', 'Experimental prediction from a synthetic-data model. It is not independently validated and does not change the recorded context or risk scores.'));
+    if (role?.status === 'complete' && role.prediction) {
+      const prediction = role.prediction;
+      content.append(rows([
+        {label: 'Prediction', value: prediction.abstained ? 'Abstained · insufficient confidence or evidence' : prediction.label},
+        {label: 'Model confidence (not calibrated)', value: prediction.confidence},
+        {label: 'Feature coverage', value: prediction.feature_coverage},
+        {label: 'Model identity', value: prediction.model_hash},
+      ]));
+      if (prediction.evidence) content.append(element('p', 'boundary-note', `Model evidence: ${prediction.evidence}`));
+      if (prediction.probabilities) {
+        const disclosure = element('details', 'raw-records');
+        disclosure.append(element('summary', '', 'Prediction details and evidence'), element('pre', 'evidence', JSON.stringify(prediction, null, 2)));
+        content.append(disclosure);
+      }
+    } else content.append(element('p', 'boundary-note', stage?.detail || 'No prediction recorded for this run yet.'));
     return;
   }
   if (liveState.active && liveState.previewState === 'idle' && ['context', 'nmap', 'nikto'].includes(view.node)) {
@@ -1608,6 +1665,10 @@ document.getElementById('live-run-mode').addEventListener('change', event => {
   document.getElementById('check-target').disabled = self;
   document.getElementById('start-live-run').textContent = self ? 'Check this device' : 'Run live target';
 });
+demoEnvironments = mountDemoEnvironments({
+  getBusy: () => liveState.busy,
+  onSelect: () => document.getElementById('check-target').click(),
+});
 mountScanPlanner({
   getTarget: () => document.getElementById('new-target').value.trim(),
   getRunId: () => view.assessment?.run?.run_id,
@@ -1667,8 +1728,10 @@ document.getElementById('check-target').addEventListener('click', async () => {
   output.textContent = 'Checking the local authorization scope and Nmap readiness…';
   try {
     const result = await getRecord(`/api/target-check?target=${encodeURIComponent(target)}`);
+    if (input.value.trim() !== target) return;
     output.textContent = `${result.submitted || result.target}: ${result.reason}${result.missing?.length ? ` Missing: ${result.missing.join(', ')}.` : ''}`;
   } catch (error) {
+    if (input.value.trim() !== target) return;
     output.textContent = error.message;
   }
 });
@@ -1771,3 +1834,17 @@ new ResizeObserver(() => {
 setViewMode(view.mode);
 loadWorkflow();
 void refreshLatestReportLink();
+function openDemoPickerFromLocation() {
+  const demo = demoFromHash(location.hash);
+  if (demo === null || liveState.busy) return;
+  if (runPanel.hidden) document.getElementById('open-run').click();
+  const picker = document.getElementById('demo-environment');
+  if (demo) {
+    picker.value = demo;
+    picker.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  const demoButton = document.querySelector(`[data-demo-choice="${demo}"]`);
+  (demoButton || document.querySelector('[data-demo-choice]'))?.focus();
+}
+window.addEventListener('hashchange', openDemoPickerFromLocation);
+openDemoPickerFromLocation();

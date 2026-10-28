@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "targets": {
+    "127.0.0.2": [
+      {"port": 6379, "transport": "tcp", "service": "redis"},
+      {"port": 2121, "transport": "tcp", "service": "ftp", "require_auth": true},
+      {"port": 2122, "transport": "tcp", "service": "ftp", "require_auth": true},
+      {"port": 1445, "transport": "tcp", "service": "smb", "require_auth": true, "require_signing": true, "share": "TRAINING", "read_path": "network-proof.txt"},
+      {"port": 1446, "transport": "tcp", "service": "smb", "require_auth": true, "require_signing": true, "share": "TRAINING", "read_path": "network-proof.txt"},
+      {"port": 2222, "transport": "tcp", "service": "ssh", "reject_test_credential": true, "credential": {"username": "admin", "password": "admin"}},
+      {"port": 2223, "transport": "tcp", "service": "ssh", "reject_test_credential": true, "credential": {"username": "admin", "password": "admin"}}
+    ],
+    "127.0.0.4": [{"port": 6379, "transport": "tcp", "service": "redis"}],
+    "127.0.0.5": [{"port": 6379, "transport": "tcp", "service": "redis"}],
+    "127.0.0.3": [
+      {"port": 6379, "transport": "tcp", "service": "redis"},
+      {"port": 1883, "transport": "tcp", "service": "mqtt", "require_auth": true, "publish_topic": "vulnassess/training/assessment"},
+      {"port": 1884, "transport": "tcp", "service": "mqtt", "require_auth": true, "publish_topic": "vulnassess/training/assessment"},
+      {"port": 8883, "transport": "tcp", "service": "tls", "require_unexpired_certificate": true, "require_matching_hostname": true, "require_valid_certificate_chain": true},
+      {"port": 1161, "transport": "udp", "service": "snmp", "require_auth": true},
+      {"port": 1162, "transport": "udp", "service": "snmp", "require_auth": true, "monitoring_community": "vulnassess-private-training-2026"}
+    ]
+  }
+}

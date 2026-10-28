@@ -27,13 +27,22 @@ def test_control_guidance_reaches_every_claim_without_mutating_contract(bind_sco
 
     def walk(node):
         if isinstance(node, dict):
+            if "$ref" in node:
+                assert node["$ref"].startswith("#/$defs/")
+                return walk(schema["$defs"][node["$ref"].removeprefix("#/$defs/")])
             if "text" in node.get("properties", {}):
                 fields = node["properties"]
                 found.append(fields)
-                assert "null control value means unknown" in fields["text"]["description"]
-                assert "explicit negative test" in fields["text"]["description"]
-                assert "not established by this scan" in fields["text"]["description"]
-                assert fields["evidence_ids"]["items"]["enum"] == ["E1", "E2"]
+                text = fields["text"]
+                citations = fields["evidence_ids"]
+                if "$ref" in text:
+                    text = schema["$defs"][text["$ref"].removeprefix("#/$defs/")]
+                if "$ref" in citations:
+                    citations = schema["$defs"][citations["$ref"].removeprefix("#/$defs/")]
+                assert "null control value means unknown" in text["description"]
+                assert "explicit negative test" in text["description"]
+                assert "not established by this scan" in text["description"]
+                assert citations["items"]["enum"] == ["E1", "E2"]
                 assert "score" in fields and "label" in fields
             for child in node.values():
                 walk(child)
@@ -56,7 +65,7 @@ def test_control_guidance_reaches_every_claim_without_mutating_contract(bind_sco
         ("tls", "The service lacks TLS."),
     ],
 )
-def test_guidance_cannot_accept_or_retry_an_unsupported_control_claim(
+def test_guidance_rejects_repeated_unsupported_control_claim_after_one_fresh_correction(
     tmp_path, monkeypatch, control, assertion
 ):
     payload = demo_payload()
@@ -84,6 +93,10 @@ def test_guidance_cannot_accept_or_retry_an_unsupported_control_claim(
     client = RefusingClient(response)
     with pytest.raises(NeedsReview, match="unsupported control assertion about " + control):
         analyst.analyze_target(payload, "172.28.0.12", client)
-    assert client.calls == 1
+    # A fresh correction is permitted, but repeating the same rejected claim
+    # must stop immediately; neither answer may be accepted or published.
+    assert client.calls == 2
     assert payload == original
-    assert json.loads(audit.read_text())["outcome"] == "needs_review"
+    records = [json.loads(line) for line in audit.read_text().splitlines()]
+    assert records[-1]["outcome"] == "needs_review"
+    assert all(row.get("outcome") not in {"validated", "accepted"} for row in records)

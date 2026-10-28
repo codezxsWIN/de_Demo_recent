@@ -9,7 +9,10 @@ import json
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from vulnassess.cve_discovery import NOTICE
 from vulnassess.finding_assurance import is_redis_lua
+from vulnassess.network_policy_facts import observation as policy_observation
+from vulnassess.network_service_checks import guidance as policy_guidance
 from vulnassess.redis_probe import POSITIVE, REQUEST
 
 MAX_CARDS = 8
@@ -81,6 +84,11 @@ def _matching_proof(record, finding):
 
 def _finding_card(record, index, finding):
     redis = is_redis_lua(finding)
+    operation = (
+        policy_observation(finding)
+        if finding.get("host_ip") == record["result"].get("resolved_ip")
+        else None
+    )
     card = _card(record, "redis-lua" if redis else "scanner-lead", [finding["id"]], finding["id"])
     source = f"/payload/findings/{index}"
     title = finding.get("title") or "Untitled scanner finding"
@@ -97,9 +105,125 @@ def _finding_card(record, index, finding):
     premises = [lead]
     if redis:
         _redis(card, record, finding, premises)
+    elif operation:
+        _service_policy(card, finding, source, premises, operation)
     else:
-        _generic(card, finding, source, premises)
+        from vulnassess.cve_discovery import candidate_facts
+
+        candidate = (
+            candidate_facts(finding)
+            if finding.get("host_ip") == record["result"].get("resolved_ip")
+            else None
+        )
+        if candidate:
+            _cve_candidate(card, finding, source, premises, candidate)
+        else:
+            _generic(card, finding, source, premises)
     return card
+
+
+def _cve_candidate(card, finding, source, premises, candidate):
+    card["kind"] = "cve-candidate"
+    product = candidate["service"].get("product") or candidate["service"].get("name") or "service"
+    premises.append(
+        _observe(
+            card,
+            "Retained service identity and NVD criteria: " + finding["evidence"],
+            source + "/evidence",
+        )
+    )
+    _conclude(
+        card,
+        f"Observed {product} version {candidate['service']['version']} matches an NVD product/version applicability branch for {candidate['cve']}. This is a candidate association, not confirmation of exploitability or package patch state.",
+        premises,
+    )
+    card["significance"] = (
+        "Prioritise verification using retained CVSS, EPSS and KEV where available; these describe the associated CVE, not proof that this endpoint was exploited."
+    )
+    card["limits"] = [
+        candidate.get("notice") or NOTICE,
+        "No exploit, malformed command, sensitive-data read or host compromise was demonstrated.",
+    ]
+    card["alternatives"] = [
+        "A vendor backport, different package build or disabled feature may make the CVE inapplicable or prevent its prerequisites; obtain owner evidence rather than inferring this from a banner."
+    ]
+    _action(
+        card,
+        "verify",
+        "Verify package provenance, vendor patch status and the advisory's configuration and access prerequisites.",
+        "Owner evidence confirms or excludes this CVE's applicability to the installed package.",
+        "If applicability remains unresolved, retain candidate status and apply proportionate containment.",
+        "If excluded, close this association with supporting evidence; if applicable, schedule the supported vendor fix.",
+        "A product/version match cannot establish installed patch state or exploitation.",
+        premises,
+    )
+    _action(
+        card,
+        "retest",
+        "After an approved fix, repeat the same read-only identity check and compare the applicable CVE range.",
+        "The observed version is outside this CVE's affected range and intended clients still work.",
+        "If the candidate persists, verify effective deployment and vendor backports; a timeout is inconclusive.",
+        "Record bounded closure for this CVE only; a reference patch does not resolve every later CVE.",
+        "A comparable retest checks the chosen fix without executing an exploit.",
+        premises,
+    )
+    card["changes_conclusion"] = [
+        "Verified installed-package and backport evidence.",
+        "Advisory-specific feature/access configuration evidence.",
+        "A comparable post-fix service identity and client-functionality check.",
+    ]
+
+
+def _service_policy(card, finding, source, premises, operation):
+    """Derive only the typed operation whose raw proof passed canonical checks."""
+    guidance = policy_guidance(finding)
+    if guidance is None:
+        _generic(card, finding, source, premises)
+        return
+    card["kind"] = "endpoint-policy"
+    card["title"] = operation["statement"]
+    premises.append(
+        _observe(card, "Retained protocol proof: " + finding["evidence"], source + "/evidence")
+    )
+    _conclude(
+        card,
+        operation["statement"]
+        + " At capture time this contradicted the recorded owner policy for this endpoint.",
+        premises,
+    )
+    card["significance"] = guidance["meaning"]
+    card["limits"] = [
+        operation["limit"],
+        guidance["impact"],
+        "This retained exchange does not establish current state, public reachability or CVE applicability.",
+    ]
+    card["alternatives"] = [
+        "The configuration may be intentional for training. That does not remove its conflict with the recorded owner policy; any policy exception needs an explicit owner decision."
+    ]
+    _action(
+        card,
+        "change",
+        guidance["patch"][0],
+        guidance["verify"][0],
+        "If the prohibited operation still succeeds, retain the finding and review the effective configuration.",
+        "If it is rejected and intended clients still work, record closure of this condition within the retest scope.",
+        "The retained operation already demonstrates this specific policy conflict; a generic control question adds no proof.",
+        premises,
+    )
+    _action(
+        card,
+        "retest",
+        "Repeat the same bounded protocol check on the same endpoint after the approved change.",
+        guidance["verify"][0],
+        "An unavailable service or timeout is inconclusive; investigate availability before claiming remediation.",
+        "Retain the before/after responses, unchanged endpoint policy and intended-client comparison.",
+        "Comparable positive and negative controls distinguish a resolved violation from a broken service.",
+        premises,
+    )
+    card["changes_conclusion"] = [
+        "A comparable endpoint-bound retest that no longer reproduces the prohibited operation, with intended-client access preserved.",
+        "An explicitly approved owner-policy change, recorded separately from the observed service behavior.",
+    ]
 
 
 def _redis(card, record, finding, premises):

@@ -206,12 +206,13 @@ def test_self_defence_dispatches_only_literal_loopback(app, monkeypatch):
     def synthetic_dispatch(target, check, config_dir, **options):
         assert target == "127.0.0.1" and check["resolved_ips"] == ["127.0.0.1"]
         assert options["self_defence"] is True
+        assert set(app._last_live_scan) == {"127.0.0.1"}
         return {"scan_status": "complete", "target": "self", "ai_status": "not_attempted"}
 
     monkeypatch.setattr(server.live_assessment, "run", synthetic_dispatch)
     result = app.live_report("self", "ollama", lambda *args: None)
     assert result["target"] == "self" and result["ai_status"] == "not_attempted"
-    assert set(app._last_live_scan) == {"127.0.0.1"}
+    assert app._last_live_scan == {}, "Completed self-check releases its in-flight target lock"
 
 
 def test_approved_plan_cannot_be_used_for_different_target(app):

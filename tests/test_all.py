@@ -1261,9 +1261,17 @@ class TestWalls(unittest.TestCase):
             "google.py": {"urllib.request", "urllib.error"},
             # Fixed publisher endpoints only; accepts at most five scanner-named CVEs.
             "intel_online.py": {"urllib.request", "urllib.error"},
+            # Bounded EPSS/KEV snapshots, with redirects restricted to each publisher.
+            "intelligence_sync.py": {"urllib.request", "urllib.error"},
             "target_intake.py": {"import socket"},
             # Pinned test assets only; one constant Lua type query, no arbitrary code.
             "redis_probe.py": {"import socket"},
+            # One bounded INFO server identity exchange behind exact owner endpoint policy.
+            "redis_identity.py": {"import socket"},
+            # Explicit owner policy, exact scoped endpoints; no arbitrary payloads.
+            "network_service_checks.py": {"import socket"},
+            # Retained legacy loopback-only protocol fixture adapter.
+            "service_network_probe.py": {"import socket"},
             # AI-EVIDENCE-01: fixed typed probes behind one-use approval and the runner fence.
             "evidence_requests.py": {"import socket"},
             # WEB-02: separately approved public-only, pinned root HEAD transport.
