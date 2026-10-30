@@ -834,11 +834,19 @@ def analysis_schema(
                 constrain(child)
 
     constrain(schema)
-    for section in ("recommended_actions", "correlations"):
+    for section in ("recommended_actions", "correlations", "investigations"):
         fields = schema["properties"][section]["items"]["properties"]
         fields["evidence_ids"]["minItems"] = 1
-        if finding_ids:
+        if finding_ids and section != "investigations":
             fields["finding_ids"]["minItems"] = 1
+        if len(finding_ids) == 1 and finding_support:
+            # Anchor each single-finding section to the raw source in its
+            # generated parent metadata, including optional investigations.
+            # Verified child claims still carry service/context/score citations;
+            # validate_grounding merges those into the displayed parent list.
+            support = finding_support.get(next(iter(finding_ids)), [])
+            if len(support) == 1 and support[0] in evidence_ids:
+                fields["evidence_ids"]["items"] = {"type": "string", "enum": support}
     schema["properties"]["investigations"]["items"]["properties"]["evidence_ids"]["minItems"] = 1
 
     score_nodes: set[int] = set()
@@ -1118,14 +1126,13 @@ def build_prompt(case: dict[str, Any], evidence: list[dict[str, str]], alias_cou
         "endpoint-bound negative tests; an open port is not such a test. "
         "Correlate scanner findings, services, asset context, CVSS, EPSS and KEV. Identify likely "
         "duplicates or interacting weaknesses and produce a practical remediation sequence. "
-        "Investigations contains exactly one item about an observed service/finding, even "
-        "with zero findings. Pose a testable question distinct from the summary. Begin "
+        "Investigations is optional: use [] unless a distinct hypothesis adds value. "
+        "CVE candidates stay conditional: matching a version does not establish installed patch "
+        "status or exploitability. Begin "
         "verification with Check, Compare, Review, Inspect, Confirm, Verify or Validate; "
-        "name what to inspect. The cited benign alternative explains observations; it is not remediation or advice. "
-        "For local fictional fixtures an alternative may explain intentional training behavior; put fixes only in recommended_actions. "
-        "Write the alternative as a possible explanation, never an imperative such as Configure, Disable, Restrict, or Patch. Never guess "
-        "internal placement or control status. Investigations are unverified, not findings "
-        "or permission to scan. "
+        "name what to inspect. An alternative explains observations, never prescribes fixes. "
+        "Put fixes in recommended_actions. Never guess internal placement or control status. "
+        "Investigations are unverified and authorize no scans. "
         "If the case has zero vulnerability findings, explicitly state that this limited scan did not "
         "establish a vulnerability; never say that no vulnerabilities exist, were found or detected, "
         "or that a service is secure. Provide only cautious service-exposure observations or "
@@ -1748,6 +1755,10 @@ def _retryable_grounding_failure(error: Exception) -> bool:
             r"analyst output makes an unsupported control assertion about (auth_required|rate_limiting|waf|tls) in prose claim \d+: .+",
             detail,
         )
+        or re.fullmatch(
+            r"analyst (recommended_actions|correlations|investigations) cites F\d+ without its supporting evidence",
+            detail,
+        )
     )
 
 
@@ -2172,6 +2183,7 @@ def analyze_target(
                 num_ctx=ANALYST_CONTEXT_TOKENS,
                 **generation_options,
             )
+            audit["model"] = active_client.model
             if audit.get("canary_seen"):
                 raise LLMUnavailable("Needs review: untrusted instruction canary triggered")
             if audit["output_hash"] is None:
@@ -2230,7 +2242,7 @@ def analyze_target(
                 )
                 if (
                     attempt >= 2
-                    or str(error) in rejected_reasons
+                    or (str(error) in rejected_reasons and not missing_support)
                     or not (
                         missing_support
                         or unsupported_control

@@ -210,13 +210,7 @@ function appendLiveSummary(holder, summary) {
   }
   for (const line of captureProvenanceLines(summary)) section.append(element('p', 'boundary-note', line));
   section.append(element('h3', '', summary.validated_ai_summary ? summary.historical_capture ? 'Updated assessment summary' : 'Live assessment summary' : summary.ai_status ? `Evidence-only summary · AI ${summary.ai_status.replaceAll('_', ' ')}` : liveState.error ? 'Evidence-only summary · AI output rejected or unavailable' : 'Evidence-only summary · AI pending'));
-  if (summary.ai_attempts?.length) {
-    const names = {openrouter: 'DeepSeek / OpenRouter', google: 'Google Gemini', groq: 'Groq GPT-OSS', groq_qwen: 'Groq Qwen', ollama: 'Local Ollama'};
-    section.append(element('h3', '', 'AI provider attempts'));
-    const attempts = element('ol');
-    for (const attempt of summary.ai_attempts) attempts.append(element('li', '', `${names[attempt.provider] || attempt.provider}: ${attempt.status.replaceAll('_', ' ')}${attempt.detail ? ` — ${attempt.detail}` : ''}`));
-    section.append(attempts);
-  }
+  appendProviderAttempts(section, summary.ai_attempts);
   section.append(element('p', '', summary.conclusion));
   if (summary.saved_capture_id) {
     const saved = element('a', 'quiet-link', 'Open saved assessment · read-only');
@@ -308,6 +302,17 @@ function appendBatchReview(holder, result) {
   return true;
 }
 
+function appendProviderAttempts(holder, attempts) {
+  if (!Array.isArray(attempts)) return;
+  const names = {openrouter: 'DeepSeek / OpenRouter', google: 'Google Gemini', groq: 'Groq GPT-OSS', groq_qwen: 'Groq Qwen', ollama: 'Local Ollama'};
+  const list = element('ol');
+  for (const attempt of attempts) {
+    if (typeof attempt?.provider !== 'string' || typeof attempt?.status !== 'string') continue;
+    list.append(element('li', '', `${names[attempt.provider] || attempt.provider}: ${attempt.status.replaceAll('_', ' ')}${attempt.detail ? ` — ${attempt.detail}` : ''}`));
+  }
+  if (list.children.length) holder.append(element('h3', '', 'AI provider attempts'), list);
+}
+
 function renderLiveResult() {
   const holder = document.getElementById('live-result');
   holder.replaceChildren();
@@ -338,6 +343,9 @@ function renderLiveResult() {
     }
   }
   appendLiveSummary(holder, liveState.result?.assessment_summary || liveState.scan?.assessment_summary);
+  if (!(liveState.result?.assessment_summary || liveState.scan?.assessment_summary)?.ai_attempts?.length) {
+    appendProviderAttempts(holder, liveState.result?.ai_attempts || liveState.result?.analyst?.ai_attempts);
+  }
   const plan = liveState.result?.scan_plan;
   if (plan) {
     holder.append(element('h3', '', 'Approved scan plan'));
@@ -426,9 +434,9 @@ function syncLiveSelection() {
   findingSelect.disabled = true;
   document.getElementById('canvas-caption').textContent = `${liveState.savedCapture ? 'Fresh review of saved evidence' : 'Live assessment'} / ${liveState.target}`;
   document.getElementById('data-kind').textContent = liveState.savedCapture ? 'SAVED EVIDENCE · FRESH REVIEW' : 'LIVE ASSESSMENT';
-  const summary = liveState.result?.assessment_summary;
+  const summary = liveState.result?.assessment_summary || scan?.assessment_summary;
   document.getElementById('record-summary').textContent = scan
-    ? `1 live target / ${scan.finding_count ?? 0} findings / ${summary?.priorities?.length ?? 0} scored`
+    ? `1 live target / ${scan.finding_count ?? 0} findings / ${Array.isArray(summary?.priorities) ? `${summary.priorities.length} scored` : 'priorities pending'}`
     : 'Live target · awaiting scan evidence';
 }
 
@@ -638,6 +646,7 @@ async function startLiveRun(planBinding = null) {
   renderLiveExecution();
   renderLiveResult();
   renderGraph();
+  if (view.node) renderInspector();
   fitPreviewPath();
   if (target !== 'self') showAssessmentRail();
   runPanel.hidden = true;
@@ -675,6 +684,7 @@ async function startLiveRun(planBinding = null) {
     } else {
       throw new Error('Invalid live assessment event.');
     }
+    if (view.node) renderInspector();
   };
   try {
     const response = await fetch('/api/live-assessment/events', {
@@ -1369,7 +1379,8 @@ function renderAnalyst() {
   const live = fromLiveRun ? {
     status: liveState.busy ? 'running' : liveState.result?.analyst ? 'complete' : 'error',
     result: liveState.result?.analyst,
-    error: liveState.error || liveState.result?.ai_attempts?.at(-1)?.detail || 'No validated AI result is available for this run.',
+    error: liveState.error || 'No validated AI result is available for this run.',
+    ai_attempts: liveState.result?.ai_attempts || liveState.result?.assessment_summary?.ai_attempts,
     steps: Object.fromEntries(liveState.stages),
   } : currentAnalysis();
   const holder = element('section', 'analyst-action');
@@ -1424,13 +1435,9 @@ function renderAnalyst() {
   }
   if (live?.status === 'running') holder.append(element('p', 'analysis-wait', 'AI analysis is running with the selected provider. Canonical scores are not changed.'));
   if (live?.status === 'error' || live?.status === 'needs_review') holder.append(element('p', 'analysis-error', live.error));
+  appendProviderAttempts(holder, live?.ai_attempts || live?.result?.ai_attempts);
   if (live?.result && !appendBatchReview(holder, live.result)) {
     const result = live.result;
-    if (Array.isArray(result.ai_attempts) && result.ai_attempts.length && result.ai_attempts.every(item => typeof item?.provider === 'string' && typeof item?.status === 'string')) {
-      const providerNames = {ollama: 'Local Ollama', google: 'Google Gemini', groq: 'Groq GPT-OSS', groq_qwen: 'Groq Qwen', openrouter: 'OpenRouter'};
-      const attempts = result.ai_attempts.map(item => `${providerNames[item.provider] || item.provider}: ${item.status.replaceAll('_', ' ')}`);
-      holder.append(element('p', 'boundary-note', `AI provider attempts · ${attempts.join(' → ')}`));
-    }
     appendDecisionFrame(holder, result.decision_frame);
     holder.append(element('p', 'analysis-summary', result.analysis.summary));
     appendModelContextEffect(holder, result);
@@ -1711,7 +1718,41 @@ function updateCloudConsent() {
   document.getElementById('cloud-consent').hidden = providerSelect.value === 'ollama' && !document.getElementById('allow-fallback').checked;
   document.getElementById('share-evidence').checked = false;
 }
-providerSelect.addEventListener('change', updateCloudConsent);
+let providerChoiceChanged = false;
+providerSelect.addEventListener('change', () => {
+  providerChoiceChanged = true;
+  updateCloudConsent();
+});
+
+async function initializeAnalystProviders() {
+  const initialProvider = providerSelect.value;
+  const hint = document.getElementById('analyst-provider-hint');
+  try {
+    const response = await fetch('/api/analyst-providers', {cache: 'no-store'});
+    if (!response.ok) throw new Error('Provider configuration unavailable');
+    const configuration = await response.json();
+    if (!Array.isArray(configuration.providers)) throw new Error('Invalid provider configuration');
+    const configured = new Map(configuration.providers.map(item => [item.id, item.configured]));
+    const missing = [];
+    for (const option of providerSelect.options) {
+      if (option.value === 'ollama') continue;
+      const state = configured.get(option.value);
+      option.title = state === true ? 'Credentials configured; availability not checked.'
+        : state === false ? 'Not configured: API key missing.' : 'Credential configuration could not be read.';
+      if (state === false) missing.push(option.label);
+    }
+    const busy = liveState.busy || runState.busy || [...view.analyses.values()].some(item => item.status === 'running');
+    const recommended = [...providerSelect.options].find(option => option.value === configuration.recommended && !option.disabled);
+    if (!providerChoiceChanged && providerSelect.value === initialProvider && !busy && !providerSelect.disabled && recommended) {
+      providerSelect.value = recommended.value;
+      updateCloudConsent();
+    }
+    hint.textContent = `Credential configuration only; provider and model availability has not been checked. Cloud analysis requires sharing consent. All providers can be selected.${missing.length ? ` Not configured (API key missing): ${missing.join(', ')}.` : ''}`;
+  } catch {
+    hint.textContent = 'Cloud credential configuration could not be loaded. All providers can be selected; model availability has not been checked. Reload to check cloud configuration again.';
+  }
+}
+initializeAnalystProviders();
 document.getElementById('allow-fallback').addEventListener('change', updateCloudConsent);
 runSearch.addEventListener('input', renderRunTargets);
 runTargets.addEventListener('change', event => {

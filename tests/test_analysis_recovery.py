@@ -63,6 +63,24 @@ def test_validation_rejection_is_visible_and_does_not_fallback():
     assert result["analyst"] is None
 
 
+def test_missing_finding_support_can_retry_with_fallback_provider():
+    def analyze(*_, provider, on_progress):
+        if provider == "groq":
+            on_progress("validation", "running", "Checking claims")
+            raise NeedsReview("Needs review: missing support") from LLMUnavailable(
+                "analyst recommended_actions cites F1 without its supporting evidence"
+            )
+        return {"model": "test", "analysis": {"summary": "validated"}}
+
+    with (patch.object(analyst, "fallback_providers", return_value=["google"]),
+          patch.object(analyst, "analyze_target", side_effect=analyze)):
+        result = analyst.analyze_optional(
+            {}, "127.0.0.1", "groq", lambda *_: None, allow_fallback=True
+        )
+    assert result["used_provider"] == "google"
+    assert result["ai_status"] == "validated"
+
+
 def test_bounded_grounding_rejection_can_use_fresh_validated_provider_when_opted_in():
     def analyze(*_, provider, on_progress):
         if provider == "groq":

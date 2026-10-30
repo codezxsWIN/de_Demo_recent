@@ -388,6 +388,14 @@ def test_groq_analysis_requests_enough_tokens_for_nested_claim_metadata():
     assert client.kwargs["num_predict"] == 3200
 
 
+def test_prompt_does_not_require_speculative_investigations():
+    case, evidence, aliases = analyst.build_case(demo_payload(), "172.28.0.12")
+    prompt = analyst.build_prompt(case, evidence, len(aliases))
+    assert "Investigations is optional" in prompt
+    assert "Investigations contains exactly one" not in prompt
+    assert "matching a version does not establish installed patch" in prompt
+
+
 def test_analyst_prompt_does_not_repeat_the_large_output_contract():
     payload = demo_payload()
     case, evidence, aliases = analyst.build_case(payload, "172.28.0.12")
@@ -1035,6 +1043,28 @@ def test_unsafe_claim_with_missing_support_is_not_regenerated(monkeypatch, tmp_p
     assert client.calls == 1
 
 
+def test_repeated_missing_finding_support_gets_second_correction(monkeypatch, tmp_path):
+    payload = demo_payload()
+    case, evidence, _ = analyst.build_case(payload, "172.28.0.12")
+    finding = case["findings"][0]
+    bad = valid_result(finding["id"], evidence[0]["id"])
+    good = valid_result(finding["id"], finding["evidence_id"])
+
+    class SequenceClient(FakeClient):
+        calls = 0
+
+        def generate_structured(self, prompt, schema, **kwargs):
+            self.result = bad if self.calls < 2 else good
+            self.calls += 1
+            return super().generate_structured(prompt, schema, **kwargs)
+
+    client = SequenceClient(bad)
+    monkeypatch.setattr(analyst, "AUDIT_PATH", tmp_path / "audit.jsonl")
+    result = analyst.analyze_target(payload, "172.28.0.12", client)
+    assert client.calls == 3
+    assert result["canonical_scores_changed"] is False
+
+
 def test_grouped_action_requires_support_for_each_named_finding():
     payload = demo_payload()
     case, evidence, _ = analyst.build_case(payload, "172.28.0.12")
@@ -1389,6 +1419,16 @@ def test_citation_guidance_is_present_in_the_generated_field_schema():
     fields = schema["properties"]["recommended_actions"]["items"]["properties"]
     assert '"F1": ["E2"]' in fields["evidence_ids"]["description"]
     assert '"F1": ["E2"]' in fields["action"]["properties"]["evidence_ids"]["description"]
+
+
+def test_single_finding_action_schema_requires_raw_support_not_only_context():
+    schema = analyst.analysis_schema({"F1"}, {"E1", "E2"}, finding_support={"F1": ["E2"]})
+    for section in ("recommended_actions", "correlations", "investigations"):
+        fields = schema["properties"][section]["items"]["properties"]
+        assert fields["evidence_ids"]["minItems"] == 1
+        assert fields["evidence_ids"]["items"]["enum"] == ["E2"]
+    action = schema["properties"]["recommended_actions"]["items"]["properties"]
+    assert action["action"]["properties"]["evidence_ids"]["items"]["enum"] == ["E1", "E2"]
 
 
 def test_compact_schema_preserves_all_identifier_and_score_constraints():

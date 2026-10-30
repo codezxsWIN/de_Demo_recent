@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -11,6 +12,7 @@ from vulnassess.ai_boundary import SYSTEM_BOUNDARY_PROMPT
 from vulnassess.errors import ConfigError, LLMUnavailable, ProviderUnavailable
 
 MODEL = "gemini-3.5-flash-lite"
+RECOVERY_MODEL = "gemini-3.1-flash-lite"
 ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 KEY_FILE = Path(__file__).resolve().parents[1] / ".env.google"
 MAX_PROMPT_BYTES = 20 * 1024
@@ -76,25 +78,33 @@ class GeminiClient:
                 "temperature": 0,
             },
         }
-        request = urllib.request.Request(
-            ENDPOINT,
-            data=json.dumps(body, ensure_ascii=True).encode("utf-8"),
-            headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                raw = response.read(MAX_RESPONSE_BYTES + 1)
-        except urllib.error.HTTPError as error:
-            if error.code == 429:
-                raise ProviderUnavailable(
-                    "Gemini rate limit reached; no automatic retry"
-                ) from error
-            if error.code in (401, 403):
-                raise ProviderUnavailable("Gemini rejected the key or account access") from error
-            raise ProviderUnavailable(f"Gemini request failed with HTTP {error.code}") from error
-        except (urllib.error.URLError, OSError, TimeoutError) as error:
-            raise ProviderUnavailable("Gemini is unavailable; no automatic retry") from error
+        for attempt in range(3):
+            request = urllib.request.Request(
+                ENDPOINT if self.model == MODEL else
+                f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
+                data=json.dumps(body, ensure_ascii=True).encode("utf-8"),
+                headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read(MAX_RESPONSE_BYTES + 1)
+                break
+            except urllib.error.HTTPError as error:
+                if error.code == 503 and attempt < 2:
+                    self.model = RECOVERY_MODEL
+                    self.source = "google_gemini_3_1_flash_lite_grounded_analysis"
+                    time.sleep(attempt + 1)
+                    continue
+                if error.code == 429:
+                    raise ProviderUnavailable(
+                        "Gemini rate limit reached; no automatic retry"
+                    ) from error
+                if error.code in (401, 403):
+                    raise ProviderUnavailable("Gemini rejected the key or account access") from error
+                raise ProviderUnavailable(f"Gemini request failed with HTTP {error.code}") from error
+            except (urllib.error.URLError, OSError, TimeoutError) as error:
+                raise ProviderUnavailable("Gemini is unavailable; no automatic retry") from error
         if len(raw) > MAX_RESPONSE_BYTES:
             raise LLMUnavailable("Gemini response exceeded the byte budget")
         if on_progress is not None:

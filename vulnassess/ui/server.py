@@ -1267,6 +1267,28 @@ class UiApplication:
                 return json_response(200, self.cvss_fixture())
             except ConfigError as error:
                 return error_response(409, str(error))
+        if parts == ["api", "analyst-providers"]:
+            providers = []
+            recommended = "ollama"
+            for provider in ("google", "groq", "groq_qwen", "openrouter"):
+                try:
+                    configured = bool(
+                        str(getattr(analyst.provider_client(provider), "key", "") or "").strip()
+                    )
+                except (ConfigError, OSError, UnicodeError):
+                    configured = None
+                providers.append({"id": provider, "configured": configured})
+                if configured and recommended == "ollama":
+                    recommended = provider
+            return json_response(
+                200,
+                {
+                    "providers": providers,
+                    "recommended": recommended,
+                    "detail": "Credential configuration only; provider and model availability "
+                    "is checked during analysis. Local Ollama can always be selected.",
+                },
+            )
         if parts == ["api", "target-check"]:
             parameters = parse_qs(parsed.query, keep_blank_values=True)
             if set(parameters) != {"target"} or len(parameters["target"]) != 1:
