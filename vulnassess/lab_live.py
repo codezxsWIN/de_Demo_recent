@@ -98,7 +98,7 @@ class LiveLab:
         for path in [self.directory, *self.directory.parents]:
             if path == self.root:
                 break
-            if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+            if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
                 raise ConfigError("Live evidence must stay in the local project directory")
 
     def _save(self, case):
