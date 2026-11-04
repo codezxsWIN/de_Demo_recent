@@ -52,7 +52,9 @@ def test_configuration_recommendation_does_not_probe_or_expose_keys(
         client.available.assert_not_called()
 
 
-@pytest.mark.parametrize("error", [ConfigError("PRIVATE"), OSError("PRIVATE"), UnicodeError("PRIVATE")])
+@pytest.mark.parametrize(
+    "error", [ConfigError("PRIVATE"), OSError("PRIVATE"), UnicodeError("PRIVATE")]
+)
 def test_unreadable_credentials_are_unknown_and_do_not_break_discovery(monkeypatch, error):
     def client(provider):
         if provider == "google":
@@ -75,6 +77,10 @@ def test_workflow_provider_selection_consent_and_attempt_details():
     root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
         [node, "tests/synthetic/analyst_provider_check.mjs"],
-        cwd=root, capture_output=True, text=True, timeout=30, check=False,
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr

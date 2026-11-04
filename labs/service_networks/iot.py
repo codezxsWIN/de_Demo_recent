@@ -13,6 +13,7 @@ TOPIC = "vulnassess/training/telemetry"
 TOPICS = (TOPIC, "vulnassess/training/assessment")
 MAX_MQTT_PACKET = 4096
 MQTT_READ_TIMEOUT = 3.0
+MQTT_IDLE_TIMEOUT = 15.0  # Established clients advertise a ten-second keepalive.
 PAYLOAD = b"VulnAssess IoT network proof"
 PRIVATE_COMMUNITY = "vulnassess-private-training-2026"
 SYS_DESCR = "VulnAssess training agent (PySNMP)"
@@ -32,13 +33,15 @@ class _BoundedMQTTStream:
         self.writer = writer
         self.buffer = b""
         self.failed = False
+        self.connected = False
 
     def feed_eof(self):
         self.reader.feed_eof()
 
     async def _frame(self):
-        async with asyncio.timeout(MQTT_READ_TIMEOUT):
+        async with asyncio.timeout(MQTT_IDLE_TIMEOUT if self.connected else MQTT_READ_TIMEOUT):
             header = await self.reader.readexactly(1)
+        async with asyncio.timeout(MQTT_READ_TIMEOUT):
             remaining = 0
             for index in range(4):
                 digit = await self.reader.readexactly(1)
@@ -51,6 +54,8 @@ class _BoundedMQTTStream:
             else:
                 raise ValueError("Invalid MQTT remaining length")
             self.buffer = header + await self.reader.readexactly(remaining)
+            if header[0] >> 4 == 1:
+                self.connected = True
 
     async def readexactly(self, n):
         if n == 0:
@@ -129,6 +134,15 @@ def _broker_type():
             if topic_name not in TOPICS or (data and len(data) > MAX_MQTT_PACKET):
                 raise ValueError("Retained message exceeds fixed training bounds")
             await super().retain_message(source_session, topic_name, data, qos)
+
+        async def _publish_retained_messages_for_subscription(self, subscription, session):
+            # Installed aMQTT 0.11.4 iterates every broker subscription when a
+            # client connects. Only deliver retained data to its actual owner.
+            if not any(
+                owner is session for owner, _ in self._subscriptions.get(subscription[0], [])
+            ):
+                return
+            await super()._publish_retained_messages_for_subscription(subscription, session)
 
         async def stream_connected(self, reader, writer, listener_name):
             task = asyncio.current_task()

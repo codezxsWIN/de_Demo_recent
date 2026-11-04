@@ -57,6 +57,7 @@ def render(records, deployment=None, remediation=None, remediation_error=None):
         '<a href="/network-labs">Refresh view</a></nav></header><main>'
         '<p><a href="/cve-lab">Open affected-versus-reference-patch CVE validation →</a></p>'
         "<h1>Two network labs, side by side</h1>"
+        '<p><a href="/network-live"><strong>Open live network assessment: clients, independent packets, findings and retests →</strong></a></p>'
         "<p>Read each column from the scanner through its gateway to the service container, "
         "then compare the checks and findings below.</p>"
     )

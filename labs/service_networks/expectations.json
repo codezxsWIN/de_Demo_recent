@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "inventory_id": "office-iot-v1",
+  "reviewed_by": "Separate configuration-only code review; no detector output consulted; not an external expert benchmark",
+  "sources": {
+    "labs/service_networks/office.py": "13a049a8fc27283977c0989203ae8ef23718cbcb8ff20ce186c3660ac92bea81",
+    "labs/service_networks/iot.py": "260e4475de6f19cc5e30e6d8ee38095f83082bfbabfa36a88e3d4019572acfa4",
+    "labs/service_networks/compose.yaml": "14f27b9355e5da649ef2ec10aa03f72deaf1601be4f69887b94efd10c049cdfe",
+    "labs/service_networks/requirements.txt": "dae1248ee9446cd576f8610fcff2c97ec19cd874d941a991312523be0d6442f4",
+    "config/network-services.json": "f4460950d10602d4324e40ec043ef502e524825fc30ef21a5e2d10be3de8ab7d"
+  },
+  "environments": {
+    "office": {
+      "target": "127.0.0.2",
+      "conditions": [
+        {
+          "id": "ftp-2121-authentication",
+          "action": "ftp-anonymous",
+          "port": 2121,
+          "transport": "tcp",
+          "service": "ftp",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": false
+          },
+          "description": "Anonymous FTP login contradicts required authentication",
+          "source": "labs/service_networks/office.py:start"
+        },
+        {
+          "id": "ftp-2122-authentication",
+          "action": "ftp-protected",
+          "port": 2122,
+          "transport": "tcp",
+          "service": "ftp",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Anonymous FTP login contradicts required authentication",
+          "source": "labs/service_networks/office.py:start"
+        },
+        {
+          "id": "ssh-2222-credential",
+          "action": "ssh-credential",
+          "port": 2222,
+          "transport": "tcp",
+          "service": "ssh",
+          "rule": "credential",
+          "proof_field": "test_credential_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Acceptance of the designated admin/admin test credential",
+          "source": "labs/service_networks/office.py:TrainingSSHServer"
+        },
+        {
+          "id": "ssh-2223-credential",
+          "action": "ssh-protected",
+          "port": 2223,
+          "transport": "tcp",
+          "service": "ssh",
+          "rule": "credential",
+          "proof_field": "test_credential_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Acceptance of the designated admin/admin test credential",
+          "source": "labs/service_networks/office.py:TrainingSSHServer"
+        },
+        {
+          "id": "smb-1445-authentication",
+          "action": "smb-read",
+          "port": 1445,
+          "transport": "tcp",
+          "service": "smb",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Anonymous access to the explicit read-only training share",
+          "source": "labs/service_networks/office.py:_smb_service"
+        },
+        {
+          "id": "smb-1445-signing",
+          "action": "smb-read",
+          "port": 1445,
+          "transport": "tcp",
+          "service": "smb",
+          "rule": "signing",
+          "proof_field": "signing_required",
+          "violation_value": false,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Signing is enabled but not required on both SMB listeners, including the authentication comparison",
+          "source": "labs/service_networks/office.py:_smb_service; impacket 0.13.1 SMB2 negotiate SecurityMode"
+        },
+        {
+          "id": "smb-1446-authentication",
+          "action": "smb-protected",
+          "port": 1446,
+          "transport": "tcp",
+          "service": "smb",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Anonymous access to the explicit read-only training share",
+          "source": "labs/service_networks/office.py:_smb_service"
+        },
+        {
+          "id": "smb-1446-signing",
+          "action": "smb-protected",
+          "port": 1446,
+          "transport": "tcp",
+          "service": "smb",
+          "rule": "signing",
+          "proof_field": "signing_required",
+          "violation_value": false,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Signing is enabled but not required on both SMB listeners, including the authentication comparison",
+          "source": "labs/service_networks/office.py:_smb_service; impacket 0.13.1 SMB2 negotiate SecurityMode"
+        }
+      ],
+      "inventory_only": [
+        {
+          "action": "redis-office",
+          "port": 6379,
+          "transport": "tcp",
+          "service": "redis",
+          "description": "INFO server identity only. ACL permits PING and INFO server; CVE applicability and exploitability are not tested by this check."
+        }
+      ],
+      "reviewed_image_id": "sha256:be0ce2d755a2753650cb275d65755948e8025a094d6f110c907c985ebac26c35"
+    },
+    "iot": {
+      "target": "127.0.0.3",
+      "conditions": [
+        {
+          "id": "mqtt-1883-authentication",
+          "action": "mqtt-exchange",
+          "port": 1883,
+          "transport": "tcp",
+          "service": "mqtt",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": false
+          },
+          "description": "Anonymous MQTT connection; comparison/restricted endpoints are deny-all containment",
+          "source": "labs/service_networks/iot.py:TrainingBroker._handle_client_session"
+        },
+        {
+          "id": "mqtt-1884-authentication",
+          "action": "mqtt-protected",
+          "port": 1884,
+          "transport": "tcp",
+          "service": "mqtt",
+          "rule": "authentication",
+          "proof_field": "anonymous_accepted",
+          "violation_value": true,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Anonymous MQTT connection; comparison/restricted endpoints are deny-all containment",
+          "source": "labs/service_networks/iot.py:TrainingBroker._handle_client_session"
+        },
+        {
+          "id": "snmp-1161-authentication",
+          "action": "snmp-public",
+          "port": 1161,
+          "transport": "udp",
+          "service": "snmp",
+          "rule": "authentication",
+          "proof_field": "public_community_read",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Read using public community; private comparison does not provide SNMPv3 privacy",
+          "source": "labs/service_networks/iot.py:_start_agent"
+        },
+        {
+          "id": "snmp-1162-authentication",
+          "action": "snmp-protected",
+          "port": 1162,
+          "transport": "udp",
+          "service": "snmp",
+          "rule": "authentication",
+          "proof_field": "public_community_read",
+          "violation_value": true,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Read using public community; private comparison does not provide SNMPv3 privacy",
+          "source": "labs/service_networks/iot.py:_start_agent"
+        },
+        {
+          "id": "tls-8883-certificate",
+          "action": "tls-certificate",
+          "port": 8883,
+          "transport": "tcp",
+          "service": "tls",
+          "rule": "certificate",
+          "proof_field": "expired",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Deliberately expired training certificate",
+          "source": "labs/service_networks/iot.py:_certificate"
+        },
+        {
+          "id": "tls-8883-chain",
+          "action": "tls-certificate",
+          "port": 8883,
+          "transport": "tcp",
+          "service": "tls",
+          "rule": "chain",
+          "proof_field": "chain_verification_failed",
+          "violation_value": true,
+          "expected": {
+            "baseline": true,
+            "restricted": true
+          },
+          "description": "Self-signed training certificate is not installed in ordinary system trust",
+          "source": "labs/service_networks/iot.py:_certificate"
+        },
+        {
+          "id": "tls-8883-hostname",
+          "action": "tls-certificate",
+          "port": 8883,
+          "transport": "tcp",
+          "service": "tls",
+          "rule": "hostname",
+          "proof_field": "hostname_matches",
+          "violation_value": false,
+          "expected": {
+            "baseline": false,
+            "restricted": false
+          },
+          "description": "Certificate IP SAN matches the policy target 127.0.0.3",
+          "source": "labs/service_networks/iot.py:_certificate"
+        }
+      ],
+      "inventory_only": [
+        {
+          "action": "redis-iot",
+          "port": 6379,
+          "transport": "tcp",
+          "service": "redis",
+          "description": "INFO server identity only. ACL permits PING and INFO server; CVE applicability and exploitability are not tested by this check."
+        }
+      ],
+      "reviewed_image_id": "sha256:be0ce2d755a2753650cb275d65755948e8025a094d6f110c907c985ebac26c35"
+    }
+  }
+}

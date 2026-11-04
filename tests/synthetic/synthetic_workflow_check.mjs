@@ -266,7 +266,8 @@ try {
 assert.equal(JSON.stringify(input.assessment), before);
 // The live analyst inspector must show this run's validated response, never
 // the separately selected database assessment or a disabled stored-host action.
-const analystRenderer = liveSource.slice(liveSource.indexOf('function renderAnalyst()'), liveSource.indexOf('async function analyzeTarget('));
+const providerAttemptsRenderer = liveSource.slice(liveSource.indexOf('function appendProviderAttempts('), liveSource.indexOf('function renderLiveResult('));
+const analystRenderer = providerAttemptsRenderer + liveSource.slice(liveSource.indexOf('function renderAnalyst()'), liveSource.indexOf('async function analyzeTarget('));
 function syntheticElement(tag, cls, text) {
   return {tag, cls, text, children: [], listeners: {}, dataset: {},
     append(...items) {this.children.push(...items);},
@@ -281,7 +282,7 @@ for (const validated of [true, false]) {
     scan: {resolved_ip: '192.0.2.10'}, stages: new Map(),
     result: validated ? {analyst: {model: 'synthetic-google', evidence: [], analysis: {
       summary: 'SYNTHETIC validated live assessment', recommended_actions: [], correlations: [], uncertainties: [],
-    }}} : {ai_status: 'needs_review', ai_attempts: [{detail: 'SYNTHETIC rejected output'}]}};
+    }}} : {ai_status: 'needs_review', ai_attempts: [{provider: 'google', status: 'needs_review', detail: 'SYNTHETIC rejected output'}]}};
   const forbidden = () => {throw new Error('Must not read or analyze unrelated stored evidence');};
   const env = {liveState: state, view: {host: ''}, content: holder, element: syntheticElement,
     currentAnalysis: forbidden, evidenceBasis: forbidden, analyzeTarget: forbidden,
@@ -299,7 +300,8 @@ for (const validated of [true, false]) {
   assert.equal(panel.hidden, false);
   assert.equal(modelControl.focused, true);
   assert.equal(action.children.some(item => item.text === 'SYNTHETIC validated live assessment'), validated);
-  assert.equal(action.children.some(item => item.text === 'SYNTHETIC rejected output'), !validated);
+  const attemptList = action.children.find(item => item.tag === 'ol' && item.children.some(child => child.text?.includes('SYNTHETIC rejected output')));
+  assert.equal(Boolean(attemptList), !validated, 'Rejected provider output is visible in the provider-attempt list');
 }
 const targetAnalyzer = liveSource.slice(liveSource.indexOf('async function analyzeTarget('), liveSource.indexOf('function populateFindings()'));
 const noConsentControls = new Map(['share-evidence', 'target-check-result', 'open-run'].map(id => [id, syntheticElement('input')]));

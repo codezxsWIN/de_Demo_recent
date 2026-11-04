@@ -1,0 +1,6 @@
+# Preserve the bytes used by reviewed lab source and policy receipts on every OS.
+labs/service_networks/office.py text eol=lf
+labs/service_networks/iot.py text eol=lf
+labs/service_networks/compose.yaml text eol=lf
+labs/service_networks/requirements.txt text eol=lf
+config/network-services.json text eol=crlf

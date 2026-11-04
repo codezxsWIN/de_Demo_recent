@@ -72,8 +72,10 @@ def test_missing_finding_support_can_retry_with_fallback_provider():
             )
         return {"model": "test", "analysis": {"summary": "validated"}}
 
-    with (patch.object(analyst, "fallback_providers", return_value=["google"]),
-          patch.object(analyst, "analyze_target", side_effect=analyze)):
+    with (
+        patch.object(analyst, "fallback_providers", return_value=["google"]),
+        patch.object(analyst, "analyze_target", side_effect=analyze),
+    ):
         result = analyst.analyze_optional(
             {}, "127.0.0.1", "groq", lambda *_: None, allow_fallback=True
         )

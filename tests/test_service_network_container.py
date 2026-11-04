@@ -30,7 +30,14 @@ def test_container_marker_alone_does_not_enable_wildcard_binding(monkeypatch):
 
 def test_deployment_has_separate_internal_networks_and_no_host_mounts():
     compose = yaml.safe_load((ROOT / "labs/service_networks/compose.yaml").read_text())
-    assert set(compose["services"]) == {"office", "iot", "office-gateway", "iot-gateway", "office-redis", "iot-redis"}
+    assert set(compose["services"]) == {
+        "office",
+        "iot",
+        "office-gateway",
+        "iot-gateway",
+        "office-redis",
+        "iot-redis",
+    }
     for name, service in compose["services"].items():
         assert service["read_only"] is True and service["cap_drop"] == ["ALL"]
         assert service["security_opt"] == ["no-new-privileges:true"]
@@ -49,11 +56,17 @@ def test_deployment_has_separate_internal_networks_and_no_host_mounts():
             assert all(port.startswith(prefix) for port in service["ports"])
             assert prefix + "6379:6379" in service["ports"]
             assert service["depends_on"][backend + "-redis"]["condition"] == "service_healthy"
-    for name, version, address in (("office", "7.0.11", "172.30.41.4"), ("iot", "7.0.12", "172.30.42.4")):
+    for name, version, address in (
+        ("office", "7.0.11", "172.30.41.4"),
+        ("iot", "7.0.12", "172.30.42.4"),
+    ):
         redis = compose["services"][name + "-redis"]
         assert redis["image"].startswith("redis:" + version + "@sha256:")
         assert redis["networks"][name]["ipv4_address"] == address
-        assert redis["command"][redis["command"].index("-@all") + 1:][:2] == ["+ping", "+info|server"]
+        assert redis["command"][redis["command"].index("-@all") + 1 :][:2] == [
+            "+ping",
+            "+info|server",
+        ]
     dockerfile = (ROOT / "labs/service_networks/Dockerfile").read_text()
     assert "@sha256:" in dockerfile and "USER 10001:10001" in dockerfile
     assert "COPY . /app/labs/service_networks/" in dockerfile

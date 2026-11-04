@@ -115,6 +115,40 @@ Open the workflow, select **Run**, enter an authorised target, check scope and s
 
 Use **Self-defence** for the computer running the application. Use [Public Website Check](http://127.0.0.1:8765/website-check) for the separate public metadata check.
 
+## Live Office and IoT network labs
+
+The live workspace connects real Docker service containers, communicating clients and
+independent packet observers. Docker Desktop uses its WSL2 Linux engine on Windows.
+The lab ports are bound to loopback; these are controlled training services.
+
+With Docker available and the Python environment activated:
+
+```bash
+python -m pip install -e ".[network-labs,live-verification]"
+python scripts/start_live_network.py --build
+```
+
+Open [Office](http://127.0.0.1:8765/network-live#office) or
+[IoT](http://127.0.0.1:8765/network-live#iot), then choose **Assess all services**.
+Office checks FTP, SSH and SMB comparisons plus Redis identity; IoT checks MQTT,
+SNMP and TLS plus Redis identity. Individual checks retain protocol proof and PCAPs.
+
+The coverage panel compares results with the separately reviewed conditions in
+`labs/service_networks/expectations.json`. It exposes misses, untested checks and
+unexpected findings, and preserves baseline/restricted runs for comparison.
+Correctness metrics require matching source, policy, runtime profile and reviewed
+immutable image identity. A fresh image build can collect findings, but its metrics
+remain unverified until its configuration is reviewed and the image pin is updated.
+
+**Require FTP login** and **Contain MQTT** make actual, scoped configuration changes
+and repeat the same endpoint check. MQTT containment is deny-all access, rather than
+a functioning authenticated broker. Other protocol weaknesses remain separate.
+Redis INFO identifies a version; these policy checks do not confirm Redis CVEs.
+
+**Explain this evidence** explicitly requests an AI selection of supported facts and
+actions. Canonical wording and scores remain bound to the retained evidence.
+The capture-verification helper requires the `live-verification` extra above.
+
 ## How AI is used
 
 Supported analyst providers are **Ollama**, **Groq**, **Google Gemini**, and **OpenRouter**, including a separately configured secondary Groq option.

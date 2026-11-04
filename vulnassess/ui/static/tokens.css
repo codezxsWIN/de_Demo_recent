@@ -468,3 +468,58 @@
   --workspace-ai-border: #70648f;
   --workspace-ai-chip: #39324f;
 }
+
+:root {
+  --network-color-101c32: #101c32;
+  --network-color-102b5010: #102b5010;
+  --network-color-19243a: #19243a;
+  --network-color-263650: #263650;
+  --network-color-263e79: #263e79;
+  --network-color-2855d9: #2855d9;
+  --network-color-293b5d: #293b5d;
+  --network-color-355bc0: #355bc0;
+  --network-color-3b4e71: #3b4e71;
+  --network-color-405475: #405475;
+  --network-color-445879: #445879;
+  --network-color-4670db: #4670db;
+  --network-color-587be0: #587be0;
+  --network-color-5d67dc: #5d67dc;
+  --network-color-647087: #647087;
+  --network-color-65758f: #65758f;
+  --network-color-67758b: #67758b;
+  --network-color-68778e: #68778e;
+  --network-color-6bd7bd: #6bd7bd;
+  --network-color-7181a0: #7181a0;
+  --network-color-748097: #748097;
+  --network-color-7893c9: #7893c9;
+  --network-color-8a5237: #8a5237;
+  --network-color-a92d42: #a92d42;
+  --network-color-b94c61: #b94c61;
+  --network-color-b9c4d8: #b9c4d8;
+  --network-color-b9c8e4: #b9c8e4;
+  --network-color-bcc8dc: #bcc8dc;
+  --network-color-c5cfe1: #c5cfe1;
+  --network-color-ccd5e6: #ccd5e6;
+  --network-color-d5deed: #d5deed;
+  --network-color-dce2ec: #dce2ec;
+  --network-color-dee5f2: #dee5f2;
+  --network-color-e0e8ff: #e0e8ff;
+  --network-color-e2e8f3: #e2e8f3;
+  --network-color-e8ecf3: #e8ecf3;
+  --network-color-e9edf6: #e9edf6;
+  --network-color-edf0f6: #edf0f6;
+  --network-color-eef1ff: #eef1ff;
+  --network-color-eef2f9: #eef2f9;
+  --network-color-eef2fc: #eef2fc;
+  --network-color-eef2ff: #eef2ff;
+  --network-color-f1d7c8: #f1d7c8;
+  --network-color-f2f5fb: #f2f5fb;
+  --network-color-f3f6fd: #f3f6fd;
+  --network-color-f4f6fa: #f4f6fa;
+  --network-color-f5f7fc: #f5f7fc;
+  --network-color-f7f9fc: #f7f9fc;
+  --network-color-f7f9fd: #f7f9fd;
+  --network-color-fbfcfe: #fbfcfe;
+  --network-color-fff: #fff;
+  --network-color-fff6f2: #fff6f2;
+}

@@ -338,7 +338,9 @@ def test_no_port_name_or_banner_cve_guess_without_version(tmp_path, store, versi
     assert findings == [] and receipt["queries"] == []
     assert receipt["services_skipped"][0]["port"] == 16379
     assert receipt["services_skipped"][0]["reason"]
-    assert cve_discovery.coverage(receipt).startswith("partial: 0 observed product/version queries; skipped services: 1")
+    assert cve_discovery.coverage(receipt).startswith(
+        "partial: 0 observed product/version queries; skipped services: 1"
+    )
     assert store.all_cves() == []
     fetch.assert_not_called()
     sleep.assert_not_called()
@@ -349,11 +351,17 @@ def test_discovery_coverage_distinguishes_complete_and_unidentified_services(tmp
     complete_dir = tmp_path / "complete"
     complete_dir.mkdir()
     _, complete, *_ = discover(complete_dir, store, services=(service(),), payload=page())
-    assert cve_discovery.coverage(complete).startswith("complete: 1 observed product/version queries; skipped services: 0")
+    assert cve_discovery.coverage(complete).startswith(
+        "complete: 1 observed product/version queries; skipped services: 0"
+    )
     mixed_dir = tmp_path / "mixed"
     mixed_dir.mkdir()
-    _, mixed, *_ = discover(mixed_dir, store, services=(service(), service(port=1234, cpe=None)), payload=page())
-    assert cve_discovery.coverage(mixed).startswith("partial: 1 observed product/version queries; skipped services: 1")
+    _, mixed, *_ = discover(
+        mixed_dir, store, services=(service(), service(port=1234, cpe=None)), payload=page()
+    )
+    assert cve_discovery.coverage(mixed).startswith(
+        "partial: 1 observed product/version queries; skipped services: 1"
+    )
 
 
 @pytest.mark.parametrize("version", ["6.9.9", "7.0.9", "7.0.10"])

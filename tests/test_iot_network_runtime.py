@@ -7,12 +7,14 @@ import socket
 import ssl
 import subprocess
 import sys
+import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from labs.service_networks import iot
+from labs.service_networks import clients, iot
 
 _SOCKET_METHODS = {
     name: getattr(socket.socket, name)
@@ -117,6 +119,121 @@ async def _close(writer):
     await writer.drain()
     writer.close()
     await writer.wait_closed()
+
+
+@asynccontextmanager
+async def _ephemeral_training_broker():
+    """Actual installed aMQTT on an ephemeral loopback port, independent of Docker."""
+    pytest.importorskip("amqtt")
+    broker = iot._broker_type()(
+        {
+            "listeners": {
+                "default": {"type": "tcp", "bind": f"{iot.HOST}:0", "max_connections": 8}
+            },
+            "plugins": {
+                "amqtt.plugins.authentication.AnonymousAuthPlugin": {"allow_anonymous": True},
+                "amqtt.plugins.topic_checking.TopicAccessControlListPlugin": {
+                    "acl": {"anonymous": list(iot.TOPICS)},
+                    "publish_acl": {"anonymous": list(iot.TOPICS)},
+                },
+            },
+        }
+    )
+    try:
+        await broker.start()
+        port = broker._servers["default"].instance.sockets[0].getsockname()[1]
+        yield broker, port
+    finally:
+        await iot._stop_broker(broker)
+
+
+def test_established_broker_idle_does_not_use_partial_frame_timeout(monkeypatch):
+    async def exercise():
+        monkeypatch.setattr(iot, "MQTT_READ_TIMEOUT", 0.08)
+        async with _ephemeral_training_broker() as (_, port):
+            reader, writer, ack = await _connect(port)
+            try:
+                assert ack == (0x20, b"\x00\x00")
+                await asyncio.sleep(0.18)
+                writer.write(b"\xc0\x00")
+                await writer.drain()
+                assert await _read(reader) == (0xD0, b"")
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+    asyncio.run(exercise())
+
+
+def test_independent_clients_receive_telemetry_despite_retained_and_live_probes(
+    tmp_path, monkeypatch
+):
+    async def wait_status(path, predicate, timeout=2):
+        deadline = asyncio.get_running_loop().time() + timeout
+        receipt = None
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                receipt = clients.read_status(path)
+                if predicate(receipt):
+                    return receipt
+            except FileNotFoundError:
+                pass
+            await asyncio.sleep(0.02)
+        pytest.fail(f"Client did not reach expected status: {receipt}")
+
+    async def exercise():
+        async with _ephemeral_training_broker() as (broker, port):
+            await broker.retain_message(None, iot.TOPIC, iot.PAYLOAD, 0)
+            for role in ("iot-sensor", "iot-dashboard"):
+                source, _, _ = clients.ENDPOINTS[role]
+                monkeypatch.setitem(clients.ENDPOINTS, role, (source, iot.HOST, port))
+            stop = threading.Event()
+            dashboard_path, sensor_path = tmp_path / "dashboard.json", tmp_path / "sensor.json"
+            dashboard = asyncio.create_task(
+                asyncio.to_thread(clients.run, "iot-dashboard", stop, dashboard_path)
+            )
+            sensor = None
+            try:
+                initial = await wait_status(
+                    dashboard_path,
+                    lambda d: d.get("ignored_message_count") == 1 and d["state"] == "waiting",
+                )
+                assert initial["operation_count"] == 0
+                assert initial["last_failure"] is None
+                probe_reader, probe_writer, ack = await _connect(port)
+                try:
+                    assert ack == (0x20, b"\x00\x00")
+                    for payload in (b"", b"\xff\x00", b"assessment-nonce", b"{}"):
+                        probe_writer.write(_packet(0x30, _string(iot.TOPIC) + payload))
+                    probe_writer.write(b"\xc0\x00")
+                    await probe_writer.drain()
+                    assert await _read(probe_reader) == (0xD0, b"")
+                    ignored = await wait_status(
+                        dashboard_path, lambda d: d.get("ignored_message_count") == 5
+                    )
+                    assert ignored["operation_count"] == 0
+                    assert ignored["last_failure"] is None
+                finally:
+                    await _close(probe_writer)
+                sensor = asyncio.create_task(
+                    asyncio.to_thread(clients.run, "iot-sensor", stop, sensor_path)
+                )
+                received = await wait_status(
+                    dashboard_path, lambda d: d["operation_count"] >= 2, timeout=7
+                )
+                sent = await wait_status(sensor_path, lambda d: d["operation_count"] >= 2)
+                assert received["latest_sensor_data"] == sent["latest_sensor_data"]
+                assert received["latest_sensor_data"]["source"] == "simulated sensor"
+                assert sent["last_failure"] is None
+                assert received["last_failure"] is None
+                assert received["ignored_message_count"] == 5
+                assert clients.status_is_fresh(dashboard_path)
+                assert clients.status_is_fresh(sensor_path)
+            finally:
+                stop.set()
+                await asyncio.wait_for(asyncio.gather(*(t for t in (dashboard, sensor) if t)), 4)
+
+    asyncio.run(exercise())
 
 
 async def _subscribe(reader, writer, topic, packet_id=1):

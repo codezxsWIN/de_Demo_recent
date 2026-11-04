@@ -29,6 +29,8 @@ from vulnassess.ui.network_labs import latest_records
 
 ROOT = Path(__file__).resolve().parents[2]
 ACTIONS = {
+    "redis-office": ("office", 6379),
+    "redis-iot": ("iot", 6379),
     "ftp-anonymous": ("office", 2121),
     "ftp-file": ("office", 2121),
     "ftp-protected": ("office", 2122),
@@ -345,11 +347,17 @@ def handler(application):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8798)
+    parser.add_argument(
+        "--no-sensor",
+        action="store_true",
+        help="Use the separate Docker IoT sensor instead of publishing from this console",
+    )
     args = parser.parse_args()
     application = Console()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), handler(application))
     server.daemon_threads = True
-    application.start_sensor()
+    if not args.no_sensor:
+        application.start_sensor()
     print(f"Office lab site: http://127.0.0.1:{args.port}/office", flush=True)
     print(f"IoT lab site: http://127.0.0.1:{args.port}/iot", flush=True)
     try:

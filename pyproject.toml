@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+live-verification = ["dpkt==1.9.8"]
 network-labs = [
     "pyftpdlib==2.2.0",
     "asyncssh==2.24.1",

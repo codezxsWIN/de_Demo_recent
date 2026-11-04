@@ -9,6 +9,7 @@ import ssl
 import struct
 import time
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from vulnassess.errors import ScopeError
@@ -23,12 +24,19 @@ def _ftp(ip, entry):
         try:
             response = client.login("anonymous", "assessment@example.invalid")
         except ftplib.error_perm as error:
-            return {
+            proof = {
                 "protocol_confirmed": True,
-                "anonymous_accepted": False,
                 "response": str(error)[:200],
                 "greeting": greeting,
             }
+            if str(error).startswith(("530 ", "532 ")):
+                proof["anonymous_accepted"] = False
+            else:
+                proof.update(
+                    inconclusive=True,
+                    authentication_check_error="FTP login failed without an authentication-refusal response",
+                )
+            return proof
         return {
             "protocol_confirmed": True,
             "anonymous_accepted": True,
@@ -98,7 +106,7 @@ def _smb(ip, entry):
 def _ssh(ip, entry):
     import asyncssh  # pyright: ignore[reportMissingImports]
 
-    options = dict(
+    options: dict[str, Any] = dict(
         config=None,
         client_keys=None,
         agent_path=None,
@@ -129,10 +137,11 @@ def _ssh(ip, entry):
             async with asyncssh.connect(
                 ip, entry["port"], **entry["credential"], **options
             ) as connection:
+                host_key = connection.get_server_host_key()
                 return {
                     "protocol_confirmed": True,
                     "test_credential_accepted": True,
-                    "host_key_sha256": connection.get_server_host_key().get_fingerprint(),
+                    "host_key_sha256": host_key.get_fingerprint() if host_key else None,
                     "commands_executed": False,
                 }
         except asyncssh.PermissionDenied:

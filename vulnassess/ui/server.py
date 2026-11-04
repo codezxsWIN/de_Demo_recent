@@ -275,6 +275,8 @@ class UiApplication:
         self.ollama_host = ollama_host
         self._live_lock = Lock()
         self._helpy_lock = Lock()
+        self._network_live_instance = None
+        self._network_live_init_lock = Lock()
         self._last_public_check = 0.0
         self._last_live_scan: dict[str, float] = {}
         self._recent_live_cases: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -1039,6 +1041,30 @@ class UiApplication:
         values = query.get(name)
         return values[0] if values else None
 
+    def network_live(self):
+        with self._network_live_init_lock:
+            if self._network_live_instance is None:
+                from vulnassess.lab_live import LiveLab
+
+                self._network_live_instance = LiveLab(self.config_dir.parent)
+            return self._network_live_instance
+
+    def network_live_action(self, action, data):
+        if not isinstance(data, dict):
+            raise ConfigError("A fixed lab operation is required")
+        live = self.network_live()
+        if action == "check" and set(data) == {"environment", "operation"}:
+            return live.check(data["environment"], data["operation"])
+        if action == "assess" and set(data) == {"environment"}:
+            return live.full_assessment(data["environment"])
+        if action in {"remediate", "restore"} and set(data) == {"environment"}:
+            return live.change(
+                data["environment"], "restricted" if action == "remediate" else "baseline"
+            )
+        if action == "explain" and set(data) == {"case_id", "provider", "cloud_consent"}:
+            return live.explain(data["case_id"], data["provider"], data["cloud_consent"])
+        raise ConfigError("Unknown lab operation or unexpected parameters")
+
     def get(self, target: str) -> Response:
         try:
             parsed = urlsplit(target)
@@ -1056,6 +1082,51 @@ class UiApplication:
             return error_response(404, "UI path not found")
         if decoded == "/workflow":
             return self._static(["workflow.html"])
+        if decoded == "/network-live" and not parsed.query:
+            return self._static(["network-live.html"])
+        if decoded == "/api/network-live/status":
+            query = parse_qs(parsed.query, keep_blank_values=True)
+            if set(query) != {"environment"} or len(query["environment"]) != 1:
+                return error_response(400, "Choose one lab environment")
+            try:
+                return json_response(200, self.network_live().status(query["environment"][0]))
+            except (ConfigError, OSError, ValueError, RuntimeError) as error:
+                return error_response(409, str(error)[:240])
+        if decoded.startswith("/api/network-live/assessment/") and not parsed.query:
+            try:
+                name = decoded.removeprefix("/api/network-live/assessment/")
+                if not name.endswith(".json"):
+                    return error_response(404, "Assessment evidence not found")
+                return json_response(200, self.network_live().assessments.load(name[:-5]))
+            except (ConfigError, ValueError, OSError):
+                return error_response(404, "Assessment evidence not found or changed")
+        if decoded.startswith("/api/network-live/evidence/") and not parsed.query:
+            try:
+                name = decoded.removeprefix("/api/network-live/evidence/")
+                identifier, suffix = name.rsplit(".", 1)
+                if suffix == "json":
+                    return json_response(200, self.network_live().load(identifier))
+                if suffix == "pcap":
+                    return Response(
+                        200, self.network_live().pcap(identifier), "application/vnd.tcpdump.pcap"
+                    )
+            except (ConfigError, OSError, ValueError, RuntimeError) as error:
+                return error_response(409, str(error)[:240])
+            return error_response(404, "Live evidence not found")
+        if decoded.startswith("/api/network-live/capture/") and not parsed.query:
+            lab_environment = decoded.removeprefix("/api/network-live/capture/").removesuffix(
+                ".pcap"
+            )
+            if lab_environment not in {"office", "iot"} or not decoded.endswith(".pcap"):
+                return error_response(404, "Capture not found")
+            try:
+                return Response(
+                    200,
+                    self.network_live().traffic.pcap(lab_environment),
+                    "application/vnd.tcpdump.pcap",
+                )
+            except (ConfigError, OSError, ValueError, RuntimeError) as error:
+                return error_response(409, str(error)[:240])
         if decoded == "/intelligence":
             return self._static(["intelligence.html"])
         if decoded == "/findings":
@@ -1597,6 +1668,57 @@ class UiRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         server = cast(UiServer, self.server)
+        if self.path.startswith("/api/network-live/"):
+            if self.path not in {
+                "/api/network-live/check",
+                "/api/network-live/remediate",
+                "/api/network-live/restore",
+                "/api/network-live/explain",
+                "/api/network-live/assess",
+            }:
+                self._reply(error_response(405, "Live lab POST route not found"))
+                return
+            if not self._same_origin():
+                return
+            authority = f"http://127.0.0.1:{server.server_address[1]}"
+            if (
+                self.headers.get("Origin") != authority
+                or self.headers.get("X-VulnAssess-Action") != "network-live"
+            ):
+                self._reply(error_response(403, "Explicit same-origin lab action required"))
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "-1"))
+                if (
+                    self.headers.get("Content-Type") != "application/json"
+                    or len(self.headers.get_all("Content-Length", [])) != 1
+                    or self.headers.get("Transfer-Encoding") is not None
+                    or not 0 < size <= 2048
+                ):
+                    raise ConfigError("Invalid live lab request size or type")
+
+                def unique(pairs):
+                    result = {}
+                    for key, value in pairs:
+                        if key in result:
+                            raise ValueError("Duplicate request key")
+                        result[key] = value
+                    return result
+
+                data = json.loads(self.rfile.read(size), object_pairs_hook=unique)
+                result = server.application.network_live_action(self.path.rsplit("/", 1)[1], data)
+            except (
+                ConfigError,
+                LLMUnavailable,
+                OSError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+            ) as error:
+                self._reply(error_response(409, str(error)[:240]))
+                return
+            self._reply(json_response(200, result))
+            return
         if (
             self.path != "/api/live-assessment/events"
             and self.path != "/api/device-recheck"

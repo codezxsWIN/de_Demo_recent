@@ -2,6 +2,7 @@
 data/
 intel_snapshots/
 reports/
+artifacts/
 .env
 .env.*
 !.env.example

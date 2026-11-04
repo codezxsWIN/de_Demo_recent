@@ -177,7 +177,8 @@ def verify(docker):
             or redis.get("Mounts")
             or any((redis["NetworkSettings"].get("Ports") or {}).values())
             or set(redis_networks) != {network_name}
-            or redis_networks[network_name]["IPAddress"] != ("172.30.41.4" if name == "office" else "172.30.42.4")
+            or redis_networks[network_name]["IPAddress"]
+            != ("172.30.41.4" if name == "office" else "172.30.42.4")
             or not redis["State"].get("Running")
             or redis["State"].get("Health", {}).get("Status") != "healthy"
         ):
@@ -185,12 +186,22 @@ def verify(docker):
         ping = redis_probe.request(expected_host, 6379, ("PING",))
         info = redis_probe.request(expected_host, 6379, ("INFO", "server"))
         version = "7.0.11" if name == "office" else "7.0.12"
-        if ping["response"] != "PONG" or f"redis_version:{version}" not in info["response"].splitlines():
+        if (
+            ping["response"] != "PONG"
+            or f"redis_version:{version}" not in info["response"].splitlines()
+        ):
             raise RuntimeError(f"{name} Redis endpoint did not return its expected identity")
         denied = run("exec", redis_id, "redis-cli", "--raw", "SET", "verification", "forbidden")
         if "NOPERM" not in denied:
             raise RuntimeError(f"{name} Redis ACL did not deny writes")
-        redis_rows[name] = {"id": redis_id, "image": spec["image"], "version": version, "ping": ping, "info_server": info, "write_denied": True}
+        redis_rows[name] = {
+            "id": redis_id,
+            "image": spec["image"],
+            "version": version,
+            "ping": ping,
+            "info_server": info,
+            "write_denied": True,
+        }
     if rows["office"]["network_id"] == rows["iot"]["network_id"]:
         raise RuntimeError("Office and IoT incorrectly share a Docker network")
     namespaces = {row["runtime"]["network_namespace"] for row in rows.values()}

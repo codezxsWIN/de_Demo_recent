@@ -49,8 +49,10 @@ def test_google_rejects_empty_candidate():
 def test_google_recovers_from_transient_503():
     error = HTTPError("https://example.invalid", 503, "unavailable", {}, None)
     client = GeminiClient(api_key="test-only")
-    with patch("vulnassess.google.urllib.request.urlopen", side_effect=[error, Response()]) as send, \
-         patch("vulnassess.google.time.sleep") as sleep:
+    with (
+        patch("vulnassess.google.urllib.request.urlopen", side_effect=[error, Response()]) as send,
+        patch("vulnassess.google.time.sleep") as sleep,
+    ):
         assert client.generate_structured("case", {}) == {"summary": "ok"}
     assert send.call_count == 2
     assert "gemini-3.5-flash-lite:" in send.call_args_list[0].args[0].full_url
@@ -62,10 +64,14 @@ def test_google_recovers_from_transient_503():
 
 def test_google_model_recovery_is_bounded_and_retains_request_schema():
     error = HTTPError("https://example.invalid", 503, "unavailable", {}, None)
-    with patch("vulnassess.google.urllib.request.urlopen", side_effect=error) as send, \
-         patch("vulnassess.google.time.sleep"):
+    with (
+        patch("vulnassess.google.urllib.request.urlopen", side_effect=error) as send,
+        patch("vulnassess.google.time.sleep"),
+    ):
         with pytest.raises(ProviderUnavailable, match="HTTP 503"):
-            GeminiClient(api_key="test-only").generate_structured("original evidence", {"type": "object"})
+            GeminiClient(api_key="test-only").generate_structured(
+                "original evidence", {"type": "object"}
+            )
     assert send.call_count == 3
     bodies = [json.loads(call.args[0].data) for call in send.call_args_list]
     assert all(body == bodies[0] for body in bodies)

@@ -10,6 +10,38 @@ from vulnassess.schema import Service
 from vulnassess.settings import Scope
 
 
+@pytest.mark.parametrize(
+    "code,established", [("530", True), ("532", True), ("500", False), ("550", False)]
+)
+def test_ftp_protocol_error_is_not_mistaken_for_an_authentication_control(
+    monkeypatch, code, established
+):
+    import ftplib
+
+    from vulnassess.network_service_checks import _ftp
+
+    class FTP:
+        def __init__(self, **_):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def connect(self, *_):
+            return "220 Test FTP"
+
+        def login(self, *_):
+            raise ftplib.error_perm(code + " test response")
+
+    monkeypatch.setattr(ftplib, "FTP", FTP)
+    proof = _ftp("127.0.0.2", {"port": 2121})
+    assert (proof.get("anonymous_accepted") is False) is established
+    assert bool(proof.get("inconclusive")) is not established
+
+
 def scoped(ip="192.0.2.77"):
     return Scope({"allowed_cidrs": [ip + "/32"]}, Path("synthetic-scope.yaml"))
 
@@ -90,7 +122,11 @@ def test_mixed_endpoint_coverage_counts_attempted_and_skipped(tmp_path, monkeypa
     selected = write_policy(tmp_path, {"service": "ftp", "transport": "tcp", "port": 49171})
     selected["endpoints"].append({"service": "ftp", "transport": "tcp", "port": 49172})
     calls = []
-    monkeypatch.setitem(checks.TRANSPORTS, "ftp", lambda ip, entry: calls.append(entry["port"]) or {"protocol_confirmed": True})
+    monkeypatch.setitem(
+        checks.TRANSPORTS,
+        "ftp",
+        lambda ip, entry: calls.append(entry["port"]) or {"protocol_confirmed": True},
+    )
     _, _, coverage = checks.run(scoped(), "192.0.2.77", selected, [Service(49171, "tcp")], tmp_path)
     assert calls == [49171]
     assert coverage.startswith("partial: 1 owner-authorised endpoint checks attempted; 1 skipped")

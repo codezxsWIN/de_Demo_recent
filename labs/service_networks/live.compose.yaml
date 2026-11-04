@@ -1,0 +1,73 @@
+# Use after compose.yaml; the six existing services and their ports are unchanged.
+x-live-runtime: &live-runtime
+  image: vulnassess-service-networks:local
+  build: .
+  user: "10001:10001"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 32
+  mem_limit: 96m
+  memswap_limit: 96m
+  cpus: 0.25
+  tmpfs: ["/runtime:rw,nosuid,nodev,noexec,uid=10001,gid=10001,mode=0700,size=2m", "/tmp:rw,nosuid,nodev,noexec,size=4m"]
+  restart: "no"
+  stop_grace_period: 10s
+  entrypoint: [python, -m, labs.service_networks.clients]
+  healthcheck:
+    test: [CMD, python, -m, labs.service_networks.clients, --healthcheck, /runtime/client-status.json]
+    interval: 5s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+x-observer: &observer
+  <<: *live-runtime
+  user: "0:0"
+  cap_add: [NET_RAW]
+  entrypoint: [python, -m, labs.service_networks.traffic_capture]
+  healthcheck:
+    test: [CMD, python, -m, labs.service_networks.clients, --healthcheck, /capture/status.json]
+    interval: 5s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+services:
+  office-workstation:
+    <<: *live-runtime
+    command: [office-workstation]
+    depends_on:
+      office-gateway: {condition: service_healthy}
+    networks:
+      office: {ipv4_address: 172.30.41.5}
+  iot-sensor:
+    <<: *live-runtime
+    command: [iot-sensor]
+    depends_on:
+      iot-gateway: {condition: service_healthy}
+    networks:
+      iot: {ipv4_address: 172.30.42.5}
+  iot-dashboard:
+    <<: *live-runtime
+    command: [iot-dashboard]
+    depends_on:
+      iot-gateway: {condition: service_healthy}
+    networks:
+      iot: {ipv4_address: 172.30.42.6}
+  office-capture:
+    <<: *observer
+    command: [office]
+    network_mode: service:office-gateway
+    depends_on:
+      office-gateway: {condition: service_healthy}
+    volumes: [office-capture:/capture]
+  iot-capture:
+    <<: *observer
+    command: [iot]
+    network_mode: service:iot-gateway
+    depends_on:
+      iot-gateway: {condition: service_healthy}
+    volumes: [iot-capture:/capture]
+volumes:
+  office-capture:
+  iot-capture:

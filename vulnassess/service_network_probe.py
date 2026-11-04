@@ -207,9 +207,10 @@ async def _ssh_login(ip, port):
             login_timeout=TIMEOUT,
             connect_timeout=TIMEOUT,
         ) as connection:
+            host_key = connection.get_server_host_key()
             return {
                 "access": "authenticated",
-                "host_key_sha256": connection.get_server_host_key().get_fingerprint(),
+                "host_key_sha256": host_key.get_fingerprint() if host_key else None,
                 "method": "one fixed training credential; no commands or shell requested",
             }
     except asyncssh.PermissionDenied:
