@@ -860,7 +860,7 @@ class TestUiModel(unittest.TestCase):
         )
         with patch.object(
             analyst,
-            "analyze_target",
+            "analyze_findings",
             return_value={"source": "openrouter_deepseek_grounded_analysis"},
         ) as analyze:
             status, _, data = request(
