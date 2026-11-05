@@ -60,3 +60,19 @@ def test_every_stored_finding_reaches_the_ui_result_with_its_batch_scope(
     assert result["run_id"] == "SYNTHETIC-retained" and payload == original
 
 
+def test_failed_later_batch_cannot_be_shown_as_a_complete_stored_assessment(
+    stored_app, monkeypatch
+):
+    app, payload, ip = stored_app
+    calls = []
+
+    def fails_second(current, *_args, **_kwargs):
+        calls.append(current["findings"][0]["id"])
+        if len(calls) > 1:
+            raise NeedsReview("SYNTHETIC later batch rejected")
+        return {"finding_coverage": {"included_ids": [calls[0]]}}
+
+    monkeypatch.setattr(analyst, "analyze_target", fails_second)
+    with pytest.raises(NeedsReview, match="later batch"):
+        app.analyst_report("SYNTHETIC-retained", ip, provider="google")
+    assert len(calls) == 2 and len(payload["findings"]) == 6
