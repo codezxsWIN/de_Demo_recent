@@ -71,6 +71,9 @@ for(const changed of [{...report,source_capture_id:'unrelated'}, {...report,sour
   render({...linked,ai_reports:[changed]});
   assert.equal(all(nodes['coverage-content']).filter(n=>n.tag==='a').length,2);
 }
+render({...linked,ai_reports:[{...report,ai_status:'needs_review'}]});
+assert.ok(all(nodes['coverage-content']).some(n=>n.textContent==='Review saved AI attempt ↗'));
+assert.equal(calls.length,1); // Viewing a saved report never calls the model.
 """
     node = shutil.which("node")
     assert node, "Node is required for publication UI regression checks"
