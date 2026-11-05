@@ -195,7 +195,9 @@ function refreshCoverage(data, requested) {
   if (data.assessment_progress?.running && data.assessment_progress.environment === environment) {
     $('action-status').textContent = `Full assessment: ${data.assessment_progress.completed ?? 0} / ${data.assessment_progress.total ?? '—'} checks finished · ${data.assessment_progress.action || 'preparing'}`;
   }
-
+  if (data.ai_progress?.running && data.ai_progress.assessment_id === currentCoverage?.id) {
+    $('coverage-ai-status').textContent = `${data.ai_progress.provider} · ${data.ai_progress.detail || data.ai_progress.stage} · full report in progress`;
+  }
 }
 
 $('coverage-history').addEventListener('change', () => {
