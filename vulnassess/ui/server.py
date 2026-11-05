@@ -1061,6 +1061,10 @@ class UiApplication:
             return live.full_assessment(data["environment"])
         if action == "publish" and set(data) == {"assessment_id"}:
             return live.publish_assessment(data["assessment_id"])
+        if action == "report" and set(data) == {"assessment_id", "provider", "cloud_consent"}:
+            return live.report_assessment(
+                data["assessment_id"], data["provider"], data["cloud_consent"]
+            )
         if action in {"remediate", "restore"} and set(data) == {"environment"}:
             return live.change(
                 data["environment"], "restricted" if action == "remediate" else "baseline"
