@@ -281,7 +281,20 @@ def publish(lab, suite, database):
     }
     checkpoint = directory / "review-evidence.json"
     if not checkpoint.exists():
-        capture_history.save(directory, result, config_hash=checksum(binding))
+        # Configuration identifies retained policy/weight inputs, not this run's
+        # evidence receipt. Identical configurations must not appear changed
+        # merely because their operation timestamps or suite identifiers differ.
+        configuration = {
+            "scope": "retained network endpoint policies and native priority weights",
+            "policy_hashes": sorted(
+                {
+                    lab.load(row["case_id"])["policy_sha256"]
+                    for row in payload["network_lab"]["checks"]
+                }
+            ),
+            "weights_hashes": payload["scoring_policy"]["weights_hashes"],
+        }
+        capture_history.save(directory, result, config_hash=checksum(configuration))
     record = capture_history.load(root, identifier)
     if record["payload"] != payload:
         raise ConfigError("Saved report differs from the verified lab projection")

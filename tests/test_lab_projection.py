@@ -155,6 +155,19 @@ def test_unrelated_current_intelligence_cannot_leak_into_native_lab_report(lab_s
     assert record["payload"]["scores"] == [case["findings"][0]["score"]]
 
 
+def test_configuration_identity_is_not_the_run_evidence_identity(lab_suite):
+    lab, suite, _case = lab_suite
+    first = publish(lab, suite, lab.database)
+    repeat = copy.deepcopy(suite)
+    repeat["id"] = "full-" + "b" * 32
+    second = publish(lab, repeat, lab.database)
+    before = capture_history.load(lab.root / "data/live/raw", first["capture_id"])
+    after = capture_history.load(lab.root / "data/live/raw", second["capture_id"])
+    assert first["source_sha256"] != second["source_sha256"]
+    assert before["configuration_hash"] == after["configuration_hash"]
+    assert before["snapshot_hash"] != after["snapshot_hash"]
+
+
 @pytest.mark.parametrize("change", ["missing_priority", "wrong_priority_host", "duplicate_context"])
 def test_invalid_native_projection_cannot_leave_database_rows(lab_suite, change):
     lab, suite, _case = lab_suite
