@@ -26,12 +26,13 @@ const el=(tag,text)=>new Element(tag,text);
 const capture='assessment-lab-'+'a'.repeat(32);
 const suite={id:'full-'+'b'.repeat(32),environment:'office',finished_at:'retained',
   coverage:{},checks:[],conditions:[],findings:[],ground_truth:{status:'unverified'}};
-const linked={...suite,main_assessment:{status:'saved',capture_id:capture,run_id:'retained-run'}};
-const post=async(action,body)=>{calls.push([action,body]);return linked;};
+const linked={...suite,main_assessment:{status:'saved',capture_id:capture,run_id:'retained-run',snapshot_hash:'f'.repeat(64)}};
+let response=linked;
+const post=async(action,body)=>{calls.push([action,body]);return response;};
 const setBusy=()=>{};
 const render=new Function('$','el','post','setBusy','coverageTable','coverageEvidence',`
   let environment='office',currentCoverage;
-  const date=value=>value;
+  const date=value=>value,refresh=()=>{};
   ${source.slice(start,end)}
   return renderCoverage;
 `)($,el,post,setBusy,()=>new Element('table'),()=>new Element('button'));
