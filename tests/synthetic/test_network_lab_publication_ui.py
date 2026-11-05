@@ -67,6 +67,10 @@ assert.deepEqual(calls,[['report',{assessment_id:suite.id,provider:'google',clou
 let full=all(nodes['coverage-content']).find(n=>n.tag==='a'&&n.textContent==='Open full AI report ↗');
 assert.equal(full.href,`/captures/${report.capture_id}/report`);
 assert.equal(full.target,'_blank');
+for(const changed of [{...report,source_capture_id:'unrelated'}, {...report,source_snapshot_hash:'0'.repeat(64)}, {...report,capture_id:'https://evil.invalid'}]){
+  render({...linked,ai_reports:[changed]});
+  assert.equal(all(nodes['coverage-content']).filter(n=>n.tag==='a').length,2);
+}
 """
     node = shutil.which("node")
     assert node, "Node is required for publication UI regression checks"
