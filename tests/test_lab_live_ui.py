@@ -183,3 +183,19 @@ def test_publication_requires_same_origin_and_an_exact_retained_assessment_reque
     )
     assert request(app, path=path, body=b'{"environment":"office"}')[0] == 409
     assert not app.calls
+
+
+def test_full_ai_report_has_explicit_provider_and_sharing_fields_and_same_origin(app):
+    path = "/api/network-live/report"
+    body = b'{"assessment_id":"full-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","provider":"google","cloud_consent":true}'
+    assert request(app, path=path, body=body)[0] == 200
+    assert app.calls == [("full-" + "a" * 32, "google", True)]
+    app.calls.clear()
+    assert (
+        request(app, path=path, body=body, headers={"Origin": "https://untrusted.invalid"})[0]
+        == 403
+    )
+    assert (
+        request(app, path=path, body=b'{"assessment_id":"full-a","target":"192.0.2.1"}')[0] == 409
+    )
+    assert not app.calls
