@@ -266,13 +266,15 @@ const helpers = source.slice(source.indexOf('function appendUnscoredFindings('),
   source.indexOf('function appendModelContextEffect('));
 const summaryRenderer = source.slice(source.indexOf('function appendLiveSummary('),
   source.indexOf('function appendBatchReview('));
+const providerRenderer = source.slice(source.indexOf('function appendProviderAttempts('),
+  source.indexOf('function renderLiveResult('));
 const liveState = {busy: false, error: ''};
 const element = (tag, className = '', value = '') => {
   const item = new Element(tag); item.className = className; item.textContent = String(value);
   return item;
 };
 const build = new Function('element', 'liveState', 'reviewFindingPriorities',
-  'captureProvenanceLines', helpers + summaryRenderer +
+  'captureProvenanceLines', helpers + providerRenderer + summaryRenderer +
   '\nreturn {appendLiveSummary, appendDecisionFrame};');
 const renderers = build(element, liveState, insights.reviewFindingPriorities,
   insights.captureProvenanceLines);
@@ -300,6 +302,11 @@ assert.match(content(holder), /Deterministic priority: Unscored/);
 assert.doesNotMatch(content(holder), /Deterministic priority: 0 \/ Low|\bnull\b|\bundefined\b/);
 assert.equal(flatten(holder).some(item => item.tag === 'script'), false);
 assert.equal(JSON.stringify(summary), before);
+const attempted = new Element();
+renderers.appendLiveSummary(attempted, {...summary,
+  ai_attempts: [{provider: 'ollama', status: 'unavailable', detail: 'Synthetic timeout'}]});
+assert.match(content(attempted), /Local Ollama: unavailable/);
+assert.match(content(attempted), /Synthetic timeout/);
 const frameHolder = new Element();
 renderers.appendDecisionFrame(frameHolder, {mode: 'scored_findings', priorities: [legacy],
   unscored_findings: unscored});
@@ -316,4 +323,36 @@ renderers.appendLiveSummary(zeroHolder, {finding_count: 1, service_count: 1, pri
     title: zero.title, tool: 'synthetic', priority: {risk: 0, band: 'Low'}}]});
 assert.match(content(zeroHolder), /Deterministic priority: 0 \/ Low/);
 assert.doesNotMatch(content(zeroHolder), /severity review required|lacks a severity basis/);
+""")
+
+
+def test_live_lab_inconclusive_retests_surface_as_unresolved_in_the_action_status() -> None:
+    run_node(r"""
+const source = readFileSync('vulnassess/ui/static/network-live.js', 'utf8');
+const runner = source.slice(source.indexOf('async function run(action)'),
+  source.indexOf("$('run-check').addEventListener"));
+const harness = new Function('post', 'setBusy', `
+  const environment='office'; let selected;
+  const $ = () => ({value:'ftp-anonymous'});
+  const renderCase=()=>{}; const refresh=()=>{}; const time=v=>v;
+  ${runner}
+  return run;
+`);
+for (const status of ['inconclusive', 'failed', 'complete', undefined]) {
+  const calls=[];
+  const result={id:'synthetic',action:'ftp-anonymous',finished_at:'synthetic-time',
+    comparison:{status,meaning:'Synthetic comparison: verification not established'}};
+  const run=harness(async()=>result, (...args)=>calls.push(args));
+  await run('remediate');
+  const final=calls.at(-1);
+  assert.equal(final[0],false);
+  if (status==='complete') {
+    assert.match(final[1],/Completed ftp-anonymous/);
+    assert.equal(final[2],false);
+  } else {
+    assert.equal(final[2],true);
+    assert.match(final[1],/Retest (inconclusive|failed|unverified):/);
+    assert.doesNotMatch(final[1],/Completed ftp-anonymous/);
+  }
+}
 """)

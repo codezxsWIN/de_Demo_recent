@@ -167,13 +167,15 @@ class LiveLab:
 
     def status(self, environment):
         self._environment(environment)
+        cases = self.history(environment)
         return {
             "environment": environment,
             "target": ENVIRONMENTS[environment],
             "observed_at": now(),
             "topology": self.traffic.topology(),
             "capture": self.traffic.snapshot(environment),
-            "investigations": self.history(environment),
+            "investigations": cases,
+            "ai_validations": {case["id"]: self._ai_validation(case) for case in cases},
             "assessments": self.assessments.history(environment),
             "assessment_progress": getattr(self.assessments, "progress", None),
             "busy": self.lock.locked(),
@@ -252,11 +254,20 @@ class LiveLab:
         service = Service(
             entry["port"],
             entry["transport"],
-            name=entry["service"],
-            banner="Confirmed by bounded live protocol exchange",
+            name="microsoft-ds" if entry["service"] == "smb" else entry["service"],
+            tls=proof.get("protocol_confirmed") is True and bool(proof.get("tls_version")),
+            banner=(
+                f"{entry['service']} confirmed by bounded live protocol exchange"
+                if proof.get("protocol_confirmed") is True
+                else f"{entry['service']} endpoint policy; protocol not confirmed"
+            ),
         )
         profile = context.build_profile(
-            Host(ip=ip, services=(service,)), [], settings.scope, settings.roles, settings.controls
+            Host(ip=ip, services=(service,) if proof.get("protocol_confirmed") is True else ()),
+            [],
+            settings.scope,
+            settings.roles,
+            settings.controls,
         )
         case["context"] = profile.to_json()
         case["policy_sha256"] = policy["policy_sha256"]
@@ -356,9 +367,47 @@ class LiveLab:
                 raise ConfigError(
                     "Configuration changed, but the retest failed: " + str(error)[:240]
                 ) from error
-            before["retest"] = {"status": "complete", "after_id": after["id"]}
+            same_target = all(
+                before[key] == after[key] for key in ("target", "port", "transport", "action")
+            )
+            same_policy = before["policy_sha256"] == after["policy_sha256"]
+            conclusive = all(
+                case["result"]["decision"].get("inconclusive") is False
+                and case["result"]["proof"].get("protocol_confirmed") is True
+                and type(case["result"]["proof"].get("anonymous_accepted")) is bool
+                for case in (before, after)
+            )
+            status = "inconclusive"
+            meaning = (
+                "The configuration change was verified, but the checks do not establish a "
+                "conclusive comparison under the same endpoint and owner policy. "
+                "No successful remediation verdict is established."
+            )
+            if same_target and same_policy and conclusive:
+                if after["result"]["proof"]["anonymous_accepted"] != (profile == "baseline"):
+                    status = "failed"
+                    meaning = (
+                        "The follow-up protocol response contradicts the requested access "
+                        "configuration. No successful remediation verdict is established."
+                    )
+                else:
+                    status = "complete"
+                    meaning = (
+                        "IoT restriction is deny-all MQTT containment, not a usable authenticated broker."
+                        if environment == "iot" and profile == "restricted"
+                        else "The same listener explicitly accepted anonymous access under the restored baseline."
+                        if profile == "baseline"
+                        else "The same FTP listener explicitly refused anonymous access under the selected restriction."
+                    )
+            before["retest"] = {
+                "status": status,
+                "after_id": after["id"],
+                "requested_profile": profile,
+                "meaning": meaning,
+            }
             self._save(before)
             after["comparison"] = {
+                "status": status,
                 "before_id": before["id"],
                 "before_observed_at": before["finished_at"],
                 "before_proof": before["result"]["proof"],
@@ -374,14 +423,11 @@ class LiveLab:
                 ],
                 "after_violations": after["result"]["decision"]["violations"],
                 "after_proof": after["result"]["proof"],
-                "same_target": before["target"] == after["target"]
-                and before["port"] == after["port"],
-                "same_policy": before["policy_sha256"] == after["policy_sha256"],
+                "same_target": same_target,
+                "same_policy": same_policy,
                 "control": control,
                 "requested_profile": profile,
-                "meaning": "IoT restriction is deny-all MQTT containment, not a usable authenticated broker."
-                if environment == "iot"
-                else "The same FTP listener now applies the selected anonymous-access configuration.",
+                "meaning": meaning,
             }
             self._save(after)
             return after
@@ -403,6 +449,17 @@ class LiveLab:
         ):
             raise ConfigError("Saved packet capture integrity failed")
         return data
+
+    def _ai_validation(self, case):
+        ai = case.get("ai", {})
+        result = {"status": "not_requested", "case_sha256": case["sha256"]}
+        if ai.get("status") == "validated_selection":
+            digest = checksum(self._facts(case))
+            result.update(
+                status="current" if ai.get("facts_sha256") == digest else "stale",
+                facts_sha256=digest,
+            )
+        return result
 
     def _facts(self, case):
         findings = case["findings"]
@@ -472,12 +529,42 @@ class LiveLab:
             )
         if case.get("comparison"):
             c = case["comparison"]
-            facts["retest"]["text"] = (
-                "The recorded same-endpoint retest is complete. Preserve the intended access restriction, "
-                "repeat this check after future configuration changes, and assess other endpoints separately. "
-                + c["meaning"]
-            )
             before_proof, after_proof = c.get("before_proof", {}), c.get("after_proof", {})
+            verified = (
+                c.get("status") == "complete"
+                and c.get("same_target") is True
+                and c.get("same_policy") is True
+                and case["result"]["decision"].get("inconclusive") is False
+                and all(
+                    proof.get("protocol_confirmed") is True
+                    and type(proof.get("anonymous_accepted")) is bool
+                    for proof in (before_proof, after_proof)
+                )
+                and after_proof == case["result"]["proof"]
+                and c.get("requested_profile") in {"baseline", "restricted"}
+                and after_proof.get("anonymous_accepted")
+                == (c.get("requested_profile") == "baseline")
+            )
+            meaning = (
+                c["meaning"]
+                if verified
+                else "This comparison does not establish a successful remediation or access change. "
+                "Historical interpretation is not treated as verified protocol evidence."
+            )
+            facts["retest"]["text"] = (
+                "The recorded same-endpoint retest is complete. "
+                + (
+                    "The intentionally insecure training baseline was restored; this is not remediation. "
+                    if c.get("requested_profile") == "baseline"
+                    else "Preserve the tested access restriction, "
+                )
+                + "Repeat this check after future configuration changes, and assess other endpoints separately. "
+                + meaning
+                if verified
+                else "The recorded comparison does not verify a successful access change. "
+                "Repeat the same endpoint and policy check and obtain an explicit protocol result. "
+                + meaning
+            )
             protocol_change = ""
             if before_proof and after_proof:
                 protocol_change = (
@@ -490,7 +577,7 @@ class LiveLab:
             facts["change"] = {
                 "kind": "observations",
                 "text": f"Before change: {c['before_violations']}. After change: {c['after_violations']}. "
-                f"Same endpoint: {c['same_target']}; same owner policy: {c['same_policy']}. {c['meaning']}"
+                f"Recorded same endpoint: {c['same_target']}; recorded same owner policy: {c['same_policy']}. {meaning}"
                 + protocol_change,
             }
             if c.get("before_priorities"):
@@ -572,7 +659,7 @@ class LiveLab:
                 raise LLMUnavailable(
                     "AI explanation omitted required observations, verification or limits"
                 )
-            case["ai"] = {
+            ai = {
                 "status": "validated_selection",
                 "provider": provider,
                 "model": client.model,
@@ -586,7 +673,18 @@ class LiveLab:
                 },
                 "method": "AI selects and orders verified facts. Wording and numerical scores remain bound to server-side evidence; this is not free-form factual generation.",
             }
-            self._save(case)
-            return case
+            # Generation may outlive a configuration change. Serialize only the
+            # final merge with lab operations, then revalidate the exact facts.
+            # Never write the pre-generation snapshot over newer case metadata.
+            with self.lock:
+                current = self.load(identifier)
+                if current.get("policy_error") or checksum(self._facts(current)) != checksum(facts):
+                    raise LLMUnavailable(
+                        "Investigation facts changed during AI generation; repeat the explanation "
+                        "using the current evidence"
+                    )
+                current["ai"] = ai
+                self._save(current)
+                return current
         finally:
             self.ai_lock.release()

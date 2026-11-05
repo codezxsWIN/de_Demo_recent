@@ -4,6 +4,7 @@ import ftplib
 import json
 import shutil
 import struct
+import threading
 from pathlib import Path
 
 import pytest
@@ -343,3 +344,200 @@ def test_ai_must_include_recorded_retest_and_prior_change_priority(live):
     }
     with pytest.raises(LLMUnavailable):
         live.explain(case["id"], "ollama", False, client=AI(output))
+
+
+def test_slow_ai_merges_only_its_result_without_erasing_newer_retest_metadata(live):
+    case = live.check("office", "ftp-anonymous")
+    started, release = threading.Event(), threading.Event()
+    replies, errors = [], []
+
+    class SlowAI:
+        model = "SYNTHETIC-DELAYED-PROVIDER"
+
+        def generate_structured(self, *_args, **_kwargs):
+            started.set()
+            assert release.wait(5)
+            return {
+                "observations": ["observation"],
+                "why_it_matters": ["priority0"],
+                "next_steps": ["retest"],
+                "limits": ["scope"],
+            }
+
+    def explain():
+        try:
+            replies.append(live.explain(case["id"], "ollama", False, client=SlowAI()))
+        except Exception as error:
+            errors.append(error)
+
+    worker = threading.Thread(target=explain)
+    worker.start()
+    try:
+        assert started.wait(5)
+        with live.lock:
+            latest = live.load(case["id"])
+            latest["control"] = {"status": "verified", "profile": "restricted"}
+            latest["retest"] = {"status": "pending", "requested_profile": "restricted"}
+            live._save(latest)
+    finally:
+        release.set()
+        worker.join(5)
+    assert not worker.is_alive() and not errors
+    saved = live.load(case["id"])
+    assert saved["control"] == latest["control"]
+    assert saved["retest"] == latest["retest"]
+    assert saved["ai"]["status"] == "validated_selection"
+    assert replies == [saved]
+
+
+def test_ai_rejects_response_if_the_underlying_facts_changed_during_generation(live):
+    case = live.check("office", "ftp-anonymous")
+
+    class ChangedFactsAI:
+        model = "SYNTHETIC-STALE-PROVIDER"
+
+        def generate_structured(self, *_args, **_kwargs):
+            with live.lock:
+                current = live.load(case["id"])
+                current["context"]["role"]["value"] = "network_device"
+                live._save(current)
+            return {
+                "observations": ["observation"],
+                "why_it_matters": ["priority0"],
+                "next_steps": ["retest"],
+                "limits": ["scope"],
+            }
+
+    with pytest.raises(LLMUnavailable, match="facts changed"):
+        live.explain(case["id"], "ollama", False, client=ChangedFactsAI())
+    saved = live.load(case["id"])
+    assert saved["context"]["role"]["value"] == "network_device"
+    assert saved["ai"]["status"] == "not_requested"
+
+
+@pytest.mark.parametrize("environment", ["office", "iot"])
+@pytest.mark.parametrize(
+    "defect", ["inconclusive", "missing_acceptance", "wrong_response", "policy_drift"]
+)
+def test_retest_requires_explicit_expected_response_and_matching_policy(live, environment, defect):
+    original = live.console.action
+
+    def follow_up(action):
+        result = original(action)
+        if not live.console.accepted:
+            if defect == "inconclusive":
+                result["decision"]["inconclusive"] = True
+            elif defect == "missing_acceptance":
+                result["proof"].pop("anonymous_accepted")
+            elif defect == "wrong_response":
+                result["proof"]["anonymous_accepted"] = True
+        return result
+
+    if defect == "policy_drift":
+        set_profile = live.control.set_profile
+
+        def drift(*args):
+            receipt = set_profile(*args)
+            path = live.root / "config/network-services.json"
+            data = json.loads(path.read_text())
+            data["targets"]["127.0.0.2"][2]["require_auth"] = False
+            path.write_text(json.dumps(data))
+            return receipt
+
+        live.control.set_profile = drift
+    live.console.action = follow_up
+    after = live.change(environment, "restricted")
+    before = live.load(after["comparison"]["before_id"])
+    expected = "failed" if defect == "wrong_response" else "inconclusive"
+    assert after["comparison"]["status"] == before["retest"]["status"] == expected
+    assert "No successful remediation verdict" in after["comparison"]["meaning"]
+    assert "does not verify a successful access change" in live._facts(after)["retest"]["text"]
+
+
+@pytest.mark.parametrize(
+    "action,role", [("smb-read", "file_share"), ("mqtt-exchange", "iot_embedded")]
+)
+def test_live_context_preserves_canonical_protocol_identity(live, action, role):
+    environment = "office" if action == "smb-read" else "iot"
+    case = live.check(environment, action)
+    assert case["context"]["role"]["value"] == role
+
+
+def test_tls_context_uses_actual_handshake_without_claiming_trust(live):
+    live.console.action = lambda _: {
+        "proof": {"protocol_confirmed": True, "tls_version": "TLSv1.3", "expired": True},
+        "decision": {"violations": ["Expired certificate"], "inconclusive": False},
+    }
+    case = live.check("iot", "tls-certificate")
+    assert case["context"]["controls"]["tls"]["value"] is True
+    assert (
+        "confirmed by bounded live protocol exchange"
+        in case["context"]["controls"]["tls"]["evidence"]
+    )
+
+
+def test_unconfirmed_endpoint_does_not_become_an_observed_service_role(live):
+    live.console.action = lambda _: {
+        "proof": {"protocol_confirmed": False, "inconclusive": True},
+        "decision": {"violations": [], "inconclusive": True},
+    }
+    case = live.check("iot", "mqtt-exchange")
+    assert case["context"]["role"]["value"] == "unknown"
+
+
+@pytest.mark.parametrize("legacy", [True, False])
+def test_unverified_comparison_never_promotes_its_old_success_interpretation(live, legacy):
+    case = live.change("office", "restricted")
+    comparison = case["comparison"]
+    comparison["meaning"] = "UNSUPPORTED HISTORICAL SUCCESS: anonymous access was restricted."
+    if legacy:
+        comparison.pop("status")
+    else:
+        # Even a 'complete' label cannot override contradictory proof.
+        comparison["same_policy"] = False
+    case["result"]["decision"]["inconclusive"] = True
+    live._save(case)
+    facts = live._facts(case)
+    assert "UNSUPPORTED HISTORICAL SUCCESS" not in json.dumps(facts)
+    client = AI(
+        {
+            "observations": ["observation", "change"],
+            "why_it_matters": ["earlier_priority"],
+            "next_steps": ["retest"],
+            "limits": ["scope"],
+        }
+    )
+    answer = live.explain(case["id"], "ollama", False, client=client)
+    assert "UNSUPPORTED HISTORICAL SUCCESS" not in json.dumps(answer["ai"])
+    assert "does not verify a successful access change" in json.dumps(answer["ai"])
+
+
+def test_status_marks_old_ai_stale_without_rewriting_archived_evidence(live):
+    case = live.check("office", "ftp-anonymous")
+    client = AI(
+        {
+            "observations": ["observation"],
+            "why_it_matters": ["priority0"],
+            "next_steps": ["retest"],
+            "limits": ["scope"],
+        }
+    )
+    answer = live.explain(case["id"], "ollama", False, client=client)
+    validation = live.status("office")["ai_validations"][case["id"]]
+    assert validation["status"] == "current"
+    assert validation["case_sha256"] == answer["sha256"]
+    answer["ai"]["facts_sha256"] = "outdated-facts"
+    live._save(answer)
+    path = live.directory / (case["id"] + ".json")
+    original = path.read_bytes()
+    status = live.status("office")
+    assert status["ai_validations"][case["id"]]["status"] == "stale"
+    assert path.read_bytes() == original
+    assert live.load(case["id"])["ai"]["facts_sha256"] == "outdated-facts"
+
+
+def test_restoring_insecure_baseline_is_never_described_as_remediation(live):
+    case = live.change("office", "baseline")
+    facts = live._facts(case)
+    assert "intentionally insecure training baseline was restored" in facts["retest"]["text"]
+    assert "not remediation" in facts["retest"]["text"]

@@ -463,7 +463,18 @@ def test_dashboard_reconnects_when_broker_stops_answering_pings(tmp_path, monkey
             assert peer_packet(wire) == (0xE0, b"")
         else:
             peer_send(wire, 0x30, publication(reading()))
-            assert peer_packet(wire) == (0xE0, b"")
+            # The main test polls the status file before asking the client to
+            # stop. A valid keepalive can arrive during that scheduling gap.
+            # Answer it while still requiring a bounded graceful disconnect.
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                packet = peer_packet(wire)
+                if packet == (0xE0, b""):
+                    break
+                assert packet == (0xC0, b"")
+                peer_send(wire, 0xD0, b"")
+            else:
+                pytest.fail("reconnected client did not disconnect after stop")
 
     with tcp_peer(broker, connections=2) as address:
         point_at_peer(monkeypatch, "iot-dashboard", address)

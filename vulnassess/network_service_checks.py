@@ -128,11 +128,17 @@ def _ssh(ip, entry):
             methods = await asyncssh.get_server_auth_methods(
                 ip, entry["port"], username="assessment", **options
             )
-            return {
+            proof = {
                 "protocol_confirmed": True,
                 "advertised_auth_methods": methods,
                 "login_attempted": False,
             }
+            if entry.get("require_auth") is True:
+                proof.update(
+                    inconclusive=True,
+                    authentication_check_error="SSH authentication requirement was not verified; no designated credential was supplied",
+                )
+            return proof
         try:
             async with asyncssh.connect(
                 ip, entry["port"], **entry["credential"], **options
@@ -207,35 +213,40 @@ def _mqtt(ip, entry):
                 )
             return proof
         proof["anonymous_accepted"] = True
-        if entry.get("publish_topic"):
-            topic = entry["publish_topic"].encode()
-            _send(connection, 0x82, b"\x00\x01" + struct.pack("!H", len(topic)) + topic + b"\x00")
-            deadline = time.monotonic() + TIMEOUT
-            marker = uuid4().hex.encode()
-            expected = struct.pack("!H", len(topic)) + topic + marker
-            subscribed = False
-            proof["message_exchange_confirmed"] = False
-            # MQTT may interleave retained/publications with acknowledgements.
-            # Match our packet ID and exact nonce, never whichever frame arrives next.
-            for _ in range(8):
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                connection.settimeout(remaining)
-                header, response = _packet(connection)
-                if not subscribed and header == 0x90:
-                    if response != b"\x00\x01\x00":
+        try:
+            if entry.get("publish_topic"):
+                topic = entry["publish_topic"].encode()
+                proof.update(message_exchange_confirmed=False, topic=entry["publish_topic"])
+                _send(
+                    connection, 0x82, b"\x00\x01" + struct.pack("!H", len(topic)) + topic + b"\x00"
+                )
+                deadline = time.monotonic() + TIMEOUT
+                marker = uuid4().hex.encode()
+                expected = struct.pack("!H", len(topic)) + topic + marker
+                subscribed = False
+                # MQTT may interleave retained/publications with acknowledgements.
+                # Match our packet ID and exact nonce, never whichever frame arrives next.
+                for _ in range(8):
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
                         break
-                    subscribed = True
-                    _send(connection, 0x30, expected)
-                    proof["message_sha256"] = hashlib.sha256(marker).hexdigest()
-                elif subscribed and header == 0x30 and response == expected:
-                    proof["message_exchange_confirmed"] = True
-                    break
-                elif header >> 4 != 3:
-                    break
-            proof["topic"] = entry["publish_topic"]
-        _send(connection, 0xE0, b"")
+                    connection.settimeout(remaining)
+                    header, response = _packet(connection)
+                    if not subscribed and header == 0x90:
+                        if response != b"\x00\x01\x00":
+                            break
+                        subscribed = True
+                        _send(connection, 0x30, expected)
+                        proof["message_sha256"] = hashlib.sha256(marker).hexdigest()
+                    elif subscribed and header == 0x30 and response == expected:
+                        proof["message_exchange_confirmed"] = True
+                        break
+                    elif header >> 4 != 3:
+                        break
+            _send(connection, 0xE0, b"")
+        except (OSError, ValueError) as error:
+            # A later exchange/cleanup failure cannot undo the accepted CONNECT.
+            proof.update(inconclusive=True, post_connect_error=type(error).__name__)
         return proof
 
 
@@ -276,19 +287,34 @@ def _snmp(ip, entry):
                         ObjectType(ObjectIdentity("1.3.6.1.2.1.1.1.0")),
                     )
                     if not monitor_error and not monitor_status:
+                        if not monitor_bindings or isinstance(
+                            monitor_bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView)
+                        ):
+                            return {
+                                "protocol_confirmed": True,
+                                "inconclusive": True,
+                                "reason": "Authorised monitoring replied without the requested management value; neither monitoring read nor public-community refusal was established",
+                            }
                         return {
                             "protocol_confirmed": True,
-                            "public_community_read": False,
+                            "public_community_read": None,
                             "approved_monitoring_read": True,
+                            "inconclusive": True,
                             "oid": str(monitor_bindings[0][0]),
-                            "note": "Public query returned no successful response while the authorised monitoring query succeeded; this does not establish permanent filtering",
+                            "response_length": len(str(monitor_bindings[0][1]).encode()),
+                            "response_sha256": hashlib.sha256(
+                                str(monitor_bindings[0][1]).encode()
+                            ).hexdigest(),
+                            "reason": "The authorised monitoring read succeeded, but the public-community query returned no successful management value; silence does not establish public-community rejection or filtering",
                         }
                 return {
                     "protocol_confirmed": False,
                     "inconclusive": True,
                     "reason": "No successful SNMP GET response; cannot distinguish filtering, credential rejection or unavailable service",
                 }
-            if isinstance(bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView)):
+            if not bindings or isinstance(
+                bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView)
+            ):
                 return {
                     "protocol_confirmed": True,
                     "inconclusive": True,
