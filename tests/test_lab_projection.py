@@ -302,3 +302,45 @@ def test_failed_full_ai_report_is_retained_and_original_evidence_is_unchanged(
     assert seen[0][1] == "google" and seen[0][2]["cloud_sharing_authorized"] is True
     assert lab.publish_assessment(suite["id"])["main_assessment"] == linked
     assert lab.ai_progress == {"running": False} and not lab.ai_lock.locked()
+
+
+@pytest.mark.parametrize("defect", [None, "missing", "duplicate", "different_source"])
+def test_only_complete_source_bound_report_can_be_associated_with_full_lab(
+    lab_suite, monkeypatch, defect
+):
+    lab, suite, case = lab_suite
+    linked = publish(lab, suite, lab.database)
+    source = capture_history.load(lab.root / "data/live/raw", linked["capture_id"])
+    ids = [case["findings"][0]["finding"]["id"]]
+    if defect == "missing":
+        ids = []
+    if defect == "duplicate":
+        ids *= 2
+    record = {
+        "capture_id": "assessment-SYNTHETIC-report",
+        "snapshot_hash": "f" * 64,
+        "payload": source["payload"],
+        "result": {
+            **source["result"],
+            "ai_status": "validated",
+            "analyst": {
+                "model": "SYNTHETIC model not called",
+                "finding_coverage": {"included_ids": ids},
+            },
+        },
+        "analysis_source": {
+            "source_snapshot_hash": "0" * 64
+            if defect == "different_source"
+            else linked["snapshot_hash"]
+        },
+    }
+    monkeypatch.setattr("vulnassess.capture_reanalysis.reanalyze", lambda *_a, **_k: record)
+    if defect:
+        with pytest.raises(ConfigError):
+            lab.report_assessment(suite["id"], "ollama", False)
+        assert not lab.assessments.load(suite["id"]).get("ai_reports")
+    else:
+        result = lab.report_assessment(suite["id"], "ollama", False)
+        assert result["ai_reports"][-1]["ai_status"] == "validated"
+        assert project(lab, result) == project(lab, suite)
+    assert not lab.ai_lock.locked()
