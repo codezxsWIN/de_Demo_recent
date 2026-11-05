@@ -187,10 +187,15 @@ function refreshCoverage(data, requested) {
   if (!menu.options.length) menu.add(new Option('No full assessment retained yet', ''));
   const latest = coverageHistory[0];
   if (!currentCoverage && latest) selectCoverage(latest);
+  else if (currentCoverage) {
+    const updated = coverageHistory.find(row => row.id === currentCoverage.id);
+    if (updated && updated.sha256 !== currentCoverage.sha256) renderCoverage(updated);
+  }
   menu.value = currentCoverage?.id || '';
   if (data.assessment_progress?.running && data.assessment_progress.environment === environment) {
     $('action-status').textContent = `Full assessment: ${data.assessment_progress.completed ?? 0} / ${data.assessment_progress.total ?? '—'} checks finished · ${data.assessment_progress.action || 'preparing'}`;
   }
+
 }
 
 $('coverage-history').addEventListener('change', () => {
