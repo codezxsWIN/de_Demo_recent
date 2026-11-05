@@ -696,7 +696,7 @@ class UiApplication:
             return {"run_id": run_id, **outcome["analyst"], "ai_attempts": outcome["ai_attempts"]}
         return {
             "run_id": run_id,
-            **analyst.analyze_target(
+            **analyst.analyze_findings(
                 payload,
                 host_ip,
                 model=self.analyst_model,
