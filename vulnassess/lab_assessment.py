@@ -691,6 +691,7 @@ class LabAssessment:
                 "started_at",
                 "finished_at",
                 "sha256",
+                "evidence_sha256",
                 "evidence_url",
             )
         } | {

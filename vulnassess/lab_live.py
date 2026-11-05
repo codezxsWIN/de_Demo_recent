@@ -54,14 +54,29 @@ def checksum(document):
     ).hexdigest()
 
 
+def evidence_digest(case):
+    """Bind collection evidence separately from later AI/control bookkeeping."""
+    mutable = {
+        "sha256",
+        "evidence_sha256",
+        "ai",
+        "control",
+        "control_failure",
+        "comparison",
+        "retest",
+    }
+    return checksum({key: value for key, value in case.items() if key not in mutable})
+
+
 class LiveLab:
-    def __init__(self, root, *, traffic=None, control=None, console=None):
+    def __init__(self, root, *, traffic=None, control=None, console=None, database=None):
         from labs.service_networks.console import ACTIONS, Console
         from vulnassess.lab_control import LabControl
         from vulnassess.lab_traffic import TrafficMonitor
 
         self.root = Path(root).resolve()
         self.directory = self.root / "data/network-live/cases"
+        self.database = database if database is not None else self.root / "data/vulnassess.db"
         self.traffic = traffic or TrafficMonitor(self.root)
         self.control = control or LabControl(self.root)
         self.console = console or Console(self.root)
@@ -82,7 +97,20 @@ class LiveLab:
 
     def full_assessment(self, environment):
         self._environment(environment)
-        return self.assessments.run(self, environment)
+        suite = self.assessments.run(self, environment)
+        return self.publish_assessment(suite["id"])
+
+    def publish_assessment(self, identifier):
+        from vulnassess.lab_projection import publish
+
+        with self.lock:
+            suite = self.assessments.load(identifier)
+            try:
+                suite["main_assessment"] = publish(self, suite, self.database)
+            except (ConfigError, OSError, ValueError, TypeError, KeyError) as error:
+                suite["main_assessment"] = {"status": "failed", "error": str(error)[:240]}
+            self.assessments._save(suite)
+            return suite
 
     def _environment(self, environment):
         if not isinstance(environment, str) or environment not in ENVIRONMENTS:
@@ -264,6 +292,7 @@ class LiveLab:
             if validation_error:
                 case["policy_error"] += ": " + validation_error
             case["evidence_url"] = f"/api/network-live/evidence/{identifier}.json"
+            case["evidence_sha256"] = evidence_digest(case)
             self._save(case)
             raise ConfigError(case["policy_error"])
         intended = {
@@ -338,6 +367,7 @@ class LiveLab:
             )
         case["findings"].sort(key=lambda row: -row["score"]["risk"])
         case["evidence_url"] = f"/api/network-live/evidence/{identifier}.json"
+        case["evidence_sha256"] = evidence_digest(case)
         self._save(case)
         return case
 

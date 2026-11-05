@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -146,6 +147,72 @@ class Store:
         }
 
     # hosts ------------------------------------------------------------
+    def import_frozen_network_run(
+        self,
+        run_id: str,
+        config_hash: str,
+        captured_at: str,
+        payload: dict[str, Any],
+        summary: dict[str, Any],
+    ) -> bool:
+        """Atomically import a verified native network-lab snapshot, once.
+
+        This does not look up CVEs, borrow current feed data or recalculate a
+        retained priority. The caller supplies a provenance-checked projection.
+        """
+        digest = sha256(run_history.encoded(payload).encode("utf-8")).hexdigest()
+        hosts = [Host.from_json(row) for row in payload["hosts"]]
+        findings = [Finding.from_json(row) for row in payload["findings"]]
+        profiles = [ContextProfile.from_json(row) for row in payload["context"]]
+        scores = [ScoreBreakdown.from_json(row) for row in payload["scores"]]
+        host_ids = {host.ip for host in hosts}
+        finding_ids = {finding.id for finding in findings}
+        if (
+            len(host_ids) != len(hosts)
+            or len(finding_ids) != len(findings)
+            or payload.get("enrichments")
+            or any(
+                f.host_ip not in host_ids or f.tool != "service-network" or f.cve_ids
+                for f in findings
+            )
+            or {p.host_ip for p in profiles} != host_ids
+            or len(profiles) != len(hosts)
+            or len({s.finding_id for s in scores}) != len(scores)
+            or {s.finding_id for s in scores} != finding_ids
+            or any(
+                s.host_ip != next(f.host_ip for f in findings if f.id == s.finding_id)
+                for s in scores
+            )
+        ):
+            raise ConfigError("Network projection has duplicate or unbound native evidence")
+        frozen_summary = {**summary, "projection_payload_sha256": digest}
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            existing = self.run_info(run_id)
+            if existing is not None:
+                if existing["config_hash"] != config_hash or existing["summary"] != frozen_summary:
+                    raise ConfigError("An existing network run differs from the frozen projection")
+                return False
+            self.connection.execute(
+                "INSERT INTO runs (run_id, started_at, config_hash, summary_json) VALUES (?, ?, ?, ?)",
+                (run_id, captured_at, config_hash, _dumps(frozen_summary)),
+            )
+            self.connection.executemany(
+                "INSERT INTO hosts (run_id, ip, json) VALUES (?, ?, ?)",
+                [(run_id, host.ip, _dumps(host.to_json())) for host in hosts],
+            )
+            self._upsert_findings(run_id, findings)
+            self.connection.executemany(
+                "INSERT INTO context_profiles (run_id, host_ip, json) VALUES (?, ?, ?)",
+                [(run_id, profile.host_ip, _dumps(profile.to_json())) for profile in profiles],
+            )
+            self.connection.executemany(
+                "INSERT INTO scores (run_id, finding_id, json, risk, band) VALUES (?, ?, ?, ?, ?)",
+                [(run_id, s.finding_id, _dumps(s.to_json()), s.risk, s.band) for s in scores],
+            )
+            run_history.append_snapshot(self.connection, run_id, {}, [], status="not_enriched")
+        return True
+
     def upsert_host(self, run_id: str, host: Host) -> None:
         self.connection.execute(
             "INSERT INTO hosts (run_id, ip, json) VALUES (?, ?, ?) "

@@ -73,6 +73,29 @@ function renderCoverage(suite) {
   const m = suite.metrics;
   const grounded = suite.ground_truth?.status === 'verified';
   parent.append(el('p', `${date(suite.finished_at)} · ${suite.ground_truth?.profile || 'profile unverified'} · ${suite.status} · ${suite.id}`, 'muted'));
+  const published = suite.main_assessment;
+  const actions = el('div', undefined, 'packet-controls');
+  if (published?.status === 'saved' && /^assessment-lab-[a-f0-9]{32}$/.test(published.capture_id || '')) {
+    for (const [label, href] of [
+      ['Open assessment report ↗', `/captures/${published.capture_id}/report`],
+      ['Findings & remediation ↗', `/vulnerabilities?capture=${published.capture_id}`],
+    ]) {
+      const a = el('a', label, 'quiet'); a.href = href; a.target = '_blank'; a.rel = 'noopener'; actions.append(a);
+    }
+    parent.append(el('p', `Saved in the assessment database as ${published.run_id}. These views reuse retained evidence; they do not launch another scan.`, 'muted'));
+  } else {
+    if (published?.error) parent.append(el('p', 'Main assessment publication: ' + published.error, 'error'));
+    const button = el('button', 'Prepare main report from this evidence · no scan', 'quiet');
+    button.addEventListener('click', async () => {
+      setBusy(true, 'Publishing retained evidence to the main findings, database and report…');
+      try {
+        const saved = await post('publish', {assessment_id: suite.id}); renderCoverage(saved);
+        setBusy(false, saved.main_assessment?.status === 'saved' ? 'Assessment report and database record are ready.' : 'Publication remains unresolved; retained lab evidence is preserved.', saved.main_assessment?.status !== 'saved');
+      } catch (error) { setBusy(false, error.message, true); }
+    });
+    actions.append(button);
+  }
+  parent.append(actions);
   const metrics = el('div', undefined, 'coverage-metrics');
   const cells = [
     ['Endpoints attempted', `${c.attempted_endpoints ?? '—'} / ${c.declared_endpoints ?? '—'}`],

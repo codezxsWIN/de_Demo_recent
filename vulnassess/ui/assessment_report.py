@@ -1317,7 +1317,7 @@ def _ai(result, payload, composition=None):
         )
     if result.get("scan_status") == "partial":
         content += paragraph(
-            "Partial scan — requested checks failed. Coverage is incomplete even if AI validated.",
+            _partial_coverage_notice(payload),
             "notice",
         )
     content += _ai_highlights(batches, plan, payload)
@@ -1406,6 +1406,8 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     content += '<nav class="contents" aria-label="Report sections"><a href="#ai">Read this first</a><a href="#brief">Brief</a><a href="#practical">What it means</a>'
     if payload.get("self_defence"):
         content += '<a href="#device">Your device</a>'
+    if isinstance(payload.get("network_lab"), dict):
+        content += '<a href="#network-lab">Live protocol evidence</a>'
     content += '<a href="#decisions">Conclusions &amp; decisions</a><a href="#findings">Findings</a><a href="#context">Context &amp; coverage</a><a href="#ai">AI &amp; next steps</a>'
     if payload.get("intelligence_evidence"):
         content += '<a href="#intelligence-used">Intelligence used</a>'
@@ -1429,6 +1431,7 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
             payload.get("scanner_coverage", {}).get("harbordesk-check", "Coverage not recorded")
         )
         content += '<p><a href="#practical">Open priority queue</a> · <a href="#findings">Inspect findings, evidence and fixes</a></p></section>'
+    content += _network_lab_evidence(payload)
     content += _ai(result, payload, composition)
     content += '<section id="brief"><h2>Assessment brief</h2>'
     content += paragraph(
@@ -1440,7 +1443,7 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
     )
     if result.get("scan_status") == "partial":
         content += paragraph(
-            "Partial scan — requested checks failed. Coverage is incomplete even if AI validated.",
+            _partial_coverage_notice(payload),
             "notice",
         )
     content += facts(
@@ -1547,6 +1550,113 @@ def _render(record, *, standalone=False, composition=None, policy=None, decision
         )
     content += "</body></html>"
     return content
+
+
+def _partial_coverage_notice(payload):
+    if isinstance(payload.get("network_lab"), dict):
+        return "Partial network assessment — some configured checks failed, were skipped or remain inconclusive. Review each endpoint outcome; AI validation does not complete missing coverage."
+    return "Partial scan — requested checks failed. Coverage is incomplete even if AI validated."
+
+
+def _network_lab_evidence(payload):
+    lab = payload.get("network_lab")
+    if not isinstance(lab, dict):
+        return ""
+    content = '<section id="network-lab"><h2>Live network assessment · protocol evidence</h2>'
+    content += paragraph(lab.get("limit"), "notice")
+    coverage = lab.get("coverage", {})
+    content += facts(
+        [
+            ("Environment", lab.get("environment")),
+            ("Source full assessment", lab.get("assessment_id")),
+            (
+                "Endpoints attempted",
+                f"{coverage.get('attempted_endpoints', 'unknown')} / {coverage.get('declared_endpoints', 'unknown')}",
+            ),
+            (
+                "Reviewed conditions tested",
+                f"{coverage.get('tested_conditions', 'unknown')} / {coverage.get('known_conditions', 'unknown')}",
+            ),
+            ("Configuration ground truth", lab.get("ground_truth", {}).get("status", "unverified")),
+            ("CVE applicability testing", "Not performed by these protocol policy checks"),
+        ]
+    )
+    contexts = {
+        (row["port"], row["transport"]): row["context"]
+        for row in payload.get("service_context", [])
+    }
+    for row in lab.get("checks", []):
+        proof = row.get("proof", {})
+        content += (
+            "<article>"
+            + f"<h3>{text(row.get('port'))}/{text(row.get('transport'))} · {text(row.get('action'))}</h3>"
+        )
+        observations = [
+            ("Operation outcome", row.get("state")),
+            ("Observed at", row.get("observed_at")),
+        ]
+        if type(proof.get("anonymous_accepted")) is bool:
+            observations.append(
+                (
+                    "Anonymous access",
+                    "Explicitly accepted" if proof["anonymous_accepted"] else "Explicitly refused",
+                )
+            )
+        if "public_community_read" in proof:
+            observations.append(
+                (
+                    "Public SNMP read",
+                    "Observed"
+                    if proof["public_community_read"] is True
+                    else "Not established; silence is not proof of rejection"
+                    if proof["public_community_read"] is None
+                    else "Not observed in the bounded check",
+                )
+            )
+        if proof.get("authenticated_read") is True:
+            observations.append(
+                (
+                    "Authenticated SNMP read",
+                    "Verified SNMPv3 authPriv · HMAC-SHA-256 authentication / AES-128 privacy"
+                    if proof.get("monitoring_snmp_version") == 3
+                    and proof.get("monitoring_security_level") == "authPriv"
+                    and proof.get("monitoring_auth_protocol") == "HMAC-SHA-256"
+                    and proof.get("monitoring_priv_protocol") == "AES-128"
+                    else "Read recorded; inspect the retained security protocol metadata",
+                )
+            )
+        for key in (
+            "test_credential_accepted",
+            "signing_required",
+            "expired",
+            "hostname_matches",
+            "chain_verification_failed",
+            "redis_version",
+        ):
+            if key in proof:
+                observations.append((key.replace("_", " "), proof[key]))
+        endpoint = contexts.get((row["port"], row["transport"]), {})
+        observations.append(
+            ("Endpoint role inference", endpoint.get("role", {}).get("value", "unknown"))
+        )
+        clock = row.get("clock_alignment") or {}
+        if clock.get("status") == "bounded":
+            observations.append(
+                ("Packet association uncertainty (ms)", clock.get("uncertainty_ms"))
+            )
+        content += facts(observations)
+        identity = row.get("case_id", "")
+        if isinstance(identity, str) and re.fullmatch(r"live-[a-f0-9]{32}", identity):
+            content += f'<p><a href="/api/network-live/evidence/{identity}.json" target="_blank" rel="noopener">Original investigation JSON ↗</a>'
+            if row.get("pcap"):
+                content += f' · <a href="/api/network-live/evidence/{identity}.pcap">Retained packet capture</a>'
+            content += "</p>"
+        content += (
+            "<details><summary>Exact bounded protocol proof</summary><pre>"
+            + escape(json.dumps(proof, indent=2))
+            + "</pre></details></article>"
+        )
+    return content + "</section>"
 
 
 def render(record, *, standalone=False, composition=None, policy=None, decision_focus=None):

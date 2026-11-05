@@ -1046,7 +1046,9 @@ class UiApplication:
             if self._network_live_instance is None:
                 from vulnassess.lab_live import LiveLab
 
-                self._network_live_instance = LiveLab(self.config_dir.parent)
+                self._network_live_instance = LiveLab(
+                    self.config_dir.parent, database=self.database
+                )
             return self._network_live_instance
 
     def network_live_action(self, action, data):
@@ -1057,6 +1059,8 @@ class UiApplication:
             return live.check(data["environment"], data["operation"])
         if action == "assess" and set(data) == {"environment"}:
             return live.full_assessment(data["environment"])
+        if action == "publish" and set(data) == {"assessment_id"}:
+            return live.publish_assessment(data["assessment_id"])
         if action in {"remediate", "restore"} and set(data) == {"environment"}:
             return live.change(
                 data["environment"], "restricted" if action == "remediate" else "baseline"
@@ -1675,6 +1679,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
                 "/api/network-live/restore",
                 "/api/network-live/explain",
                 "/api/network-live/assess",
+                "/api/network-live/publish",
             }:
                 self._reply(error_response(405, "Live lab POST route not found"))
                 return

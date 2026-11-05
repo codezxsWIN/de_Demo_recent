@@ -62,7 +62,7 @@ def app():
         return {"status": "SYNTHETIC-OFFLINE-RESPONSE"}
 
     instance.network_live = lambda: SimpleNamespace(
-        check=check, change=check, explain=check, full_assessment=check
+        check=check, change=check, explain=check, full_assessment=check, publish_assessment=check
     )
     return instance
 
@@ -160,4 +160,21 @@ def test_full_assessment_is_a_same_origin_fixed_environment_action(app):
         )[0]
         == 409
     )
+    assert not app.calls
+
+
+def test_publication_requires_same_origin_and_an_exact_retained_assessment_request(app):
+    body = b'{"assessment_id":"full-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+    path = "/api/network-live/publish"
+    assert request(app, path=path, body=body)[0] == 200
+    assert app.calls == [("full-" + "a" * 32,)]
+    app.calls.clear()
+    assert (
+        request(app, path=path, body=body, headers={"Origin": "https://untrusted.invalid"})[0]
+        == 403
+    )
+    assert (
+        request(app, path=path, body=b'{"assessment_id":"full-a","target":"192.0.2.1"}')[0] == 409
+    )
+    assert request(app, path=path, body=b'{"environment":"office"}')[0] == 409
     assert not app.calls
