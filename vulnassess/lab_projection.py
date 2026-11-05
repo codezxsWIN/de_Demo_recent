@@ -184,7 +184,9 @@ def project(lab, suite):
         if row["state"] != "complete"
     ]
     source = {
-        key: value for key, value in suite.items() if key not in {"sha256", "main_assessment"}
+        key: value
+        for key, value in suite.items()
+        if key not in {"sha256", "main_assessment", "ai_reports"}
     }
     payload = {
         "scan_status": "partial" if failures else "complete",
