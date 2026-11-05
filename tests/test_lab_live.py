@@ -541,3 +541,57 @@ def test_restoring_insecure_baseline_is_never_described_as_remediation(live):
     facts = live._facts(case)
     assert "intentionally insecure training baseline was restored" in facts["retest"]["text"]
     assert "not remediation" in facts["retest"]["text"]
+
+
+def test_clock_measurements_bracket_the_protocol_exchange_and_share_capture(live):
+    events = []
+    action = live.console.action
+    collect = live.traffic.collect
+
+    def sample(environment):
+        receipt = {"environment": environment, "sample": len(events)}
+        events.append("clock")
+        return receipt
+
+    def operation(name):
+        events.append("protocol")
+        return action(name)
+
+    def paired(*args, clock_samples):
+        assert events == ["clock", "protocol", "clock"]
+        assert clock_samples == [
+            {"environment": "office", "sample": 0},
+            {"environment": "office", "sample": 2},
+        ]
+        events.append("capture")
+        return collect(*args)
+
+    live.traffic.clock_sample = sample
+    live.console.action = operation
+    live.traffic.collect = paired
+    case = live.check("office", "ftp-anonymous")
+    assert events == ["clock", "protocol", "clock", "capture"]
+    assert case["findings"] and case["pcap"]
+
+
+def test_unavailable_clock_does_not_erase_a_real_protocol_finding(live):
+    def failed(_environment):
+        raise ValueError("Clock reader unavailable")
+
+    live.traffic.clock_sample = failed
+    case = live.check("office", "ftp-anonymous")
+    assert case["findings"]
+    assert case["packet_evidence"]["clock_alignment_error"] == "Clock reader unavailable"
+
+
+def test_ai_packet_fact_discloses_measured_clock_uncertainty(live):
+    case = live.check("office", "ftp-anonymous")
+    case["packet_evidence"]["clock_alignment"] = {
+        "status": "bounded",
+        "uncertainty_ms": 123.456,
+        "assumption": "Measured-clock stability assumption.",
+        "limit": "This does not prove transaction causality.",
+    }
+    text = live._facts(case)["capture"]["text"]
+    assert "123.456 ms" in text
+    assert "stability assumption" in text and "does not prove transaction causality" in text

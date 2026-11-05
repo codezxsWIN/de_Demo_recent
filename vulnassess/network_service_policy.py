@@ -172,20 +172,29 @@ def load(config_dir, scope, target_ip):
                 )
             if credential is not None:
                 # Committed demonstration credentials may never be tried on non-loopback hosts.
+                limits = (
+                    {"username": (1, 32), "auth_key": (8, 64), "priv_key": (8, 64)}
+                    if service == "snmp"
+                    else {"username": (1, 64), "password": (1, 64)}
+                )
                 if (
-                    service != "ssh"
+                    service not in {"ssh", "snmp"}
                     or not ipaddress.ip_address(ip).is_loopback
                     or not isinstance(credential, dict)
-                    or set(credential) != {"username", "password"}
+                    or set(credential) != set(limits)
+                    or community is not None
                     or any(
                         not isinstance(value, str)
-                        or not 1 <= len(value) <= 64
+                        or not limits[key][0]
+                        <= (len(value.encode()) if service == "snmp" else len(value))
+                        <= limits[key][1]
                         or re.search(r"[\x00-\x1f]", value)
-                        for value in credential.values()
+                        or (service == "snmp" and (not value.isascii() or "\x7f" in value))
+                        for key, value in credential.items()
                     )
                 ):
                     raise ConfigError(
-                        "Fixed demonstration SSH credentials are permitted only on exact loopback endpoints"
+                        "Designated SSH or SNMPv3 credentials require complete bounded fields on exact loopback endpoints, without a monitoring community"
                     )
     if target_ip not in data["targets"]:
         return None

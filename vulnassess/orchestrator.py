@@ -102,6 +102,7 @@ def scanner_status(tool: str) -> dict[str, str]:
                 timeout=10,
                 check=False,
                 cwd=_nikto_cwd(argv),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except (OSError, subprocess.TimeoutExpired) as error:
             return {"status": "dependency-error", "detail": f"Nikto preflight failed: {error}"}
@@ -228,6 +229,7 @@ def execute_local(command: ScannerCommand, timeout: float = 1800.0) -> Execution
         check=False,
         shell=False,
         cwd=_nikto_cwd(command.argv) if command.tool == "nikto" else None,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     ended = datetime.now(timezone.utc).isoformat()
     detail = (completed.stderr or completed.stdout or "").strip()

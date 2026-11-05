@@ -5,7 +5,10 @@ import importlib
 import json
 import socket
 import struct
-from datetime import UTC, datetime
+import subprocess
+import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +18,221 @@ from vulnassess.errors import ConfigError
 
 CASE_ID = "live-" + "a" * 32
 MISSING_ID = "live-" + "b" * 32
+BASE_NS = 1_762_080_000_000_000_000
+OBSERVER_ID = "c" * 64
+
+
+def iso_time(ns):
+    return (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=ns // 1000)).isoformat()
+
+
+@pytest.fixture
+def clock_verifier():
+    # This helper must work even when the optional packet parser is absent.
+    return importlib.import_module("scripts.verify_live_capture").association_window
+
+
+@pytest.fixture
+def envelope_case():
+    samples = []
+    for phase, drift in ((0, 0), (400_000_000, 1_500_000)):
+        samples.append(
+            {
+                "environment": "iot",
+                "observer_container_id": OBSERVER_ID,
+                "method": "fixed_readonly_observer_clock",
+                "host_before_ns": BASE_NS + phase,
+                "host_after_ns": BASE_NS + phase + 2_000_000,
+                "host_monotonic_before_ns": 100_000_000_000 + phase,
+                "host_monotonic_after_ns": 100_002_000_000 + phase,
+                "observer_realtime_ns": BASE_NS + phase + 1_000_000 + drift,
+                "observer_monotonic_ns": 200_001_000_000 + phase,
+            }
+        )
+    case = {
+        "environment": "iot",
+        "started_at": iso_time(BASE_NS + 3_000_000),
+        "finished_at": iso_time(BASE_NS + 399_000_000),
+    }
+    # Independent fixture: intervals [-1, 1] ms and [0.5, 2.5] ms.
+    clock = {
+        "status": "bounded",
+        "method": "bracketed_round_trip_offset_envelope",
+        "environment": "iot",
+        "observer_container_id": OBSERVER_ID,
+        "samples": samples,
+        "offset_lower_ns": -1_000_000,
+        "offset_upper_ns": 2_500_000,
+        "uncertainty_ms": 3.5,
+        "observer_started_at": iso_time(BASE_NS + 2_000_000),
+        "observer_finished_at": iso_time(BASE_NS + 401_500_000),
+    }
+    evidence = {
+        "capture_container_id": OBSERVER_ID,
+        "clock_alignment": clock,
+        "association_window": {
+            "clock": "observer_realtime_bounded",
+            "started_at": clock["observer_started_at"],
+            "finished_at": clock["observer_finished_at"],
+        },
+    }
+    return case, evidence
+
+
+def test_drift_envelope_preserves_both_measured_intervals(clock_verifier, envelope_case):
+    case, evidence = envelope_case
+    start, finish, basis, uncertainty = clock_verifier(case, evidence)
+    assert basis == "bounded_observer_clock_interval" and uncertainty == 3.5
+    assert start == 1_762_080_000.002
+    assert finish == 1_762_080_000.4015
+    # A linear 1.5 ms slew over 400 ms used to exclude these real boundary packets.
+    assert start <= (BASE_NS + 3_011_250) / 1_000_000_000 <= finish
+    assert start <= (BASE_NS + 400_496_250) / 1_000_000_000 <= finish
+
+
+@pytest.mark.parametrize("phase", ["before", "after"])
+@pytest.mark.parametrize("overlap", [1000, 1001])
+def test_phase_allowance_is_exactly_one_microsecond(clock_verifier, envelope_case, phase, overlap):
+    case, evidence = envelope_case
+    clock = evidence["clock_alignment"]
+    extra = overlap - 1000
+    if phase == "before":
+        clock["samples"][0]["host_after_ns"] += extra
+        clock["samples"][0]["host_monotonic_after_ns"] += extra
+        case["started_at"] = iso_time(BASE_NS + 1_999_000)
+        clock["offset_lower_ns"] -= extra
+        clock["observer_started_at"] = iso_time(BASE_NS + 999_000 - extra)
+        evidence["association_window"]["started_at"] = clock["observer_started_at"]
+    else:
+        clock["samples"][1]["host_before_ns"] -= extra
+        clock["samples"][1]["host_monotonic_before_ns"] -= extra
+        case["finished_at"] = iso_time(BASE_NS + 400_001_000)
+        clock["offset_upper_ns"] += extra
+        clock["observer_finished_at"] = iso_time(BASE_NS + 402_501_000 + extra * 1000)
+        evidence["association_window"]["finished_at"] = clock["observer_finished_at"]
+    clock["uncertainty_ms"] = (clock["offset_upper_ns"] - clock["offset_lower_ns"]) / 1e6
+    if overlap == 1001:
+        with pytest.raises(ValueError, match="bracket"):
+            clock_verifier(case, evidence)
+    else:
+        assert clock_verifier(case, evidence)[2] == "bounded_observer_clock_interval"
+
+
+def test_window_rounding_is_exact_floor_start_and_ceiling_finish(clock_verifier, envelope_case):
+    case, evidence = envelope_case
+    clock = evidence["clock_alignment"]
+    clock["samples"][0]["observer_realtime_ns"] += 123
+    clock["samples"][1]["observer_realtime_ns"] += 456
+    clock.update(offset_lower_ns=-999_877, offset_upper_ns=2_500_456, uncertainty_ms=3.500333)
+    clock["observer_finished_at"] = iso_time(BASE_NS + 401_501_000)
+    evidence["association_window"]["finished_at"] = clock["observer_finished_at"]
+    assert clock_verifier(case, evidence)[3] == 3.500333
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "lower",
+        "upper",
+        "uncertainty",
+        "start",
+        "finish",
+        "clock_window",
+        "old_method",
+        "sample_method",
+        "replacement",
+        "capture_identity",
+        "bool_time",
+        "naive_case",
+        "naive_window",
+    ],
+)
+def test_tampered_or_unsupported_clock_claims_are_rejected(clock_verifier, envelope_case, damage):
+    case, evidence = envelope_case
+    clock, window = evidence["clock_alignment"], evidence["association_window"]
+    if damage == "lower":
+        clock["offset_lower_ns"] += 1
+    elif damage == "upper":
+        clock["offset_upper_ns"] -= 1
+    elif damage == "uncertainty":
+        clock["uncertainty_ms"] += 0.001
+    elif damage == "start":
+        window["started_at"] = clock["observer_started_at"] = iso_time(BASE_NS + 1_999_000)
+    elif damage == "finish":
+        window["finished_at"] = clock["observer_finished_at"] = iso_time(BASE_NS + 401_501_000)
+    elif damage == "clock_window":
+        clock["observer_started_at"] = iso_time(BASE_NS + 1_999_000)
+    elif damage == "old_method":
+        clock["method"] = "intersected_round_trip_offset_intervals"
+    elif damage == "sample_method":
+        clock["samples"][0]["method"] = "assumed"
+    elif damage == "replacement":
+        clock["samples"][1]["observer_container_id"] = "d" * 64
+    elif damage == "capture_identity":
+        evidence["capture_container_id"] = "d" * 64
+    elif damage == "bool_time":
+        clock["samples"][0]["host_before_ns"] = True
+    elif damage == "naive_case":
+        case["started_at"] = case["started_at"].removesuffix("+00:00")
+    else:
+        window["started_at"] = window["started_at"].removesuffix("+00:00")
+    with pytest.raises(ValueError):
+        clock_verifier(case, evidence)
+
+
+@pytest.mark.parametrize(
+    "damage",
+    ["rtt", "width", "host_step", "observer_step", "stale_before", "stale_after", "duration"],
+)
+def test_measurement_budgets_are_enforced(clock_verifier, envelope_case, damage):
+    case, evidence = envelope_case
+    samples = evidence["clock_alignment"]["samples"]
+    if damage in {"rtt", "width"}:
+        elapsed = 3_000_000_001 if damage == "rtt" else 2_500_000_000
+        samples[0]["host_after_ns"] = samples[0]["host_before_ns"] + elapsed
+        samples[0]["host_monotonic_after_ns"] = samples[0]["host_monotonic_before_ns"] + elapsed
+    elif damage == "host_step":
+        samples[0]["host_after_ns"] += 20_000_001
+    elif damage == "observer_step":
+        samples[1]["observer_realtime_ns"] += 20_000_001
+    elif damage in {"stale_before", "stale_after"}:
+        sample, shift = (
+            (samples[0], -11_000_000_000)
+            if damage == "stale_before"
+            else (samples[1], 11_000_000_000)
+        )
+        for key in (
+            "host_before_ns",
+            "host_after_ns",
+            "host_monotonic_before_ns",
+            "host_monotonic_after_ns",
+            "observer_realtime_ns",
+            "observer_monotonic_ns",
+        ):
+            sample[key] += shift
+    else:
+        case["finished_at"] = iso_time(BASE_NS + 60_003_001_000)
+    with pytest.raises(ValueError):
+        clock_verifier(case, evidence)
+
+
+def test_association_helper_imports_and_runs_without_dpkt():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            "-c",
+            "import sys; sys.modules['dpkt'] = None; "
+            "from scripts.verify_live_capture import association_window; "
+            "case={'started_at':'2026-01-01T00:00:00+00:00','finished_at':'2026-01-01T00:00:00+00:00'}; "
+            "assert association_window(case, {})[2] == 'host_clock_unaligned'",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 @pytest.fixture

@@ -15,7 +15,10 @@ MAX_MQTT_PACKET = 4096
 MQTT_READ_TIMEOUT = 3.0
 MQTT_IDLE_TIMEOUT = 15.0  # Established clients advertise a ten-second keepalive.
 PAYLOAD = b"VulnAssess IoT network proof"
-PRIVATE_COMMUNITY = "vulnassess-private-training-2026"
+# Designated dummy credentials for this isolated training endpoint only.
+SNMPV3_USER = "vulnassess-monitor"
+SNMPV3_AUTH_KEY = "training-auth-key-2026"
+SNMPV3_PRIV_KEY = "training-priv-key-2026"
 SYS_DESCR = "VulnAssess training agent (PySNMP)"
 SYS_NAME = "vulnassess-fictional-iot"
 
@@ -205,7 +208,7 @@ async def _stop_broker(broker):
         await broker.plugins_manager.close()
 
 
-async def _start_agent(stack: AsyncExitStack, port: int, community: str, bind_host=HOST):
+async def _start_agent(stack: AsyncExitStack, port: int, community: str | None, bind_host=HOST):
     from pysnmp.carrier.asyncio.dgram import udp
     from pysnmp.entity import config, engine
     from pysnmp.entity.rfc3413 import cmdrsp, context
@@ -221,11 +224,22 @@ async def _start_agent(stack: AsyncExitStack, port: int, community: str, bind_ho
     )
     stack.callback(wire.close)
     config.add_transport(agent, udp.DOMAIN_NAME, transport)
-    config.add_v1_system(agent, "training-reader", community)
-    for model in (1, 2):
-        config.add_vacm_user(
-            agent, model, "training-reader", "noAuthNoPriv", readSubTree=(1, 3, 6, 1, 2, 1, 1)
+    if community is None:
+        config.add_v3_user(
+            agent,
+            SNMPV3_USER,
+            authProtocol=config.USM_AUTH_HMAC192_SHA256,
+            authKey=SNMPV3_AUTH_KEY,
+            privProtocol=config.USM_PRIV_CFB128_AES,
+            privKey=SNMPV3_PRIV_KEY,
         )
+        config.add_vacm_user(agent, 3, SNMPV3_USER, "authPriv", readSubTree=(1, 3, 6, 1, 2, 1, 1))
+    else:
+        config.add_v1_system(agent, "training-reader", community)
+        for model in (1, 2):
+            config.add_vacm_user(
+                agent, model, "training-reader", "noAuthNoPriv", readSubTree=(1, 3, 6, 1, 2, 1, 1)
+            )
 
     # A separate MIB exposes only the two fictional scalars, with no host OS data.
     mib = builder.MibBuilder()
@@ -248,6 +262,7 @@ async def _start_agent(stack: AsyncExitStack, port: int, community: str, bind_ho
     ):
         app = responder(agent, ctx)
         stack.callback(app.close, agent)
+    return wire.get_extra_info("sockname")[1]
 
 
 @asynccontextmanager
@@ -256,7 +271,8 @@ async def start(root: Path, *, bind_host: str = HOST, restrict_anonymous: bool =
 
     Call inside the launcher's existing asyncio loop. Requires aMQTT 0.11.x,
     PySNMP 7.1.x and cryptography only when entered. Port 1884 is a deny-all
-    comparison broker; it has no provisioned accounts.
+    comparison broker; it has no provisioned accounts. SNMP 1161 uses public
+    community access; 1162 requires the designated SHA-256/AES-128 authPriv user.
     """
     from .binding import validate
 
@@ -308,7 +324,7 @@ async def start(root: Path, *, bind_host: str = HOST, restrict_anonymous: bool =
                         **({"certfile": str(certfile)} if tls else {}),
                     }
                 )
-            for port, community in ((1161, "public"), (1162, PRIVATE_COMMUNITY)):
+            for port, community in ((1161, "public"), (1162, None)):
                 await _start_agent(stack, port, community, bind_host)
                 services.append(
                     {
@@ -318,6 +334,8 @@ async def start(root: Path, *, bind_host: str = HOST, restrict_anonymous: bool =
                         "port": port,
                         "protected": port == 1162,
                         "implementation": "PySNMP",
+                        "snmp_version": 3 if port == 1162 else 2,
+                        **({"security_level": "authPriv"} if port == 1162 else {}),
                     }
                 )
             yield services

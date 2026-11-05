@@ -270,63 +270,93 @@ def _snmp(ip, entry):
         engine = SnmpEngine()
         try:
             target = await UdpTransportTarget.create((ip, entry["port"]), timeout=1, retries=0)
-            indication, status, _, bindings = await get_cmd(
-                engine,
-                CommunityData("public", mpModel=1),
-                target,
-                ContextData(),
-                ObjectType(ObjectIdentity("1.3.6.1.2.1.1.1.0")),
-            )
-            if indication or status:
-                if entry.get("monitoring_community"):
-                    monitor_error, monitor_status, _, monitor_bindings = await get_cmd(
-                        engine,
-                        CommunityData(entry["monitoring_community"], mpModel=1),
-                        target,
-                        ContextData(),
-                        ObjectType(ObjectIdentity("1.3.6.1.2.1.1.1.0")),
-                    )
-                    if not monitor_error and not monitor_status:
-                        if not monitor_bindings or isinstance(
-                            monitor_bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView)
-                        ):
-                            return {
-                                "protocol_confirmed": True,
-                                "inconclusive": True,
-                                "reason": "Authorised monitoring replied without the requested management value; neither monitoring read nor public-community refusal was established",
-                            }
-                        return {
-                            "protocol_confirmed": True,
-                            "public_community_read": None,
-                            "approved_monitoring_read": True,
-                            "inconclusive": True,
-                            "oid": str(monitor_bindings[0][0]),
-                            "response_length": len(str(monitor_bindings[0][1]).encode()),
-                            "response_sha256": hashlib.sha256(
-                                str(monitor_bindings[0][1]).encode()
-                            ).hexdigest(),
-                            "reason": "The authorised monitoring read succeeded, but the public-community query returned no successful management value; silence does not establish public-community rejection or filtering",
-                        }
-                return {
-                    "protocol_confirmed": False,
-                    "inconclusive": True,
-                    "reason": "No successful SNMP GET response; cannot distinguish filtering, credential rejection or unavailable service",
+            oid = "1.3.6.1.2.1.1.1.0"
+
+            async def read(auth):
+                indication, status, _, bindings = await get_cmd(
+                    engine,
+                    auth,
+                    target,
+                    ContextData(),
+                    ObjectType(ObjectIdentity(oid)),
+                    lookupMib=False,
+                )
+                if (
+                    indication
+                    or status
+                    or len(bindings) != 1
+                    or str(bindings[0][0]) != oid
+                    or isinstance(bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView))
+                ):
+                    return not bool(indication), None
+                payload = str(bindings[0][1]).encode()
+                return True, {
+                    "oid": oid,
+                    "response_length": len(payload),
+                    "response_sha256": hashlib.sha256(payload).hexdigest(),
                 }
-            if not bindings or isinstance(
-                bindings[0][1], (NoSuchObject, NoSuchInstance, EndOfMibView)
-            ):
-                return {
-                    "protocol_confirmed": True,
-                    "inconclusive": True,
-                    "reason": "SNMP replied but did not return the requested management value; no information read established",
-                }
-            return {
-                "protocol_confirmed": True,
-                "public_community_read": True,
-                "oid": str(bindings[0][0]),
-                "response_length": len(str(bindings[0][1]).encode()),
-                "response_sha256": hashlib.sha256(str(bindings[0][1]).encode()).hexdigest(),
+
+            confirmed, public = await read(CommunityData("public", mpModel=1))
+            proof = {
+                "protocol_confirmed": confirmed,
+                "public_community_read": True if public else None,
             }
+            if public:
+                proof.update(public)
+            else:
+                proof.update(
+                    inconclusive=True,
+                    reason="No public-community management read was established; silence does not establish public-community rejection or filtering",
+                )
+            if entry.get("credential") or entry.get("monitoring_community"):
+                try:
+                    if entry.get("credential"):
+                        from pysnmp.hlapi.v3arch.asyncio import (  # pyright: ignore[reportMissingImports]
+                            USM_AUTH_HMAC192_SHA256,
+                            USM_PRIV_CFB128_AES,
+                            UsmUserData,
+                        )
+
+                        credential = entry["credential"]
+                        proof["authenticated_read"] = None
+                        auth = UsmUserData(
+                            credential["username"],
+                            authKey=credential["auth_key"],
+                            privKey=credential["priv_key"],
+                            authProtocol=USM_AUTH_HMAC192_SHA256,
+                            privProtocol=USM_PRIV_CFB128_AES,
+                        )
+                    else:
+                        auth = CommunityData(entry["monitoring_community"], mpModel=1)
+                    monitoring_confirmed, monitoring = await read(auth)
+                    proof["protocol_confirmed"] = confirmed or monitoring_confirmed
+                    if monitoring:
+                        proof["approved_monitoring_read"] = True
+                        proof.update(
+                            {"monitoring_" + key: value for key, value in monitoring.items()}
+                        )
+                        if not public:
+                            proof.update(monitoring)
+                            proof["reason"] = (
+                                "The authorised monitoring read succeeded, but no public-community management value was received; silence does not establish public-community rejection or filtering"
+                            )
+                        if entry.get("credential"):
+                            proof.update(
+                                authenticated_read=True,
+                                monitoring_snmp_version=3,
+                                monitoring_security_level="authPriv",
+                                monitoring_auth_protocol="HMAC-SHA-256",
+                                monitoring_priv_protocol="AES-128",
+                            )
+                    else:
+                        proof.update(
+                            inconclusive=True,
+                            monitoring_check_error="No authorised monitoring management value was established; no rejection is inferred from silence",
+                        )
+                except Exception as error:
+                    # A failed approved probe cannot erase an independently completed public read.
+                    proof.update(inconclusive=True, monitoring_check_error=type(error).__name__)
+            return proof
         finally:
             engine.close_dispatcher()
 

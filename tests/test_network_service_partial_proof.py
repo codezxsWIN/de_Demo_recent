@@ -163,7 +163,7 @@ def test_snmp_monitoring_needs_a_real_management_value(
     async def target(*args, **kwargs):
         return object()
 
-    async def get_cmd(_engine, community, *_args):
+    async def get_cmd(_engine, community, *_args, **_kwargs):
         communities.append(community)
         return next(responses)
 
@@ -208,5 +208,122 @@ def test_snmp_monitoring_needs_a_real_management_value(
     else:
         assert row["proof"]["inconclusive"] is True
         assert "approved_monitoring_read" not in row["proof"]
-        assert "public_community_read" not in row["proof"]
+        assert row["proof"]["public_community_read"] is None
         assert row["status"] == "inconclusive" and coverage.startswith("partial:")
+
+
+@pytest.mark.parametrize("public_read", [False, True])
+@pytest.mark.parametrize(
+    "monitor_result", ["value", "exception", "empty", "wrong_oid", "timeout", "error"]
+)
+def test_snmpv3_retains_independent_public_and_authenticated_read_proof(
+    tmp_path, monkeypatch, offline_coroutines, public_read, monitor_result
+):
+    credential = {
+        "username": "synthetic-reader",
+        "auth_key": "synthetic-auth-key",
+        "priv_key": "synthetic-priv-key",
+    }
+    oid = "1.3.6.1.2.1.1.1.0"
+    public_value, private_value = "public description", "authenticated description"
+    sentinel = type("NoSuchObject", (), {})
+    engine = SimpleNamespace(close_dispatcher=Mock())
+    requests = []
+
+    async def target(*_args, **_kwargs):
+        return object()
+
+    def user(username, **options):
+        assert username == credential["username"]
+        assert options == {
+            "authKey": credential["auth_key"],
+            "privKey": credential["priv_key"],
+            "authProtocol": "SHA256",
+            "privProtocol": "AES128",
+        }
+        return "authPriv-request"
+
+    async def get_cmd(_engine, auth, *_args, **kwargs):
+        assert kwargs == {"lookupMib": False}
+        requests.append(auth)
+        if auth == "public":
+            return (None, 0, 0, [(oid, public_value)]) if public_read else ("timeout", 0, 0, [])
+        assert auth == "authPriv-request"
+        if monitor_result == "error":
+            raise OSError(credential["priv_key"])
+        if monitor_result == "timeout":
+            return "timeout", 0, 0, []
+        if monitor_result == "empty":
+            return None, 0, 0, []
+        if monitor_result == "wrong_oid":
+            return None, 0, 0, [("1.3.6.1.2.1.1.5.0", private_value)]
+        return None, 0, 0, [(oid, sentinel() if monitor_result == "exception" else private_value)]
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pysnmp.hlapi.v3arch.asyncio",
+        SimpleNamespace(
+            SnmpEngine=lambda: engine,
+            UdpTransportTarget=SimpleNamespace(create=target),
+            get_cmd=get_cmd,
+            CommunityData=lambda community, **_: community,
+            ContextData=lambda: None,
+            ObjectIdentity=lambda *_: None,
+            ObjectType=lambda *_: None,
+            UsmUserData=user,
+            USM_AUTH_HMAC192_SHA256="SHA256",
+            USM_PRIV_CFB128_AES="AES128",
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pysnmp.proto.rfc1905",
+        SimpleNamespace(
+            NoSuchObject=sentinel,
+            NoSuchInstance=type("NoSuchInstance", (), {}),
+            EndOfMibView=type("EndOfMibView", (), {}),
+        ),
+    )
+    findings, services, coverage, row = assess(
+        {
+            "service": "snmp",
+            "port": 49172,
+            "transport": "udp",
+            "require_auth": True,
+            "credential": credential,
+        },
+        tmp_path,
+    )
+    proof = row["proof"]
+    assert requests == ["public", "authPriv-request"]
+    engine.close_dispatcher.assert_called_once_with()
+    assert proof["public_community_read"] is (True if public_read else None)
+    assert len(findings) == int(public_read)
+    for value in credential.values():
+        assert value not in json.dumps(row)
+        assert all(value not in finding.evidence for finding in findings)
+    if monitor_result == "value":
+        assert proof["authenticated_read"] is proof["approved_monitoring_read"] is True
+        assert proof["monitoring_security_level"] == "authPriv"
+        assert proof["monitoring_snmp_version"] == 3
+        assert proof["monitoring_auth_protocol"] == "HMAC-SHA-256"
+        assert proof["monitoring_priv_protocol"] == "AES-128"
+        assert proof["monitoring_oid"] == oid
+        assert (
+            proof["monitoring_response_sha256"]
+            == hashlib.sha256(private_value.encode()).hexdigest()
+        )
+    else:
+        assert proof["authenticated_read"] is None
+        assert "approved_monitoring_read" not in proof
+        assert "monitoring_security_level" not in proof
+        assert "monitoring_response_sha256" not in proof
+        assert proof["inconclusive"] is True
+    if public_read:
+        assert proof["response_sha256"] == hashlib.sha256(public_value.encode()).hexdigest()
+    assert coverage.startswith(
+        "complete:" if public_read and monitor_result == "value" else "partial:"
+    )
+    assert bool(services) is (
+        public_read or monitor_result in {"value", "exception", "empty", "wrong_oid"}
+    )

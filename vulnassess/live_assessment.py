@@ -111,7 +111,12 @@ def nmap_probe() -> tuple[str | None, str]:
             )
     try:
         version = subprocess.run(
-            [binary, "-V"], capture_output=True, text=True, timeout=10, check=False
+            [binary, "-V"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired:
         return None, f"Nmap was found at {binary} but its version check timed out"
@@ -522,7 +527,12 @@ def _scan_requested_endpoint(
             )
         timeout = plan_execution.remaining("nmap", 90) if plan_execution else 90
         result = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if result.returncode != 0 or not capture.is_file():
             detail = (result.stderr or result.stdout or f"Nmap exited {result.returncode}").strip()
@@ -697,6 +707,7 @@ def _scan_requested_endpoint(
                 timeout=timeout,
                 check=False,
                 cwd=orchestrator._nikto_cwd(argv),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             if result.returncode != 0 or not output.is_file():
                 transcript.seek(0)
@@ -838,7 +849,12 @@ def run(
     )
     try:
         completed = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired as error:
         detail = f"Light Nmap scan timed out after {timeout} seconds"

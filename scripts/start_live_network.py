@@ -28,6 +28,7 @@ def run(arguments, *, timeout=120):
         encoding="utf-8",
         timeout=timeout,
         check=False,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if result.returncode:
         raise RuntimeError(f"Command failed: {result.stderr[-1200:]}")

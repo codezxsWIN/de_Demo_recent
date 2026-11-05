@@ -106,7 +106,12 @@ def run_scan(
     results = {}
     for command in commands:
         completed = subprocess.run(
-            list(command.argv), capture_output=True, text=True, timeout=timeout, check=False
+            list(command.argv),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if completed.returncode != 0 and not command.output.is_file():
             raise AdapterError(

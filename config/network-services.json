@@ -18,7 +18,7 @@
       {"port": 1884, "transport": "tcp", "service": "mqtt", "require_auth": true, "publish_topic": "vulnassess/training/assessment"},
       {"port": 8883, "transport": "tcp", "service": "tls", "require_unexpired_certificate": true, "require_matching_hostname": true, "require_valid_certificate_chain": true},
       {"port": 1161, "transport": "udp", "service": "snmp", "require_auth": true},
-      {"port": 1162, "transport": "udp", "service": "snmp", "require_auth": true, "monitoring_community": "vulnassess-private-training-2026"}
+      {"port": 1162, "transport": "udp", "service": "snmp", "require_auth": true, "credential": {"username": "vulnassess-monitor", "auth_key": "training-auth-key-2026", "priv_key": "training-priv-key-2026"}}
     ]
   }
 }

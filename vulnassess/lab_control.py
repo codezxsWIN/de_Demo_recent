@@ -264,6 +264,7 @@ class LabControl:
             encoding="utf-8",
             errors="strict",
             timeout=90 if operation == "compose_up" else 20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         _require(result.returncode == 0, "docker_" + operation + "_failed")
         _require(len(result.stdout) <= 1048576, "docker_output_too_large")

@@ -99,6 +99,7 @@ def collect(only: str | None = None) -> dict:
                 text=True,
                 timeout=20,
                 check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             if result.returncode == 0:
                 output = result.stdout

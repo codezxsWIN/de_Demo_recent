@@ -194,6 +194,60 @@ def test_invalid_policy_is_rejected_before_network(tmp_path, entry):
         write_policy(tmp_path, entry)
 
 
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "external",
+        "missing_key",
+        "short_auth",
+        "short_priv",
+        "long_user",
+        "control",
+        "unicode",
+        "extra_key",
+        "mixed_community",
+        "wrong_service",
+    ],
+)
+def test_snmpv3_credential_policy_is_complete_bounded_and_loopback_only(tmp_path, defect):
+    entry = {
+        "service": "snmp",
+        "transport": "udp",
+        "port": 1162,
+        "require_auth": True,
+        "credential": {
+            "username": "training-reader",
+            "auth_key": "dummy-auth-key",
+            "priv_key": "dummy-priv-key",
+        },
+    }
+    ip = "192.0.2.77" if defect == "external" else "127.0.0.1"
+    if defect == "missing_key":
+        entry["credential"].pop("priv_key")
+    elif defect == "short_auth":
+        entry["credential"]["auth_key"] = "short"
+    elif defect == "short_priv":
+        entry["credential"]["priv_key"] = "short"
+    elif defect == "long_user":
+        entry["credential"]["username"] = "x" * 33
+    elif defect == "control":
+        entry["credential"]["auth_key"] = "dummy\x7fkey"
+    elif defect == "unicode":
+        entry["credential"]["priv_key"] = "é" * 8
+    elif defect == "extra_key":
+        entry["credential"]["algorithm"] = "MD5"
+    elif defect == "mixed_community":
+        entry["monitoring_community"] = "another-credential"
+    elif defect == "wrong_service":
+        entry.update(service="ftp", transport="tcp")
+    if defect is None:
+        assert write_policy(tmp_path, entry, ip)["endpoints"] == [entry]
+    else:
+        with pytest.raises(ConfigError):
+            write_policy(tmp_path, entry, ip)
+
+
 def test_ftp_checks_login_without_reading_files(monkeypatch):
     class FTP:
         def __init__(self, **_):

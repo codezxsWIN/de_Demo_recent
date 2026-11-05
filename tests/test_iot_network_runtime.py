@@ -2,13 +2,14 @@
 
 import asyncio
 import ipaddress
+import json
 import os
 import socket
 import ssl
 import subprocess
 import sys
 import threading
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -383,7 +384,25 @@ def test_tls_serves_expired_self_signed_cert_and_real_mqtt(tmp_path, dependencie
     asyncio.run(exercise())
 
 
-async def _snmp(port, community, *, write=False):
+def _snmp_user(*, auth_key=iot.SNMPV3_AUTH_KEY, priv_key=iot.SNMPV3_PRIV_KEY, level="authPriv"):
+    from pysnmp.hlapi.v3arch.asyncio import (
+        USM_AUTH_HMAC192_SHA256,
+        USM_AUTH_NONE,
+        USM_PRIV_CFB128_AES,
+        USM_PRIV_NONE,
+        UsmUserData,
+    )
+
+    return UsmUserData(
+        iot.SNMPV3_USER,
+        authKey=auth_key if level != "noAuthNoPriv" else None,
+        privKey=priv_key if level == "authPriv" else None,
+        authProtocol=USM_AUTH_HMAC192_SHA256 if level != "noAuthNoPriv" else USM_AUTH_NONE,
+        privProtocol=USM_PRIV_CFB128_AES if level == "authPriv" else USM_PRIV_NONE,
+    )
+
+
+async def _snmp(port, community=None, *, write=False, auth=None, host=iot.HOST):
     from pysnmp.hlapi.v3arch.asyncio import (
         CommunityData,
         ContextData,
@@ -398,7 +417,7 @@ async def _snmp(port, community, *, write=False):
 
     manager = SnmpEngine()
     try:
-        target = await UdpTransportTarget.create((iot.HOST, port), timeout=0.3, retries=0)
+        target = await UdpTransportTarget.create((host, port), timeout=0.3, retries=0)
         args = (
             [ObjectType(ObjectIdentity("1.3.6.1.2.1.1.5.0"), OctetString("changed"))]
             if write
@@ -406,7 +425,11 @@ async def _snmp(port, community, *, write=False):
         )
         return await (set_cmd if write else get_cmd)(
             manager,
-            CommunityData(community, mpModel=1),
+            auth
+            if auth is not None
+            else CommunityData(community, mpModel=1)
+            if community is not None
+            else _snmp_user(),
             target,
             ContextData(),
             *args,
@@ -417,10 +440,10 @@ async def _snmp(port, community, *, write=False):
 
 
 @runtime
-def test_snmp_public_get_private_get_public_timeout_and_read_only(tmp_path, dependencies):
+def test_snmp_public_get_authpriv_get_public_timeout_and_read_only(tmp_path, dependencies):
     async def exercise():
         async with iot.start(tmp_path):
-            for port, community in ((1161, "public"), (1162, iot.PRIVATE_COMMUNITY)):
+            for port, community in ((1161, "public"), (1162, None)):
                 error, status, _, values = await _snmp(port, community)
                 assert not error and not status
                 assert [str(value) for _, value in values] == [iot.SYS_DESCR, iot.SYS_NAME]
@@ -432,6 +455,81 @@ def test_snmp_public_get_private_get_public_timeout_and_read_only(tmp_path, depe
             assert error and "timeout" in str(error).lower() and not status
 
     asyncio.run(exercise())
+
+
+def test_snmp_authpriv_temporary_port_reads_are_authenticated_and_read_only():
+    pytest.importorskip("pysnmp")
+    pytest.importorskip("cryptography")
+    from pysnmp.proto.rfc1905 import EndOfMibView, NoSuchInstance, NoSuchObject
+
+    from vulnassess import network_service_checks as checks
+
+    async def exercise():
+        async with AsyncExitStack() as stack:
+            port = await iot._start_agent(stack, 0, None, bind_host="127.0.0.1")
+            assert port > 0
+            error, status, _, values = await _snmp(port, host="127.0.0.1")
+            assert not error and not status
+            assert [str(value) for _, value in values] == [iot.SYS_DESCR, iot.SYS_NAME]
+            error, status, _, _ = await _snmp(port, host="127.0.0.1", write=True)
+            assert not error and status  # Explicit SET refusal, not a timeout.
+            error, status, _, values = await _snmp(port, host="127.0.0.1")
+            assert not error and not status and str(values[1][1]) == iot.SYS_NAME
+            for auth in (
+                _snmp_user(auth_key="wrong-training-auth-key"),
+                _snmp_user(priv_key="wrong-training-priv-key"),
+                _snmp_user(level="authNoPriv"),
+                _snmp_user(level="noAuthNoPriv"),
+            ):
+                error, status, _, values = await _snmp(port, auth=auth, host="127.0.0.1")
+                successful_value = (
+                    not error
+                    and not status
+                    and values
+                    and any(
+                        not isinstance(value, (NoSuchObject, NoSuchInstance, EndOfMibView))
+                        for _, value in values
+                    )
+                )
+                assert not successful_value  # Silence establishes no successful read, not denial.
+            credential = {
+                "username": iot.SNMPV3_USER,
+                "auth_key": iot.SNMPV3_AUTH_KEY,
+                "priv_key": iot.SNMPV3_PRIV_KEY,
+            }
+            proof = await asyncio.to_thread(
+                checks._snmp,
+                "127.0.0.1",
+                {
+                    "port": port,
+                    "credential": credential,
+                    "require_auth": True,
+                },
+            )
+            assert proof["authenticated_read"] is proof["approved_monitoring_read"] is True
+            assert proof["monitoring_snmp_version"] == 3
+            assert proof["monitoring_security_level"] == "authPriv"
+            assert proof["public_community_read"] is None
+            assert proof["inconclusive"] is True
+            assert proof["monitoring_response_length"] == len(iot.SYS_DESCR.encode())
+            for secret in credential.values():
+                assert secret not in json.dumps(proof)
+        await asyncio.sleep(0)
+
+    asyncio.run(exercise())
+
+
+def test_committed_snmpv3_policy_matches_designated_training_agent():
+    policy = json.loads(
+        (Path(__file__).resolve().parents[1] / "config/network-services.json").read_text()
+    )
+    entry = next(row for row in policy["targets"][iot.HOST] if row["port"] == 1162)
+    assert "monitoring_community" not in entry
+    assert entry["credential"] == {
+        "username": iot.SNMPV3_USER,
+        "auth_key": iot.SNMPV3_AUTH_KEY,
+        "priv_key": iot.SNMPV3_PRIV_KEY,
+    }
 
 
 def _assert_rebindable():

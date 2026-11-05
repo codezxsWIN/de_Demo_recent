@@ -20,6 +20,7 @@ from collections import deque
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from labs.service_networks.traffic_capture import (
     KERNEL_TIMESTAMP,
@@ -43,6 +44,7 @@ from labs.service_networks.traffic_capture import (
     utc,
     utc_ns,
 )
+from vulnassess import lab_clock
 
 MAX_STATUS_BYTES = 1024 * 1024
 MAX_CLIENT_STATUS_BYTES = 8192
@@ -74,6 +76,15 @@ finally:
     os.close(directory)
 """.replace("__MAXIMUM__", str(MAX_CLIENT_STATUS_BYTES))
 CLIENT_STALE_SECONDS = 15
+OBSERVER_CLOCK_READ_SCRIPT = """import json,select,sys,time
+print('clock-ready', flush=True)
+if not select.select([sys.stdin], [], [], 3)[0]:
+    raise SystemExit('Clock request deadline exceeded')
+token = sys.stdin.buffer.readline(34)
+if len(token) != 33 or token[-1:] != b'\\n' or any(c not in b'0123456789abcdef' for c in token[:-1]):
+    raise SystemExit('Invalid clock challenge')
+print(json.dumps({'nonce':token[:-1].decode('ascii'), 'realtime_ns':time.time_ns(), 'monotonic_ns':time.monotonic_ns()}), flush=True)
+"""
 CLIENT_ENDPOINTS = {
     "office-workstation": ("172.30.41.5", "172.30.41.3", 2121, "ftp", "FTP RETR network-proof.txt"),
     "iot-sensor": ("172.30.42.5", "172.30.42.3", 1883, "mqtt", "MQTT PUBLISH"),
@@ -700,6 +711,7 @@ class TrafficMonitor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 shell=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             ) as process:
                 timed_out = threading.Event()
 
@@ -1020,7 +1032,7 @@ class TrafficMonitor:
         return result
 
     def _read_client_receipt(self, node):
-        """The only permitted container exec: one immutable, read-only reader."""
+        """One fixed, read-only reader for inspected client application receipts."""
         if (
             node.get("service") not in CLIENT_ENDPOINTS
             or node.get("project") != PROJECT
@@ -1104,10 +1116,18 @@ class TrafficMonitor:
             raise ValueError(topology["error"] or "No inspected Docker lab containers")
         return self._observer(topology["nodes"], environment)[0]
 
-    def _available_status(self, status, capture):
+    def _available_status(self, status, capture, *, clock_alignment=None):
         result = {**status, "available": False, "limitations": list(LIMITATIONS)}
         age = (datetime.now(UTC) - _timestamp(status["updated_at"])).total_seconds()
-        result["stale"] = not -2 <= age <= self.stale_seconds
+        if clock_alignment and clock_alignment.get("status") == "bounded":
+            # Compare clocks using their measured relationship. Require the
+            # entire possible age interval to satisfy the freshness policy.
+            lower_age = age + clock_alignment["offset_lower_ns"] / 1e9
+            upper_age = age + clock_alignment["offset_upper_ns"] / 1e9
+            result["stale"] = not (-2 <= lower_age and upper_age <= self.stale_seconds)
+            result["freshness_clock_basis"] = "measured_observer_offset_envelope"
+        else:
+            result["stale"] = not -2 <= age <= self.stale_seconds
         result["capture_service"] = capture["service"]
         result["capture_container_id"] = capture["id"]
         if result["stale"]:
@@ -1191,7 +1211,116 @@ class TrafficMonitor:
             raise ValueError("Correlation interval is reversed")
         return start, finish
 
-    def collect(self, environment, port, started_at, finished_at):
+    def _clock_exchange(self, observer_id):
+        """Measure only a nonce exchange after the fixed reader is ready.
+
+        Docker process startup is outside the measured interval. A five-second
+        process watchdog and fixed line limits bound both transport and output.
+        """
+        if not isinstance(observer_id, str) or not CONTAINER_ID.fullmatch(observer_id):
+            raise ValueError("Clock read requires an inspected immutable observer ID")
+        token = uuid4().hex
+        with subprocess.Popen(
+            [
+                "docker",
+                "exec",
+                "-i",
+                "--user",
+                "10001:10001",
+                observer_id,
+                "python",
+                "-c",
+                OBSERVER_CLOCK_READ_SCRIPT,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            shell=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        ) as process:
+            expired = threading.Event()
+
+            def expire():
+                expired.set()
+                with suppress(OSError):
+                    process.kill()
+
+            timer = threading.Timer(DOCKER_TIMEOUT, expire)
+            timer.daemon = True
+            timer.start()
+            try:
+                if (
+                    process.stdout is None
+                    or process.stdin is None
+                    or process.stdout.readline(64) != b"clock-ready\n"
+                ):
+                    raise ValueError(
+                        "Observer clock reader did not complete its readiness handshake"
+                    )
+                before = time.time_ns()
+                # Python 3.12's Windows monotonic clock can have a 15.6 ms
+                # tick. perf_counter is monotonic and uses the high-resolution
+                # performance counter, so sub-tick exchanges remain measurable.
+                monotonic_before = time.perf_counter_ns()
+                process.stdin.write(token.encode("ascii") + b"\n")
+                process.stdin.flush()
+                raw = process.stdout.readline(1025)
+                monotonic_after = time.perf_counter_ns()
+                after = time.time_ns()
+                process.stdin.close()
+                process.wait(timeout=DOCKER_TIMEOUT)
+                if expired.is_set() or process.returncode != 0 or process.stdout.read(1):
+                    raise ValueError("Observer clock reader exceeded its transport contract")
+                document = _json(raw, 1024)
+                if (
+                    not isinstance(document, dict)
+                    or set(document) != {"nonce", "realtime_ns", "monotonic_ns"}
+                    or document["nonce"] != token
+                ):
+                    raise ValueError("Observer clock response does not match its challenge")
+                return document, before, after, monotonic_before, monotonic_after
+            except subprocess.TimeoutExpired as error:
+                raise ValueError("Observer clock reader exceeded its process deadline") from error
+            finally:
+                # Kill before the context manager waits, including malformed
+                # readiness/JSON paths. The fixed reader also has a stdin timeout.
+                if process.poll() is None:
+                    with suppress(OSError):
+                        process.kill()
+                timer.cancel()
+
+    def clock_sample(self, environment):
+        """Bracket a fixed, non-root clock read from the inspected observer."""
+        environment_name(environment)
+        self.refresh(environment)
+        capture = self._capture_node(environment)
+        document, before, after, monotonic_before, monotonic_after = self._clock_exchange(
+            capture["id"]
+        )
+        return {
+            "environment": environment,
+            "observer_container_id": capture["id"],
+            "method": "fixed_readonly_observer_clock",
+            "host_before_ns": before,
+            "host_after_ns": after,
+            "host_monotonic_before_ns": monotonic_before,
+            "host_monotonic_after_ns": monotonic_after,
+            "observer_realtime_ns": document["realtime_ns"],
+            "observer_monotonic_ns": document["monotonic_ns"],
+        }
+
+    def _alignment(self, environment, capture_id, started_at, finished_at, samples):
+        if samples is None:
+            return {
+                "status": "not_measured",
+                "reason": "No bracketed observer clock samples were retained",
+            }
+        try:
+            return lab_clock.alignment(samples, environment, capture_id, started_at, finished_at)
+        except (ValueError, TypeError, OverflowError) as error:
+            return {"status": "unavailable", "reason": str(error)}
+
+    def collect(self, environment, port, started_at, finished_at, *, clock_samples=None):
         """Return association and PCAP from one atomic bundle, or raise ValueError.
 
         Publication polling has a 1.5s budget after the initial bounded download.
@@ -1201,12 +1330,15 @@ class TrafficMonitor:
         _, finish = self._window(environment, port, started_at, finished_at)
         self.refresh(environment)
         capture = self._capture_node(environment)
+        clock = self._alignment(environment, capture["id"], started_at, finished_at, clock_samples)
+        if clock["status"] == "bounded":
+            finish = _timestamp(clock["observer_finished_at"])
 
         def read_pair():
             document, pcap = validate_evidence_bundle(
                 self._download(capture["id"], "evidence"), environment
             )
-            status = self._available_status(document, capture)
+            status = self._available_status(document, capture, clock_alignment=clock)
             if not status["available"]:
                 raise ValueError(status["error"] or "Independent paired capture is unavailable")
             return status, pcap
@@ -1229,7 +1361,9 @@ class TrafficMonitor:
                 status, pcap = newer_status, newer_pcap
         finally:
             self._timeouts.deadline = previous_deadline
-        result = self._correlation_result(environment, port, started_at, finished_at, status)
+        result = self._correlation_result(
+            environment, port, started_at, finished_at, status, clock_alignment=clock
+        )
         result.update(
             paired_evidence=True,
             evidence_pairing="atomic_status_and_pcap_bundle",
@@ -1269,13 +1403,24 @@ class TrafficMonitor:
             self._timeouts.deadline = previous_deadline
         return self._correlation_result(environment, port, started_at, finished_at, status)
 
-    def _correlation_result(self, environment, port, started_at, finished_at, status):
+    def _correlation_result(
+        self, environment, port, started_at, finished_at, status, *, clock_alignment=None
+    ):
         start, finish = self._window(environment, port, started_at, finished_at)
+        clock = clock_alignment or {
+            "status": "not_measured",
+            "reason": "No bracketed observer clock samples were retained",
+        }
+        bounded = clock["status"] == "bounded"
+        if bounded:
+            start = _timestamp(clock["observer_started_at"])
+            finish = _timestamp(clock["observer_finished_at"])
         result = {
             "available": status["available"],
             "error": status["error"],
             "environment": environment,
             "session_id": status["session_id"],
+            "capture_container_id": status.get("capture_container_id"),
             "started_at": started_at,
             "finished_at": finished_at,
             "port": port,
@@ -1289,10 +1434,24 @@ class TrafficMonitor:
             "association_established": False,
             "association": "not_established",
             "captured_packets": status["captured_packets"],
+            "clock_alignment": clock,
+            "association_window": {
+                "clock": "observer_realtime_bounded" if bounded else "host_realtime_unaligned",
+                "started_at": start.isoformat(),
+                "finished_at": finish.isoformat(),
+            },
             "window_published": bool(
                 status["updated_at"] and _timestamp(status["updated_at"]) >= finish
             ),
         }
+        if bounded:
+            result["method"] = "endpoint_and_bounded_clock_window"
+            result["limitations"] = [
+                line for line in result["limitations"] if "alignment with Windows/WSL" not in line
+            ]
+            result["limitations"].extend([clock["assumption"], clock["limit"]])
+        elif clock["status"] == "unavailable":
+            result["limitations"].append("Clock alignment was withheld: " + clock["reason"])
         if not status["available"]:
             return result
         if not result["window_published"]:

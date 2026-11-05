@@ -193,9 +193,22 @@ class LiveLab:
         expected_ip, entry = self.console.endpoint(environment, self.actions[action][1])
         if expected_ip != ip or entry not in policy["endpoints"]:
             raise ConfigError("Endpoint policy changed before this operation")
+        clock_samples = []
+        clock_error = None
+        sample_clock = getattr(self.traffic, "clock_sample", None)
+        if callable(sample_clock):
+            try:
+                clock_samples.append(sample_clock(environment))
+            except (ConfigError, OSError, ValueError, RuntimeError) as error:
+                clock_error = str(error)[:240]
         started = now()
         result = self.console.action(action)
         finished = now()
+        if clock_samples and callable(sample_clock):
+            try:
+                clock_samples.append(sample_clock(environment))
+            except (ConfigError, OSError, ValueError, RuntimeError) as error:
+                clock_error = str(error)[:240]
         identifier = "live-" + uuid4().hex
         case = {
             "schema_version": 1,
@@ -213,8 +226,14 @@ class LiveLab:
         }
         try:
             case["packet_evidence"], capture = self.traffic.collect(
-                environment, entry["port"], started, finished
+                environment,
+                entry["port"],
+                started,
+                finished,
+                **({"clock_samples": clock_samples} if clock_samples else {}),
             )
+            if clock_error:
+                case["packet_evidence"]["clock_alignment_error"] = clock_error
             self._local_directory()
             self.directory.mkdir(parents=True, exist_ok=True)
             path = self.directory / (identifier + ".pcap")
@@ -491,6 +510,14 @@ class LiveLab:
                 f"role {case['context']['role']['value']}. The loopback target represents an isolated training service, not an internet-facing production asset.",
             },
         }
+        clock = case.get("packet_evidence", {}).get("clock_alignment", {})
+        if clock.get("status") == "bounded":
+            facts["capture"]["text"] += (
+                f" Observer-clock association uncertainty is {clock['uncertainty_ms']:.3f} ms. "
+                + clock["assumption"]
+                + " "
+                + clock["limit"]
+            )
         if case["action"] in {"redis-office", "redis-iot"}:
             proof = case["result"]["proof"]
             facts["observation"]["text"] = (

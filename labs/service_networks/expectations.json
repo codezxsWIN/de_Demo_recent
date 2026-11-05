@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "inventory_id": "office-iot-v1",
-  "reviewed_by": "Separate configuration-only code review; no detector output consulted; not an external expert benchmark",
+  "reviewed_by": "Separate configuration-only review of Office and SNMPv3 IoT source; deployed image sources matched byte-for-byte. No detector output defines expected truth; not an external expert benchmark.",
   "sources": {
     "labs/service_networks/office.py": "13a049a8fc27283977c0989203ae8ef23718cbcb8ff20ce186c3660ac92bea81",
-    "labs/service_networks/iot.py": "260e4475de6f19cc5e30e6d8ee38095f83082bfbabfa36a88e3d4019572acfa4",
+    "labs/service_networks/iot.py": "00cd41831297487d9855dfbc70553be9b28f0dce28483a26a788749ca3b65f3c",
     "labs/service_networks/compose.yaml": "14f27b9355e5da649ef2ec10aa03f72deaf1601be4f69887b94efd10c049cdfe",
     "labs/service_networks/requirements.txt": "dae1248ee9446cd576f8610fcff2c97ec19cd874d941a991312523be0d6442f4",
-    "config/network-services.json": "f4460950d10602d4324e40ec043ef502e524825fc30ef21a5e2d10be3de8ab7d"
+    "config/network-services.json": "b9483779c1401990e6149f481a94c6000318c399e87cf37b1146beb894baf1a7"
   },
   "environments": {
     "office": {
@@ -151,7 +151,7 @@
           "description": "INFO server identity only. ACL permits PING and INFO server; CVE applicability and exploitability are not tested by this check."
         }
       ],
-      "reviewed_image_id": "sha256:be0ce2d755a2753650cb275d65755948e8025a094d6f110c907c985ebac26c35"
+      "reviewed_image_id": "sha256:95bc3d9a198539db5ea9243b78b47d34242a6e936a514dc13a021449588dbdc2"
     },
     "iot": {
       "target": "127.0.0.3",
@@ -217,7 +217,7 @@
             "baseline": false,
             "restricted": false
           },
-          "description": "Read using public community; private comparison does not provide SNMPv3 privacy",
+          "description": "SNMPv3-only authPriv agent with read-only SHA-256/AES-128 credentials. A silent public query remains unknown; authenticated-read success does not prove public-query refusal.",
           "source": "labs/service_networks/iot.py:_start_agent"
         },
         {
@@ -278,7 +278,7 @@
           "description": "INFO server identity only. ACL permits PING and INFO server; CVE applicability and exploitability are not tested by this check."
         }
       ],
-      "reviewed_image_id": "sha256:be0ce2d755a2753650cb275d65755948e8025a094d6f110c907c985ebac26c35"
+      "reviewed_image_id": "sha256:95bc3d9a198539db5ea9243b78b47d34242a6e936a514dc13a021449588dbdc2"
     }
   }
 }
