@@ -62,7 +62,12 @@ def app():
         return {"status": "SYNTHETIC-OFFLINE-RESPONSE"}
 
     instance.network_live = lambda: SimpleNamespace(
-        check=check, change=check, explain=check, full_assessment=check, publish_assessment=check
+        check=check,
+        change=check,
+        explain=check,
+        full_assessment=check,
+        publish_assessment=check,
+        report_assessment=check,
     )
     return instance
 
