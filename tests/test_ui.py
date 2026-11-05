@@ -793,7 +793,7 @@ class TestUiModel(unittest.TestCase):
             "analysis": {},
             "evidence": [],
         }
-        with patch.object(analyst, "analyze_target", return_value=expected) as analyze:
+        with patch.object(analyst, "analyze_findings", return_value=expected) as analyze:
             status, _, body = request(self.application, "/api/analyst/demo/172.28.0.12")
         self.assertEqual(status, 200)
         payload = json.loads(body)
