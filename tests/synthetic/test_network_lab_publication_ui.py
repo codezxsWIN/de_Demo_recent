@@ -52,6 +52,13 @@ assert.ok(button);
 await button.events.click();
 assert.deepEqual(calls,[['publish',{assessment_id:suite.id}]]);
 assert.equal(all(nodes['coverage-content']).filter(n=>n.tag==='a').length,2);
+calls.length=0;
+$('ai-provider').value='google';$('cloud-consent').checked=false;
+render(linked);
+let generate=all(nodes['coverage-content']).find(n=>n.tag==='button'&&n.textContent==='Generate full AI report');
+await generate.events.click();
+assert.equal(calls.length,0);
+assert.match(nodes['coverage-ai-status'].textContent,/Confirm evidence sharing/);
 """
     node = shutil.which("node")
     assert node, "Node is required for publication UI regression checks"
