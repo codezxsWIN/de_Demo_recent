@@ -59,6 +59,14 @@ let generate=all(nodes['coverage-content']).find(n=>n.tag==='button'&&n.textCont
 await generate.events.click();
 assert.equal(calls.length,0);
 assert.match(nodes['coverage-ai-status'].textContent,/Confirm evidence sharing/);
+$('cloud-consent').checked=true;
+const report={capture_id:'assessment-SYNTHETIC-report',source_capture_id:capture,source_snapshot_hash:'f'.repeat(64),ai_status:'validated',provider:'google',model:'SYNTHETIC model not called',generated_at:'historical'};
+response={...linked,ai_reports:[report]};
+await generate.events.click();
+assert.deepEqual(calls,[['report',{assessment_id:suite.id,provider:'google',cloud_consent:true}]]);
+let full=all(nodes['coverage-content']).find(n=>n.tag==='a'&&n.textContent==='Open full AI report ↗');
+assert.equal(full.href,`/captures/${report.capture_id}/report`);
+assert.equal(full.target,'_blank');
 """
     node = shutil.which("node")
     assert node, "Node is required for publication UI regression checks"
