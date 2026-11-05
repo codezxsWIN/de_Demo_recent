@@ -259,3 +259,15 @@ def test_protocol_text_and_untrusted_identifiers_cannot_create_report_markup():
     assert "<script>" not in html and "<img " not in html
     assert "&lt;script&gt;alert(2)&lt;/script&gt;" in html
     assert "/api/network-live/evidence/" not in html
+
+
+@pytest.mark.parametrize("provider", ["google", "groq", "groq_qwen", "openrouter"])
+def test_full_report_consent_is_required_before_publication_or_ai(lab_suite, monkeypatch, provider):
+    lab, suite, _case = lab_suite
+    monkeypatch.setattr(
+        "vulnassess.capture_reanalysis.reanalyze",
+        lambda *_a, **_k: pytest.fail("No model may be called"),
+    )
+    with pytest.raises(ConfigError, match="consent"):
+        lab.report_assessment(suite["id"], provider, False)
+    assert not (lab.root / "data/live/raw").exists()
