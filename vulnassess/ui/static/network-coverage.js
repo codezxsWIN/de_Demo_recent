@@ -75,6 +75,7 @@ function renderCoverage(suite) {
   parent.append(el('p', `${date(suite.finished_at)} · ${suite.ground_truth?.profile || 'profile unverified'} · ${suite.status} · ${suite.id}`, 'muted'));
   const published = suite.main_assessment;
   const actions = el('div', undefined, 'packet-controls');
+  $('coverage-ai-status').textContent = 'Generate a full report using the AI provider and sharing choice in the AI evidence guide below. This reuses saved evidence; it does not scan again.';
   if (published?.status === 'saved' && /^assessment-lab-[a-f0-9]{32}$/.test(published.capture_id || '')) {
     for (const [label, href] of [
       ['Open assessment report ↗', `/captures/${published.capture_id}/report`],
@@ -83,6 +84,24 @@ function renderCoverage(suite) {
       const a = el('a', label, 'quiet'); a.href = href; a.target = '_blank'; a.rel = 'noopener'; actions.append(a);
     }
     parent.append(el('p', `Saved in the assessment database as ${published.run_id}. These views reuse retained evidence; they do not launch another scan.`, 'muted'));
+    const reportButton = el('button', 'Generate full AI report', 'quiet');
+    reportButton.addEventListener('click', async () => {
+      const provider = $('ai-provider').value, cloud_consent = $('cloud-consent').checked;
+      if (provider !== 'ollama' && !cloud_consent) {
+        $('coverage-ai-status').textContent = 'Confirm evidence sharing in the AI evidence guide before generating a cloud report.';
+        return;
+      }
+      reportButton.disabled = true;
+      setBusy(true, 'Generating the full AI report from retained evidence. Each batch must validate before analysis is published.');
+      try {
+        const saved = await post('report', {assessment_id: suite.id, provider, cloud_consent});
+        renderCoverage(saved);
+        const report = saved.ai_reports?.[saved.ai_reports.length - 1];
+        setBusy(false, report?.ai_status === 'validated' ? 'Full AI report saved; original scan evidence and priorities are unchanged.' : 'AI did not produce a validated full report. The saved attempt and evidence remain available.', report?.ai_status !== 'validated');
+      } catch (error) { setBusy(false, error.message, true); }
+      finally { reportButton.disabled = false; refresh(); }
+    });
+    actions.append(reportButton);
   } else {
     if (published?.error) parent.append(el('p', 'Main assessment publication: ' + published.error, 'error'));
     const button = el('button', 'Prepare main report from this evidence · no scan', 'quiet');
