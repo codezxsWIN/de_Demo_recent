@@ -37,3 +37,26 @@ def stored_app(monkeypatch):
     return app, payload, ip
 
 
+@pytest.mark.parametrize("provider", ["ollama", "google"])
+def test_every_stored_finding_reaches_the_ui_result_with_its_batch_scope(
+    stored_app, monkeypatch, provider
+):
+    app, payload, ip = stored_app
+    original = copy.deepcopy(payload)
+    calls = []
+
+    def one_at_a_time(current, host, **options):
+        assert host == ip and options["provider"] == provider
+        assert options["model"] == app.analyst_model and options["ollama_host"] == app.ollama_host
+        identity = current["findings"][0]["id"]
+        calls.append(identity)
+        return {"finding_coverage": {"included_ids": [identity]}, "canonical_scores_changed": False}
+
+    monkeypatch.setattr(analyst, "analyze_target", one_at_a_time)
+    result = app.analyst_report("SYNTHETIC-retained", ip, provider=provider)
+    assert len(calls) == 6 and set(calls) == {row["id"] for row in payload["findings"]}
+    assert result["batch_coverage"]["findings_included"] == 6
+    assert result["batch_coverage"]["findings_omitted"] == 0
+    assert result["run_id"] == "SYNTHETIC-retained" and payload == original
+
+
