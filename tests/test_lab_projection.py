@@ -271,3 +271,34 @@ def test_full_report_consent_is_required_before_publication_or_ai(lab_suite, mon
     with pytest.raises(ConfigError, match="consent"):
         lab.report_assessment(suite["id"], provider, False)
     assert not (lab.root / "data/live/raw").exists()
+
+
+def test_failed_full_ai_report_is_retained_and_original_evidence_is_unchanged(
+    lab_suite, monkeypatch
+):
+    lab, suite, case = lab_suite
+    linked = publish(lab, suite, lab.database)
+    directory = lab.root / "data/live/raw" / linked["capture_id"]
+    before = {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+    seen = []
+
+    def unavailable(payload, ip, provider, progress, **options):
+        seen.append((ip, provider, options))
+        progress("generation", "running", "SYNTHETIC unavailable provider")
+        assert lab.ai_progress["assessment_id"] == suite["id"]
+        return {
+            "analyst": None,
+            "ai_status": "unavailable",
+            "ai_attempts": [{"provider": provider, "status": "unavailable"}],
+        }
+
+    monkeypatch.setattr("vulnassess.analyst.analyze_optional", unavailable)
+    result = lab.report_assessment(suite["id"], "google", True)
+    report = result["ai_reports"][-1]
+    assert report["ai_status"] == "unavailable" and report["capture_id"] != linked["capture_id"]
+    saved = capture_history.load(lab.root / "data/live/raw", report["capture_id"])
+    assert saved["payload"]["findings"] == [case["findings"][0]["finding"]]
+    assert before == {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+    assert seen[0][1] == "google" and seen[0][2]["cloud_sharing_authorized"] is True
+    assert lab.publish_assessment(suite["id"])["main_assessment"] == linked
+    assert lab.ai_progress == {"running": False} and not lab.ai_lock.locked()
