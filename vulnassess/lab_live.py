@@ -121,6 +121,102 @@ class LiveLab:
             self.assessments._save(suite)
             return suite
 
+    def report_assessment(self, identifier, provider, cloud_consent):
+        """Create a separate full AI report from the verified retained snapshot."""
+        from vulnassess.capture_reanalysis import reanalyze
+
+        if (
+            not isinstance(provider, str)
+            or provider not in PROVIDERS
+            or type(cloud_consent) is not bool
+        ):
+            raise ConfigError("Choose a configured AI provider and sharing setting")
+        if provider != "ollama" and not cloud_consent:
+            raise ConfigError("Cloud report analysis requires explicit evidence-sharing consent")
+        if not self.ai_lock.acquire(blocking=False):
+            raise ConfigError("A live lab explanation or full report is already running")
+        try:
+            suite = self.publish_assessment(identifier)
+            linked = suite["main_assessment"]
+            if linked["status"] != "saved":
+                raise ConfigError(
+                    "Publish the verified lab assessment before generating its AI report"
+                )
+            self.ai_progress = {
+                "running": True,
+                "assessment_id": identifier,
+                "provider": provider,
+                "stage": "prepare",
+            }
+
+            def progress(stage, state, detail):
+                self.ai_progress = {
+                    "running": True,
+                    "assessment_id": identifier,
+                    "provider": provider,
+                    "stage": stage,
+                    "state": state,
+                    "detail": detail[:300],
+                }
+
+            record = reanalyze(
+                self.root / "data/live/raw",
+                linked["capture_id"],
+                provider,
+                progress,
+                cloud_sharing_authorized=cloud_consent,
+            )
+            analysis = record["result"].get("analyst") or {}
+            if record["analysis_source"]["source_snapshot_hash"] != linked["snapshot_hash"]:
+                raise ConfigError(
+                    f"Selected source changed; AI report retained as {record['capture_id']}"
+                )
+            if record["result"]["ai_status"] == "validated":
+                expected_ids = {
+                    row["id"]
+                    for row in record["payload"]["findings"]
+                    if row["host_ip"] == record["result"]["resolved_ip"]
+                }
+                reviewed_ids = [
+                    identity
+                    for batch in (analysis.get("batches") or [analysis])
+                    for identity in batch.get("finding_coverage", {}).get("included_ids", [])
+                ]
+                if (
+                    not analysis
+                    or len(reviewed_ids) != len(set(reviewed_ids))
+                    or set(reviewed_ids) != expected_ids
+                ):
+                    raise ConfigError(
+                        f"Full finding coverage was not established; saved report is {record['capture_id']}"
+                    )
+            report = {
+                "capture_id": record["capture_id"],
+                "source_capture_id": linked["capture_id"],
+                "source_snapshot_hash": record["analysis_source"]["source_snapshot_hash"],
+                "ai_status": record["result"]["ai_status"],
+                "provider": provider,
+                "model": analysis.get("model"),
+                "generated_at": record.get("analysis_attempted_at"),
+                "report_url": f"/captures/{record['capture_id']}/report",
+                "finding_coverage": analysis.get("batch_coverage")
+                or analysis.get("finding_coverage"),
+                "scan_status": record["result"]["scan_status"],
+                "snapshot_hash": record["snapshot_hash"],
+            }
+            with self.lock:
+                current = self.assessments.load(identifier)
+                if current.get("main_assessment") != linked:
+                    raise ConfigError(
+                        "The lab publication changed; the separate saved AI report was retained"
+                    )
+                current["ai_reports"] = [*current.get("ai_reports", []), report][-12:]
+                self.assessments._save(current)
+            return current
+        finally:
+            self.ai_progress = {"running": False}
+            self.ai_lock.release()
+
     def _environment(self, environment):
         if not isinstance(environment, str) or environment not in ENVIRONMENTS:
             raise ConfigError("Choose the Office or IoT lab")
