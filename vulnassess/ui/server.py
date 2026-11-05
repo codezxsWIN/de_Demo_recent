@@ -1684,6 +1684,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
                 "/api/network-live/explain",
                 "/api/network-live/assess",
                 "/api/network-live/publish",
+                "/api/network-live/report",
             }:
                 self._reply(error_response(405, "Live lab POST route not found"))
                 return
