@@ -1959,6 +1959,8 @@ def analyze_findings(
     *,
     provider: str = "ollama",
     on_progress: Callable[[str, str, str], None] | None = None,
+    model: str = DEFAULT_MODEL,
+    ollama_host: str = DEFAULT_HOST,
 ) -> dict[str, Any]:
     """Review bounded cases sequentially; publish only after every batch validates.
 
@@ -1979,6 +1981,8 @@ def analyze_findings(
                 on_progress(stage, state, f"Batch {index + 1}: {detail}")
 
         kwargs: dict[str, Any] = {"provider": provider, "on_progress": progress}
+        if model != DEFAULT_MODEL or ollama_host != DEFAULT_HOST:
+            kwargs.update(model=model, ollama_host=ollama_host)
         if client is not None:
             kwargs["client"] = client
         focused = current
