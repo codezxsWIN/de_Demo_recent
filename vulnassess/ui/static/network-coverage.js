@@ -102,6 +102,12 @@ function renderCoverage(suite) {
       finally { reportButton.disabled = false; refresh(); }
     });
     actions.append(reportButton);
+    const report = suite.ai_reports?.[suite.ai_reports.length - 1];
+    if (report && report.source_capture_id === published.capture_id && report.source_snapshot_hash === published.snapshot_hash && /^assessment-[a-zA-Z0-9_-]{1,80}$/.test(report.capture_id || '')) {
+      const link = el('a', report.ai_status === 'validated' ? 'Open full AI report ↗' : 'Review saved AI attempt ↗', 'quiet');
+      link.href = `/captures/${report.capture_id}/report`; link.target = '_blank'; link.rel = 'noopener'; actions.append(link);
+      $('coverage-ai-status').textContent = `Saved full-report AI status: ${report.ai_status} · ${report.provider}${report.model ? ' · ' + report.model : ''} · ${date(report.generated_at)}. Original evidence is retained separately.`;
+    }
   } else {
     if (published?.error) parent.append(el('p', 'Main assessment publication: ' + published.error, 'error'));
     const button = el('button', 'Prepare main report from this evidence · no scan', 'quiet');
