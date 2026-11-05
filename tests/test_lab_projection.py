@@ -190,6 +190,7 @@ def test_ai_bookkeeping_does_not_change_collection_binding_but_protocol_edits_do
     lab, suite, case = lab_suite
     original = project(lab, suite)
     case["ai"] = {"status": "not_requested", "note": "Synthetic later bookkeeping"}
+    case["ai_attempts"] = [{"status": "failed", "stage": "generate"}]
     lab._save(case)
     assert project(lab, suite) == original
     case["result"]["proof"]["anonymous_accepted"] = False

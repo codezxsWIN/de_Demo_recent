@@ -33,7 +33,7 @@ const validation=(item,status='current')=>({[item.id]:{status,case_sha256:item.s
   facts_sha256:'f'.repeat(64)}});
 const build=new Function('initial','receive',`
   let selected=initial.selected,cases=[],environment='office',refreshing=false,paused=false;
-  let packets=[],showWindow=false,aiValidations=initial.validations||{};
+  let packets=[],showWindow=false,aiValidations=initial.validations||{},aiProgress=null;
   const nodes={};
   const $=id=>nodes[id]??=(new initial.Element());
   const el=(tag,text)=>new initial.Element(tag,text);
@@ -43,7 +43,7 @@ const build=new Function('initial','receive',`
   const json=receive,renderTopology=()=>{},renderPackets=()=>{};
   const renderCase=()=>renderAI();
   ${actual}
-  return {renderAI,refresh,choose,nodes,setSelected:value=>{selected=value;}};
+  return {renderAI,refresh,choose,nodes,setSelected:value=>{selected=value;},setProgress:value=>{aiProgress=value;}};
 `);
 const harness=(item,validations={},receive=async()=>({investigations:[item]}))=>
   build({selected:item,validations,Element},receive);
@@ -80,6 +80,7 @@ const item=makeCase(),before=JSON.stringify(item);
 const mismatched=validation({...item,sha256:'b'.repeat(64)});
 const wrongCase={'different-id':validation(item)[item.id]};
 for(const map of [{},validation(item,'stale'),validation(item,'not_requested'),
+  validation(item,'invalid'),
   mismatched,wrongCase,{[item.id]:{status:'current'}}]){
   const ui=harness(item,map);ui.renderAI();hidden(ui);
 }
@@ -92,6 +93,49 @@ assert.equal(JSON.stringify(item),before);
 // A failed/unknown AI result cannot be promoted by a current validation entry.
 const failed={...item,ai:{...item.ai,status:'failed'}};
 const unavailable=harness(failed,validation(failed));unavailable.renderAI();hidden(unavailable);
+""")
+
+
+def test_failed_request_is_visible_without_erasing_a_previous_valid_explanation() -> None:
+    run_node(r"""
+const item=makeCase();
+item.ai_attempts=[{provider:'ollama',stage:'generate',status:'failed',finished_at:'failed-later'}];
+const ui=harness(item,validation(item));ui.renderAI();shown(ui);
+assert.match(ui.nodes['ai-attempt-summary'].textContent,/response generation.*failed/);
+assert.match(ui.nodes['ai-attempt-summary'].textContent,/original generation date/);
+assert.match(ui.nodes['ai-status'].textContent,/historical/);
+""")
+
+
+def test_first_failed_request_is_not_presented_as_no_request() -> None:
+    run_node(r"""
+const item=makeCase();item.ai={status:'not_requested'};
+item.ai_attempts=[{provider:'ollama',stage:'validate',status:'failed',finished_at:'retained'}];
+const ui=harness(item);ui.renderAI();
+assert.match(ui.nodes['ai-status'].textContent,/latest AI request failed/);
+assert.doesNotMatch(ui.nodes['ai-status'].textContent,/No AI request/);
+assert.equal(text(ui.nodes['ai-answer']),'');
+""")
+
+
+def test_identical_reference_normalisation_is_disclosed() -> None:
+    run_node(r"""
+const item=makeCase();item.ai.normalisation={duplicate_references_removed:{observations:2}};
+const ui=harness(item,validation(item));ui.renderAI();shown(ui);
+assert.match(ui.nodes['ai-attempt-summary'].textContent,/2 repeated identical evidence reference/);
+assert.match(ui.nodes['ai-attempt-summary'].textContent,/no new claims were supplied/);
+""")
+
+
+def test_status_poll_does_not_erase_actual_generation_progress() -> None:
+    run_node(r"""
+const item=makeCase();item.ai={status:'not_requested'};
+const ui=harness(item,{},async()=>({investigations:[item],ai_progress:{running:true,case_id:item.id,stage:'generate',provider:'ollama'}}));
+await ui.refresh();
+assert.match(ui.nodes['ai-status'].textContent,/ollama.*response generation.*in progress/);
+assert.doesNotMatch(ui.nodes['ai-status'].textContent,/No AI request/);
+ui.setProgress({running:false});ui.renderAI();
+assert.match(ui.nodes['ai-status'].textContent,/No AI request/);
 """)
 
 

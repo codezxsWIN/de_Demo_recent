@@ -176,10 +176,11 @@ def test_evidence_identifier_is_not_a_path(live, identifier):
         live.load(identifier)
 
 
-def test_ai_requires_cloud_permission_before_calling_the_provider(live):
+@pytest.mark.parametrize("provider", ["google", "groq", "groq_qwen", "openrouter"])
+def test_ai_requires_cloud_permission_before_calling_the_provider(live, provider):
     case = live.check("office", "ftp-anonymous")
     with pytest.raises(ConfigError, match="consent"):
-        live.explain(case["id"], "google", False)
+        live.explain(case["id"], provider, False)
 
 
 class AI:
@@ -374,6 +375,12 @@ def test_slow_ai_merges_only_its_result_without_erasing_newer_retest_metadata(li
     worker.start()
     try:
         assert started.wait(5)
+        assert live.status("office")["ai_progress"] == {
+            "running": True,
+            "case_id": case["id"],
+            "provider": "ollama",
+            "stage": "generate",
+        }
         with live.lock:
             latest = live.load(case["id"])
             latest["control"] = {"status": "verified", "profile": "restricted"}
@@ -388,6 +395,7 @@ def test_slow_ai_merges_only_its_result_without_erasing_newer_retest_metadata(li
     assert saved["retest"] == latest["retest"]
     assert saved["ai"]["status"] == "validated_selection"
     assert replies == [saved]
+    assert live.ai_progress == {"running": False}
 
 
 def test_ai_rejects_response_if_the_underlying_facts_changed_during_generation(live):
@@ -595,3 +603,69 @@ def test_ai_packet_fact_discloses_measured_clock_uncertainty(live):
     text = live._facts(case)["capture"]["text"]
     assert "123.456 ms" in text
     assert "stability assumption" in text and "does not prove transaction causality" in text
+
+
+def test_repeated_supported_refs_are_recorded_as_normalisation_not_unsupported_claims(live):
+    case = live.check("office", "ftp-anonymous")
+    client = AI(
+        {
+            "observations": ["observation", "capture", "observation", "capture"],
+            "why_it_matters": ["priority0"],
+            "next_steps": ["retest"],
+            "limits": ["scope"],
+        }
+    )
+    result = live.explain(case["id"], "ollama", False, client=client)
+    assert result["ai"]["normalisation"] == {"duplicate_references_removed": {"observations": 2}}
+    assert [row["reference"] for row in result["ai"]["sections"]["observations"]] == [
+        "observation",
+        "capture",
+    ]
+    assert live._ai_validation(result)["status"] == "current"
+    assert result["evidence_sha256"] == case["evidence_sha256"]
+    assert result["findings"] == case["findings"] and result["result"] == case["result"]
+    assert result["ai_attempts"][-1]["status"] == "validated_selection"
+
+
+def test_failed_ai_attempt_preserves_prior_valid_explanation_and_collection(live):
+    case = live.check("office", "ftp-anonymous")
+    output = {
+        "observations": ["observation"],
+        "why_it_matters": ["priority0"],
+        "next_steps": ["retest"],
+        "limits": ["scope"],
+    }
+    first = live.explain(case["id"], "ollama", False, client=AI(output))
+
+    class FailedAI:
+        model = "SYNTHETIC-FAILED-PROVIDER"
+
+        def generate_structured(self, *_args, **_kwargs):
+            raise LLMUnavailable("SENSITIVE RAW PROVIDER ERROR SHOULD NOT BE RETAINED")
+
+    with pytest.raises(LLMUnavailable):
+        live.explain(case["id"], "ollama", False, client=FailedAI())
+    saved = live.load(case["id"])
+    assert saved["ai"] == first["ai"] and live._ai_validation(saved)["status"] == "current"
+    assert saved["evidence_sha256"] == case["evidence_sha256"]
+    assert saved["ai_attempts"][-1]["status"] == "failed"
+    assert saved["ai_attempts"][-1]["stage"] == "generate"
+    assert "SENSITIVE RAW" not in json.dumps(saved)
+    assert not live.ai_lock.locked()
+    assert live.ai_progress == {"running": False}
+
+
+def test_saved_text_is_revalidated_even_when_case_and_fact_hashes_match(live):
+    case = live.check("office", "ftp-anonymous")
+    client = AI(
+        {
+            "observations": ["observation"],
+            "why_it_matters": ["priority0"],
+            "next_steps": ["retest"],
+            "limits": ["scope"],
+        }
+    )
+    saved = live.explain(case["id"], "ollama", False, client=client)
+    saved["ai"]["sections"]["why_it_matters"][0]["text"] = "INVENTED PRIORITY 100/100"
+    live._save(saved)
+    assert live.status("office")["ai_validations"][case["id"]]["status"] == "invalid"
