@@ -103,7 +103,13 @@ def test_legacy_runner_execution_outcome(tmp_path, monkeypatch, returncode, writ
     monkeypatch.setattr(runner, "missing_binaries", Mock(return_value=[]))
 
     def execute(argv, **kwargs):
-        assert kwargs == {"capture_output": True, "text": True, "timeout": 7, "check": False}
+        assert kwargs == {
+            "capture_output": True,
+            "text": True,
+            "timeout": 7,
+            "check": False,
+            "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        }
         assert argv[-1] == "172.28.0.10"
         if writes:
             Path(argv[argv.index("-oX") + 1]).write_text("<nmaprun/>")
