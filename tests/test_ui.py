@@ -813,7 +813,7 @@ class TestUiModel(unittest.TestCase):
                 "canonical_scores_changed": False,
             }
 
-        with patch.object(analyst, "analyze_target", side_effect=fake_analysis):
+        with patch.object(analyst, "analyze_findings", side_effect=fake_analysis):
             status, headers, body = request(
                 self.application, "/api/analyst/demo/172.28.0.12/events"
             )
