@@ -837,7 +837,7 @@ class TestUiModel(unittest.TestCase):
             on_progress("generation", "running", "Waiting for local model")
             raise ConfigError("Local model unavailable")
 
-        with patch.object(analyst, "analyze_target", side_effect=failing_analysis):
+        with patch.object(analyst, "analyze_findings", side_effect=failing_analysis):
             status, _, body = request(self.application, "/api/analyst/demo/172.28.0.12/events")
         events = [json.loads(line) for line in body.splitlines()]
         self.assertEqual(status, 200)
